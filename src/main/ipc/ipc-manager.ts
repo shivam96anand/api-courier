@@ -93,6 +93,16 @@ export class IPCManager {
       this.persistenceManager.addToHistory(request);
       return { success: true };
     });
+
+    // Tab State
+    ipcMain.handle('store:saveTabState', (_event, tabState: { tabs: any[]; activeTabId: string | null }) => {
+      this.persistenceManager.saveTabState(tabState);
+      return { success: true };
+    });
+
+    ipcMain.handle('store:getTabState', () => {
+      return this.persistenceManager.getTabState();
+    });
   }
 
   /**

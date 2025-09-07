@@ -61,6 +61,13 @@ const storeAPI = {
     
   addToHistory: (request: APIRequest): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('store:addToHistory', request),
+
+  // Tab State
+  saveTabState: (tabState: { tabs: any[]; activeTabId: string | null }): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('store:saveTabState', tabState),
+    
+  getTabState: (): Promise<{ tabs: any[]; activeTabId: string | null } | null> =>
+    ipcRenderer.invoke('store:getTabState'),
 };
 
 /**

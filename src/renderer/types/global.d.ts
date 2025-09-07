@@ -69,6 +69,8 @@ interface APICourierAPI {
     updateSettings(settings: Record<string, unknown>): Promise<{ success: boolean }>;
     getHistory(): Promise<APIRequest[]>;
     addToHistory(request: APIRequest): Promise<{ success: boolean }>;
+    saveTabState(tabState: { tabs: any[]; activeTabId: string | null }): Promise<{ success: boolean }>;
+    getTabState(): Promise<{ tabs: any[]; activeTabId: string | null } | null>;
   };
   network: {
     executeRequest(requestId: string, options: RequestOptions): Promise<{ success: boolean; data?: HTTPResponse; error?: string }>;

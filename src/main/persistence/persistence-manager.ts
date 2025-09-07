@@ -42,6 +42,10 @@ export interface AppData {
     requestTimeout: number;
   };
   history: APIRequest[];
+  tabState?: {
+    tabs: any[];
+    activeTabId: string | null;
+  };
 }
 
 /**
@@ -104,6 +108,10 @@ export class PersistenceManager {
         requestTimeout: 30000,
       },
       history: [],
+      tabState: {
+        tabs: [],
+        activeTabId: null
+      }
     };
   }
 
@@ -278,5 +286,22 @@ export class PersistenceManager {
    */
   public getHistory(): APIRequest[] {
     return this.data?.history || [];
+  }
+
+  /**
+   * Save tab state
+   */
+  public saveTabState(tabState: { tabs: any[]; activeTabId: string | null }): void {
+    this.queueWrite(() => {
+      if (!this.data) return;
+      this.data.tabState = tabState;
+    });
+  }
+
+  /**
+   * Get tab state
+   */
+  public getTabState(): { tabs: any[]; activeTabId: string | null } | null {
+    return this.data?.tabState || null;
   }
 }

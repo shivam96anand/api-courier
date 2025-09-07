@@ -42,9 +42,10 @@ export class WindowManager {
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
       
-      if (this.isDev) {
-        this.mainWindow?.webContents.openDevTools();
-      }
+      // Dev tools can be opened manually with F12 or Ctrl+Shift+I
+      // if (this.isDev) {
+      //   this.mainWindow?.webContents.openDevTools();
+      // }
     });
 
     this.mainWindow.on('closed', () => {

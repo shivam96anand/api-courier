@@ -146,213 +146,25 @@
 
                         <!-- Request Panel -->
                         <div class="request-panel panel">
-                            <div class="panel-header">
-                                <div class="request-header">
-                                    <div class="request-line">
-                                        <select id="request-method" class="method-select">
-                                            <option value="GET">GET</option>
-                                            <option value="POST">POST</option>
-                                            <option value="PUT">PUT</option>
-                                            <option value="PATCH">PATCH</option>
-                                            <option value="DELETE">DELETE</option>
-                                            <option value="HEAD">HEAD</option>
-                                            <option value="OPTIONS">OPTIONS</option>
-                                        </select>
-                                        <input type="text" id="request-url" class="url-input" placeholder="Enter request URL...">
-                                        <button id="send-request" class="btn-primary">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                                <line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2"/>
-                                                <polygon points="22,2 15,22 11,13 2,9 22,2" fill="currentColor"/>
-                                            </svg>
-                                            Send
-                                        </button>
+                            <!-- Request Tabs Header -->
+                            <div class="request-tabs-container">
+                                <div class="request-tabs-header">
+                                    <div id="request-tabs-list" class="request-tabs-list">
+                                        <!-- Request tabs will be dynamically added here -->
                                     </div>
-                                </div>
-                            </div>
-                            <div class="panel-content">
-                                <div class="request-tabs">
-                                    <button class="tab-btn active" data-tab="params">Params</button>
-                                    <button class="tab-btn" data-tab="headers">Headers</button>
-                                    <button class="tab-btn" data-tab="body">Body</button>
-                                    <button class="tab-btn" data-tab="auth">Auth</button>
+                                    <button class="new-tab-button" id="new-request-tab" title="New Request">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
+                                            <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                    </button>
                                 </div>
                                 
-                                <div class="request-tab-content">
-                                    <!-- Params Tab -->
-                                    <div id="params-tab" class="request-tab active">
-                                        <div class="key-value-editor">
-                                            <div class="kv-header">
-                                                <span>✓</span>
-                                                <span>Key</span>
-                                                <span>Value</span>
-                                                <span>Description</span>
-                                                <span></span>
-                                            </div>
-                                            <div id="params-list" class="kv-list">
-                                                <!-- Dynamic params rows -->
-                                            </div>
-                                            <button id="add-param" class="add-kv-button">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                                                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
-                                                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
-                                                </svg>
-                                                Add Parameter
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Headers Tab -->
-                                    <div id="headers-tab" class="request-tab">
-                                        <div class="key-value-editor">
-                                            <div class="kv-header">
-                                                <span>✓</span>
-                                                <span>Key</span>
-                                                <span>Value</span>
-                                                <span>Description</span>
-                                                <span></span>
-                                            </div>
-                                            <div id="headers-list" class="kv-list">
-                                                <!-- Dynamic header rows -->
-                                            </div>
-                                            <button id="add-header" class="add-kv-button">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                                                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/>
-                                                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/>
-                                                </svg>
-                                                Add Header
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Body Tab -->
-                                    <div id="body-tab" class="request-tab">
-                                        <div class="body-type-selector">
-                                            <label class="body-type-label">Body Type:</label>
-                                            <select id="body-type-select" class="body-type-dropdown">
-                                                <option value="none">None</option>
-                                                <option value="json">JSON</option>
-                                                <option value="xml">XML</option>
-                                                <option value="html">HTML</option>
-                                                <option value="text">Plain Text</option>
-                                                <option value="javascript">JavaScript</option>
-                                                <option value="form-urlencoded">x-www-form-urlencoded</option>
-                                                <option value="form-data">form-data</option>
-                                                <option value="binary">Binary</option>
-                                            </select>
-                                        </div>
-                                        <div id="body-content" class="body-content">
-                                            <div class="body-editor-container">
-                                                <div class="body-editor-header">
-                                                    <div class="body-format-info">
-                                                        <span id="body-format-indicator" class="format-indicator">JSON</span>
-                                                        <span id="body-size-indicator" class="size-indicator">0 bytes</span>
-                                                    </div>
-                                                    <div class="body-actions">
-                                                        <button id="format-body" class="body-action-btn" title="Format/Prettify">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                                                <path d="M16 4h2a2 2 0 012 2v12a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="2"/>
-                                                                <path d="M8 20H6a2 2 0 01-2-2V6a2 2 0 012-2h2" stroke="currentColor" stroke-width="2"/>
-                                                                <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                                                            </svg>
-                                                        </button>
-                                                        <button id="clear-body" class="body-action-btn" title="Clear Content">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                                                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2"/>
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <textarea id="body-editor" class="body-editor" placeholder="Enter request body..."></textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Auth Tab -->
-                                    <div id="auth-tab" class="request-tab">
-                                        <div class="auth-type-selector">
-                                            <select id="auth-type" class="auth-select">
-                                                <option value="none">No Auth</option>
-                                                <option value="basic">Basic Auth</option>
-                                                <option value="bearer">Bearer Token</option>
-                                                <option value="api-key">API Key</option>
-                                                <option value="oauth2">OAuth 2.0</option>
-                                            </select>
-                                        </div>
-                                        <div id="auth-config" class="auth-config">
-                                            <!-- OAuth 2.0 Configuration -->
-                                            <div id="oauth2-config" class="oauth-config" style="display: none;">
-                                                <div class="oauth-grant-selector">
-                                                    <label>Grant Type:</label>
-                                                    <select id="oauth-grant-type" class="oauth-select">
-                                                        <option value="authorization_code">Authorization Code</option>
-                                                        <option value="client_credentials">Client Credentials</option>
-                                                        <option value="device_code">Device Code</option>
-                                                        <option value="refresh_token">Refresh Token</option>
-                                                    </select>
-                                                </div>
-                                                <div class="oauth-fields">
-                                                    <div class="field-group">
-                                                        <label>Client ID:</label>
-                                                        <input type="text" id="oauth-client-id" class="oauth-input" placeholder="Enter client ID">
-                                                    </div>
-                                                    <div class="field-group">
-                                                        <label>Client Secret:</label>
-                                                        <input type="password" id="oauth-client-secret" class="oauth-input" placeholder="Enter client secret">
-                                                    </div>
-                                                    <div class="field-group">
-                                                        <label>Authorization URL:</label>
-                                                        <input type="text" id="oauth-auth-url" class="oauth-input" placeholder="https://example.com/oauth/authorize">
-                                                    </div>
-                                                    <div class="field-group">
-                                                        <label>Token URL:</label>
-                                                        <input type="text" id="oauth-token-url" class="oauth-input" placeholder="https://example.com/oauth/token">
-                                                    </div>
-                                                    <div class="field-group">
-                                                        <label>Scope:</label>
-                                                        <input type="text" id="oauth-scope" class="oauth-input" placeholder="read write">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Basic Auth Configuration -->
-                                            <div id="basic-config" class="auth-config-section" style="display: none;">
-                                                <div class="field-group">
-                                                    <label>Username:</label>
-                                                    <input type="text" id="basic-username" class="auth-input" placeholder="Enter username">
-                                                </div>
-                                                <div class="field-group">
-                                                    <label>Password:</label>
-                                                    <input type="password" id="basic-password" class="auth-input" placeholder="Enter password">
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Bearer Token Configuration -->
-                                            <div id="bearer-config" class="auth-config-section" style="display: none;">
-                                                <div class="field-group">
-                                                    <label>Token:</label>
-                                                    <input type="text" id="bearer-token" class="auth-input" placeholder="Enter bearer token">
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- API Key Configuration -->
-                                            <div id="api-key-config" class="auth-config-section" style="display: none;">
-                                                <div class="field-group">
-                                                    <label>Key:</label>
-                                                    <input type="text" id="api-key-name" class="auth-input" placeholder="Enter key name">
-                                                </div>
-                                                <div class="field-group">
-                                                    <label>Value:</label>
-                                                    <input type="text" id="api-key-value" class="auth-input" placeholder="Enter key value">
-                                                </div>
-                                                <div class="field-group">
-                                                    <label>Add to:</label>
-                                                    <select id="api-key-location" class="auth-select">
-                                                        <option value="header">Header</option>
-                                                        <option value="query">Query Parameter</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
+                                <!-- Request Content -->
+                                <div id="request-content-area" class="request-content-area">
+                                    <!-- Active request content will be shown here -->
+                                    <div class="empty-request-state">
+                                        <p>Create a new request or select from collections to get started</p>
                                     </div>
                                 </div>
                             </div>
@@ -362,9 +174,12 @@
                         <!-- Response Panel -->
                         <div class="response-panel panel">
                             <div class="panel-header">
-                                <h3>Response</h3>
-                                <div class="response-meta" id="response-meta">
-                                    <!-- Response metadata -->
+                                <div class="response-status-bar">
+                                    <div class="response-meta" id="response-meta">
+                                        <span class="response-status" id="response-status">No Response</span>
+                                        <span class="response-time" id="response-time"></span>
+                                        <span class="response-size" id="response-size"></span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="panel-content">
