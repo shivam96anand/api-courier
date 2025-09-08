@@ -12,6 +12,12 @@ const electronAPI = {
   
   deleteCollection: (id: string): Promise<void> => 
     ipcRenderer.invoke('store:delete-collection', id),
+
+  saveRequest: (request: Request): Promise<void> => 
+    ipcRenderer.invoke('store:save-request', request),
+
+  deleteRequest: (id: string): Promise<void> => 
+    ipcRenderer.invoke('store:delete-request', id),
   
   getSettings: (): Promise<AppSettings> => 
     ipcRenderer.invoke('store:get-settings'),

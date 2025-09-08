@@ -1,6 +1,6 @@
 // Variables
 :root {
-  // Dark Theme (default)
+  // Dark Theme (default) - Base backgrounds stay the same
   --primary: #007acc;
   --secondary: #6c757d;
   --background: #1e1e1e;
@@ -16,52 +16,34 @@
   --shadow: rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="light"] {
-  --primary: #0066cc;
-  --secondary: #6c757d;
-  --background: #ffffff;
-  --surface: #f8f9fa;
-  --surface-elevated: #ffffff;
-  --accent: #0052a3;
-  --text: #333333;
-  --text-secondary: #666666;
-  --border: #dee2e6;
-  --success: #28a745;
-  --warning: #ffc107;
-  --error: #dc3545;
-  --shadow: rgba(0, 0, 0, 0.1);
+[data-theme="blue"] {
+  --primary: #2196f3;
+  --accent: #1976d2;
+}
+
+[data-theme="green"] {
+  --primary: #4caf50;
+  --accent: #388e3c;
 }
 
 [data-theme="purple"] {
   --primary: #9c27b0;
-  --secondary: #6c757d;
-  --background: #1a1a2e;
-  --surface: #16213e;
-  --surface-elevated: #0f3460;
   --accent: #7b1fa2;
-  --text: #e1bee7;
-  --text-secondary: #ba68c8;
-  --border: #512da8;
-  --success: #4caf50;
-  --warning: #ff9800;
-  --error: #f44336;
-  --shadow: rgba(156, 39, 176, 0.3);
 }
 
-[data-theme="blue"] {
-  --primary: #2196f3;
-  --secondary: #6c757d;
-  --background: #0d1421;
-  --surface: #1e2933;
-  --surface-elevated: #273849;
-  --accent: #1976d2;
-  --text: #bbdefb;
-  --text-secondary: #90caf9;
-  --border: #1565c0;
-  --success: #4caf50;
-  --warning: #ff9800;
-  --error: #f44336;
-  --shadow: rgba(33, 150, 243, 0.3);
+[data-theme="orange"] {
+  --primary: #ff9800;
+  --accent: #f57c00;
+}
+
+[data-theme="red"] {
+  --primary: #f44336;
+  --accent: #d32f2f;
+}
+
+[data-theme="teal"] {
+  --primary: #009688;
+  --accent: #00796b;
 }
 
 // Reset
@@ -113,36 +95,19 @@ body {
     gap: 16px;
   }
 
-  .theme-selector select {
-    background: var(--surface-elevated);
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-  }
-
-  .window-controls {
-    display: flex;
-    gap: 8px;
-
-    .control-btn {
-      width: 30px;
-      height: 30px;
-      border: none;
-      background: transparent;
+  .theme-selector {
+    select {
+      background: var(--surface-elevated);
       color: var(--text);
-      cursor: pointer;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
       border-radius: 4px;
-      transition: background-color 0.2s;
+      font-size: 13px;
+      min-width: 120px;
 
-      &:hover {
-        background-color: var(--surface-elevated);
-      }
-
-      &:last-child:hover {
-        background-color: var(--error);
-        color: white;
+      option {
+        background: var(--surface-elevated);
+        color: var(--text);
       }
     }
   }
@@ -214,7 +179,131 @@ body {
   }
 }
 
-// API Layout
+// Request tabs
+.request-tabs {
+  display: flex;
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  min-height: 40px;
+  align-items: center;
+
+  .no-tabs-message {
+    padding: 12px 16px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .request-tab {
+    display: flex;
+    align-items: center;
+    min-width: 150px;
+    max-width: 200px;
+    height: 40px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: var(--surface-elevated);
+    }
+
+    &.active {
+      background-color: var(--background);
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .tab-content {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      width: 100%;
+      gap: 6px;
+    }
+
+    .tab-method {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 2px 4px;
+      border-radius: 2px;
+      color: white;
+
+      &.method-get { background-color: #4caf50; }
+      &.method-post { background-color: #ff9800; }
+      &.method-put { background-color: #2196f3; }
+      &.method-patch { background-color: #9c27b0; }
+      &.method-delete { background-color: #f44336; }
+      &.method-head { background-color: #607d8b; }
+      &.method-options { background-color: #795548; }
+    }
+
+    .tab-name {
+      flex: 1;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tab-dirty {
+      color: var(--primary);
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .tab-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 16px;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 2px;
+      transition: all 0.2s;
+
+      &:hover {
+        background-color: var(--surface-elevated);
+        color: var(--text);
+      }
+    }
+  }
+}
+
+// Request config tabs (params, body, headers, auth)
+.request-config-tabs, .response-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.request-config-tabs .request-tab, .response-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+
+  &:hover {
+    color: var(--text);
+    background-color: var(--surface-elevated);
+  }
+
+  &.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+}
+
+// API Layout with default sizing
 .api-layout {
   display: flex;
   height: 100%;
@@ -227,18 +316,20 @@ body {
 }
 
 .collections-panel {
-  width: 300px;
+  width: 25%; // 25% default
   background-color: var(--surface);
   border-right: 1px solid var(--border);
 }
 
 .request-panel {
-  flex: 1;
+  width: 35%; // 35% default
   background-color: var(--background);
+  display: flex;
+  flex-direction: column;
 }
 
 .response-panel {
-  width: 400px;
+  width: 40%; // 40% default
   background-color: var(--surface);
   border-left: 1px solid var(--border);
 }
@@ -350,7 +441,7 @@ body {
 .key-value-editor {
   .key-value-header {
     display: grid;
-    grid-template-columns: 1fr 1fr 40px;
+    grid-template-columns: 40px 1fr 1fr 40px;
     gap: 8px;
     padding: 8px 0;
     border-bottom: 1px solid var(--border);
@@ -368,9 +459,30 @@ body {
 
   .key-value-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 40px;
+    grid-template-columns: 40px 1fr 1fr 40px;
     gap: 8px;
     align-items: center;
+
+    &.disabled {
+      opacity: 0.5;
+
+      input {
+        color: var(--text-secondary);
+        background: var(--surface);
+      }
+    }
+
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--primary);
+      }
+    }
 
     input {
       padding: 6px 8px;
@@ -383,6 +495,11 @@ body {
       &:focus {
         outline: none;
         border-color: var(--primary);
+      }
+
+      &.disabled {
+        color: var(--text-secondary);
+        background: var(--surface);
       }
     }
 
@@ -583,7 +700,7 @@ body {
 // Collections tree
 .collections-tree {
   .collection-item {
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 
     .collection-header {
       display: flex;
@@ -592,9 +709,21 @@ body {
       cursor: pointer;
       border-radius: 4px;
       transition: background-color 0.2s;
+      user-select: none;
 
       &:hover {
         background-color: var(--surface-elevated);
+      }
+
+      .collection-toggle {
+        margin-right: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--text-secondary);
+        width: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .collection-icon {
@@ -612,6 +741,22 @@ body {
         gap: 4px;
         opacity: 0;
         transition: opacity 0.2s;
+
+        .action-btn {
+          background: none;
+          border: none;
+          color: var(--text-secondary);
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 2px;
+          font-size: 12px;
+          transition: all 0.2s;
+
+          &:hover {
+            background-color: var(--surface);
+            color: var(--text);
+          }
+        }
       }
 
       &:hover .collection-actions {
@@ -620,9 +765,9 @@ body {
     }
 
     .collection-children {
-      margin-left: 20px;
       border-left: 1px solid var(--border);
-      padding-left: 8px;
+      margin-left: 8px;
+      padding-left: 0;
     }
   }
 
@@ -632,6 +777,9 @@ body {
     border-radius: 4px;
     font-size: 13px;
     transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    user-select: none;
 
     &:hover {
       background-color: var(--surface-elevated);
@@ -648,10 +796,97 @@ body {
       font-weight: 600;
       font-size: 10px;
       text-transform: uppercase;
+      margin-right: 8px;
+      
+      &.method-get { color: #4caf50; }
+      &.method-post { color: #ff9800; }
+      &.method-put { color: #2196f3; }
+      &.method-patch { color: #9c27b0; }
+      &.method-delete { color: #f44336; }
+      &.method-head { color: #607d8b; }
+      &.method-options { color: #795548; }
     }
 
     .request-name {
-      margin-left: 8px;
+      flex: 1;
+    }
+
+    .request-actions {
+      opacity: 0;
+      transition: opacity 0.2s;
+
+      .action-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 2px;
+        font-size: 10px;
+        transition: all 0.2s;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+          color: var(--text);
+        }
+      }
+    }
+
+    &:hover .request-actions {
+      opacity: 1;
+    }
+
+    &.active .request-method {
+      color: rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  // Inline editing input
+  .inline-edit-input {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--primary) !important;
+    border-radius: 2px !important;
+    padding: 2px 4px !important;
+    font-size: 13px !important;
+    width: 100% !important;
+    outline: none !important;
+    font-family: inherit !important;
+  }
+}
+
+// Context menu styles
+.context-menu {
+  .context-menu-item {
+    &:hover {
+      background-color: var(--surface);
+    }
+  }
+}
+
+// Modal overlay and styles
+.modal-overlay {
+  .modal {
+    .modal-header h3 {
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .modal-body {
+      input {
+        &:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+        }
+      }
+    }
+
+    .modal-footer {
+      .btn {
+        min-width: 70px;
+      }
     }
   }
 }

@@ -3,7 +3,7 @@ import { Theme } from '../../shared/types';
 const themes: Record<string, Theme> = {
   dark: {
     id: 'dark',
-    name: 'Dark',
+    name: 'Default Blue',
     colors: {
       primary: '#007acc',
       secondary: '#6c757d',
@@ -18,21 +18,38 @@ const themes: Record<string, Theme> = {
       error: '#f44336'
     }
   },
-  light: {
-    id: 'light',
-    name: 'Light',
+  blue: {
+    id: 'blue',
+    name: 'Blue',
     colors: {
-      primary: '#0066cc',
+      primary: '#2196f3',
       secondary: '#6c757d',
-      background: '#ffffff',
-      surface: '#f8f9fa',
-      accent: '#0052a3',
-      text: '#333333',
-      textSecondary: '#666666',
-      border: '#dee2e6',
-      success: '#28a745',
-      warning: '#ffc107',
-      error: '#dc3545'
+      background: '#1e1e1e',
+      surface: '#252526',
+      accent: '#1976d2',
+      text: '#cccccc',
+      textSecondary: '#9d9d9d',
+      border: '#3c3c3c',
+      success: '#4caf50',
+      warning: '#ff9800',
+      error: '#f44336'
+    }
+  },
+  green: {
+    id: 'green',
+    name: 'Green',
+    colors: {
+      primary: '#4caf50',
+      secondary: '#6c757d',
+      background: '#1e1e1e',
+      surface: '#252526',
+      accent: '#388e3c',
+      text: '#cccccc',
+      textSecondary: '#9d9d9d',
+      border: '#3c3c3c',
+      success: '#4caf50',
+      warning: '#ff9800',
+      error: '#f44336'
     }
   },
   purple: {
@@ -41,29 +58,63 @@ const themes: Record<string, Theme> = {
     colors: {
       primary: '#9c27b0',
       secondary: '#6c757d',
-      background: '#1a1a2e',
-      surface: '#16213e',
+      background: '#1e1e1e',
+      surface: '#252526',
       accent: '#7b1fa2',
-      text: '#e1bee7',
-      textSecondary: '#ba68c8',
-      border: '#512da8',
+      text: '#cccccc',
+      textSecondary: '#9d9d9d',
+      border: '#3c3c3c',
       success: '#4caf50',
       warning: '#ff9800',
       error: '#f44336'
     }
   },
-  blue: {
-    id: 'blue',
-    name: 'Blue',
+  orange: {
+    id: 'orange',
+    name: 'Orange',
     colors: {
-      primary: '#2196f3',
+      primary: '#ff9800',
       secondary: '#6c757d',
-      background: '#0d1421',
-      surface: '#1e2933',
-      accent: '#1976d2',
-      text: '#bbdefb',
-      textSecondary: '#90caf9',
-      border: '#1565c0',
+      background: '#1e1e1e',
+      surface: '#252526',
+      accent: '#f57c00',
+      text: '#cccccc',
+      textSecondary: '#9d9d9d',
+      border: '#3c3c3c',
+      success: '#4caf50',
+      warning: '#ff9800',
+      error: '#f44336'
+    }
+  },
+  red: {
+    id: 'red',
+    name: 'Red',
+    colors: {
+      primary: '#f44336',
+      secondary: '#6c757d',
+      background: '#1e1e1e',
+      surface: '#252526',
+      accent: '#d32f2f',
+      text: '#cccccc',
+      textSecondary: '#9d9d9d',
+      border: '#3c3c3c',
+      success: '#4caf50',
+      warning: '#ff9800',
+      error: '#f44336'
+    }
+  },
+  teal: {
+    id: 'teal',
+    name: 'Teal',
+    colors: {
+      primary: '#009688',
+      secondary: '#6c757d',
+      background: '#1e1e1e',
+      surface: '#252526',
+      accent: '#00796b',
+      text: '#cccccc',
+      textSecondary: '#9d9d9d',
+      border: '#3c3c3c',
       success: '#4caf50',
       warning: '#ff9800',
       error: '#f44336'

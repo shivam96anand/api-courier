@@ -27,6 +27,14 @@ export class IPCManager {
       return this.storeManager.deleteCollection(id);
     });
 
+    ipcMain.handle('store:save-request', (_, request: Request) => {
+      return this.storeManager.saveRequest(request);
+    });
+
+    ipcMain.handle('store:delete-request', (_, id: string) => {
+      return this.storeManager.deleteRequest(id);
+    });
+
     ipcMain.handle('store:get-settings', () => {
       return this.storeManager.getSettings();
     });

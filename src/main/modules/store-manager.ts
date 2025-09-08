@@ -2,10 +2,11 @@ import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 import path from 'path';
 import { app } from 'electron';
-import { Collection, AppSettings } from '../../shared/types';
+import { Collection, AppSettings, Request } from '../../shared/types';
 
 interface Database {
   collections: Collection[];
+  requests: Request[];
   settings: AppSettings;
 }
 
@@ -19,6 +20,7 @@ export class StoreManager {
     const adapter = new JSONFile<Database>(this.dbPath);
     this.db = new Low<Database>(adapter, {
       collections: [],
+      requests: [],
       settings: {
         theme: 'dark',
         fontSize: 14,
@@ -32,6 +34,32 @@ export class StoreManager {
 
   private async initialize(): Promise<void> {
     await this.db.read();
+    
+    // Ensure all arrays exist
+    if (!this.db.data) {
+      this.db.data = {
+        collections: [],
+        requests: [],
+        settings: {
+          theme: 'dark',
+          fontSize: 14,
+          sidebarWidth: 300,
+          requestPanelWidth: 400
+        }
+      };
+    } else {
+      if (!this.db.data.collections) this.db.data.collections = [];
+      if (!this.db.data.requests) this.db.data.requests = [];
+      if (!this.db.data.settings) {
+        this.db.data.settings = {
+          theme: 'dark',
+          fontSize: 14,
+          sidebarWidth: 300,
+          requestPanelWidth: 400
+        };
+      }
+    }
+    
     await this.db.write();
   }
 
@@ -56,7 +84,38 @@ export class StoreManager {
   async deleteCollection(id: string): Promise<void> {
     if (!this.db.data) return;
 
+    // Remove the collection
     this.db.data.collections = this.db.data.collections.filter(c => c.id !== id);
+    
+    // Also remove any requests that belong to this collection
+    this.db.data.requests = this.db.data.requests.filter(r => r.collectionId !== id);
+    
+    await this.db.write();
+  }
+
+  getRequests(): Request[] {
+    return this.db.data?.requests || [];
+  }
+
+  async saveRequest(request: Request): Promise<void> {
+    if (!this.db.data) return;
+
+    const existingIndex = this.db.data.requests.findIndex(r => r.id === request.id);
+    
+    if (existingIndex >= 0) {
+      this.db.data.requests[existingIndex] = request;
+    } else {
+      this.db.data.requests.push(request);
+    }
+
+    await this.db.write();
+  }
+
+  async deleteRequest(id: string): Promise<void> {
+    if (!this.db.data) return;
+    if (!this.db.data.requests) this.db.data.requests = [];
+
+    this.db.data.requests = this.db.data.requests.filter(r => r.id !== id);
     await this.db.write();
   }
 

@@ -14,16 +14,14 @@
             <div class="header-right">
                 <div class="theme-selector">
                     <select id="themeSelect">
-                        <option value="dark">Dark</option>
-                        <option value="light">Light</option>
-                        <option value="purple">Purple</option>
-                        <option value="blue">Blue</option>
+                        <option value="dark">🎨 Default Blue</option>
+                        <option value="blue">🔷 Blue</option>
+                        <option value="green">🟢 Green</option>
+                        <option value="purple">🟣 Purple</option>
+                        <option value="orange">🟠 Orange</option>
+                        <option value="red">🔴 Red</option>
+                        <option value="teal">🔸 Teal</option>
                     </select>
-                </div>
-                <div class="window-controls">
-                    <button id="minimizeBtn" class="control-btn">−</button>
-                    <button id="maximizeBtn" class="control-btn">□</button>
-                    <button id="closeBtn" class="control-btn">×</button>
                 </div>
             </div>
         </header>
@@ -76,6 +74,11 @@
                         <div class="resize-handle vertical" data-resize="collections"></div>
 
                         <div class="request-panel resizable-panel">
+                            <!-- Request Tabs -->
+                            <div id="requestTabs" class="request-tabs">
+                                <!-- Tabs will be rendered here by TabsManager -->
+                            </div>
+                            
                             <div class="panel-header">
                                 <div class="request-url-bar">
                                     <select id="requestMethod" class="method-select">
@@ -92,7 +95,7 @@
                                 </div>
                             </div>
                             <div class="panel-content">
-                                <div class="request-tabs">
+                                <div class="request-config-tabs">
                                     <button class="request-tab active" data-tab="params">Params</button>
                                     <button class="request-tab" data-tab="body">Body</button>
                                     <button class="request-tab" data-tab="headers">Headers</button>
@@ -102,17 +105,7 @@
                                 <div class="request-tab-content">
                                     <!-- Params Tab -->
                                     <div id="params-tab" class="request-tab-pane active">
-                                        <div class="key-value-editor">
-                                            <div class="key-value-header">
-                                                <span>Key</span>
-                                                <span>Value</span>
-                                                <span></span>
-                                            </div>
-                                            <div id="paramsEditor" class="key-value-rows">
-                                                <!-- Params rows will be added here -->
-                                            </div>
-                                            <button class="add-row-btn">+ Add Parameter</button>
-                                        </div>
+                                        <div id="paramsEditor"></div>
                                     </div>
 
                                     <!-- Body Tab -->
@@ -142,17 +135,7 @@
 
                                     <!-- Headers Tab -->
                                     <div id="headers-tab" class="request-tab-pane">
-                                        <div class="key-value-editor">
-                                            <div class="key-value-header">
-                                                <span>Key</span>
-                                                <span>Value</span>
-                                                <span></span>
-                                            </div>
-                                            <div id="headersEditor" class="key-value-rows">
-                                                <!-- Headers rows will be added here -->
-                                            </div>
-                                            <button class="add-row-btn">+ Add Header</button>
-                                        </div>
+                                        <div id="headersEditor"></div>
                                     </div>
 
                                     <!-- Auth Tab -->

@@ -4,6 +4,7 @@ export interface Collection {
   parentId?: string;
   children?: Collection[];
   requests?: Request[];
+  type: 'collection' | 'folder';
 }
 
 export interface Request {
@@ -15,6 +16,8 @@ export interface Request {
   body?: RequestBody;
   auth?: AuthConfig;
   params?: Record<string, string>;
+  collectionId?: string;
+  parentId?: string;
 }
 
 export interface RequestBody {

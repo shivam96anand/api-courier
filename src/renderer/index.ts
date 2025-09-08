@@ -3,6 +3,8 @@ import { UIManager } from './components/ui-manager';
 import { CollectionsManager } from './components/collections-manager';
 import { RequestManager } from './components/request-manager';
 import { ResponseManager } from './components/response-manager';
+import { TabsManager } from './components/tabs-manager';
+import { KeyValueEditor } from './components/key-value-editor';
 import { ThemeManager } from './utils/theme-manager';
 import { EventBus } from './utils/event-bus';
 
@@ -11,8 +13,11 @@ class ApiCourierRenderer {
   private collectionsManager: CollectionsManager;
   private requestManager: RequestManager;
   private responseManager: ResponseManager;
+  private tabsManager: TabsManager;
   private themeManager: ThemeManager;
   private eventBus: EventBus;
+  private paramsEditor: KeyValueEditor;
+  private headersEditor: KeyValueEditor;
 
   constructor() {
     this.eventBus = EventBus.getInstance();
@@ -21,6 +26,9 @@ class ApiCourierRenderer {
     this.collectionsManager = new CollectionsManager(this.eventBus);
     this.requestManager = new RequestManager(this.eventBus);
     this.responseManager = new ResponseManager(this.eventBus);
+    this.tabsManager = new TabsManager(this.eventBus);
+    this.paramsEditor = new KeyValueEditor('paramsEditor');
+    this.headersEditor = new KeyValueEditor('headersEditor');
     
     this.initialize();
   }
@@ -34,11 +42,33 @@ class ApiCourierRenderer {
     this.collectionsManager.initialize();
     this.requestManager.initialize();
     this.responseManager.initialize();
+    this.tabsManager.initialize();
+    
+    // Initialize key-value editors
+    this.paramsEditor.render();
+    this.headersEditor.render();
+    
+    // Remove window controls event listeners
+    this.removeWindowControls();
     
     // Load initial data
     await this.loadInitialData();
     
     console.log('API Courier initialized successfully');
+  }
+
+  private removeWindowControls(): void {
+    // Remove window control buttons since we removed them from HTML
+    const minimizeBtn = document.getElementById('minimizeBtn');
+    const maximizeBtn = document.getElementById('maximizeBtn');
+    const closeBtn = document.getElementById('closeBtn');
+
+    // Remove event listeners if buttons exist
+    [minimizeBtn, maximizeBtn, closeBtn].forEach(btn => {
+      if (btn) {
+        btn.remove();
+      }
+    });
   }
 
   private async loadInitialData(): Promise<void> {
