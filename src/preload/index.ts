@@ -25,6 +25,16 @@ const electronAPI = {
   saveSettings: (settings: Partial<AppSettings>): Promise<void> => 
     ipcRenderer.invoke('store:save-settings', settings),
 
+  // Response methods
+  saveResponse: (requestId: string, response: Response): Promise<void> => 
+    ipcRenderer.invoke('store:save-response', requestId, response),
+  
+  getResponse: (requestId: string): Promise<Response | null> => 
+    ipcRenderer.invoke('store:get-response', requestId),
+  
+  deleteResponse: (requestId: string): Promise<void> => 
+    ipcRenderer.invoke('store:delete-response', requestId),
+
   // File methods
   importCollection: (): Promise<Collection | null> => 
     ipcRenderer.invoke('file:import-collection'),

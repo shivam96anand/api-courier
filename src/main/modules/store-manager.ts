@@ -2,11 +2,18 @@ import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 import path from 'path';
 import { app } from 'electron';
-import { Collection, AppSettings, Request } from '../../shared/types';
+import { Collection, AppSettings, Request, Response } from '../../shared/types';
+
+interface StoredResponse {
+  requestId: string;
+  response: Response;
+  timestamp: number;
+}
 
 interface Database {
   collections: Collection[];
   requests: Request[];
+  responses: StoredResponse[];
   settings: AppSettings;
 }
 
@@ -21,11 +28,13 @@ export class StoreManager {
     this.db = new Low<Database>(adapter, {
       collections: [],
       requests: [],
+      responses: [],
       settings: {
         theme: 'dark',
         fontSize: 14,
         sidebarWidth: 300,
-        requestPanelWidth: 400
+        requestPanelWidth: 400,
+        expandedFolders: []
       }
     });
     
@@ -40,25 +49,35 @@ export class StoreManager {
       this.db.data = {
         collections: [],
         requests: [],
+        responses: [],
         settings: {
           theme: 'dark',
           fontSize: 14,
           sidebarWidth: 300,
-          requestPanelWidth: 400
+          requestPanelWidth: 400,
+          expandedFolders: []
         }
       };
     } else {
       if (!this.db.data.collections) this.db.data.collections = [];
       if (!this.db.data.requests) this.db.data.requests = [];
+      if (!this.db.data.responses) this.db.data.responses = [];
       if (!this.db.data.settings) {
         this.db.data.settings = {
           theme: 'dark',
           fontSize: 14,
           sidebarWidth: 300,
-          requestPanelWidth: 400
+          requestPanelWidth: 400,
+          expandedFolders: []
         };
+      } else if (!this.db.data.settings.expandedFolders) {
+        // Ensure expandedFolders exists in existing settings
+        this.db.data.settings.expandedFolders = [];
       }
     }
+    
+    // Clean up any child collections that might be in the root array
+    this.cleanupChildCollections();
     
     await this.db.write();
   }
@@ -132,10 +151,18 @@ export class StoreManager {
     const existingIndex = this.db.data.collections.findIndex(c => c.id === collection.id);
     const cleanCol = cleanCollection(collection);
     
-    if (existingIndex >= 0) {
-      this.db.data.collections[existingIndex] = cleanCol;
+    // Only save as root collection if it doesn't have a parentId
+    if (!collection.parentId) {
+      if (existingIndex >= 0) {
+        this.db.data.collections[existingIndex] = cleanCol;
+      } else {
+        this.db.data.collections.push(cleanCol);
+      }
     } else {
-      this.db.data.collections.push(cleanCol);
+      // If it has a parentId, it should only exist within its parent's children
+      // The parent collection should be saved instead
+      console.warn('Attempting to save child collection directly. Parent collection should be saved instead.');
+      return;
     }
 
     await this.db.write();
@@ -184,7 +211,8 @@ export class StoreManager {
       theme: 'dark',
       fontSize: 14,
       sidebarWidth: 300,
-      requestPanelWidth: 400
+      requestPanelWidth: 400,
+      expandedFolders: []
     };
   }
 
@@ -195,7 +223,58 @@ export class StoreManager {
     await this.db.write();
   }
 
+  async saveResponse(requestId: string, response: Response): Promise<void> {
+    if (!this.db.data) return;
+    if (!this.db.data.responses) this.db.data.responses = [];
+
+    // Remove any existing response for this request
+    this.db.data.responses = this.db.data.responses.filter(r => r.requestId !== requestId);
+    
+    // Add the new response
+    this.db.data.responses.push({
+      requestId,
+      response,
+      timestamp: Date.now()
+    });
+
+    // Keep only the latest 100 responses to prevent database bloat
+    if (this.db.data.responses.length > 100) {
+      this.db.data.responses = this.db.data.responses
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 100);
+    }
+
+    await this.db.write();
+  }
+
+  getResponse(requestId: string): Response | null {
+    if (!this.db.data?.responses) return null;
+    
+    const stored = this.db.data.responses.find(r => r.requestId === requestId);
+    return stored ? stored.response : null;
+  }
+
+  async deleteResponse(requestId: string): Promise<void> {
+    if (!this.db.data?.responses) return;
+    
+    this.db.data.responses = this.db.data.responses.filter(r => r.requestId !== requestId);
+    await this.db.write();
+  }
+
   async flush(): Promise<void> {
     await this.db.write();
+  }
+
+  private cleanupChildCollections(): void {
+    if (!this.db.data?.collections) return;
+
+    // Remove any collections that have a parentId from the root array
+    // They should only exist within their parent's children array
+    const rootCollections = this.db.data.collections.filter(c => !c.parentId);
+    
+    if (rootCollections.length !== this.db.data.collections.length) {
+      console.log(`Cleaned up ${this.db.data.collections.length - rootCollections.length} misplaced child collections`);
+      this.db.data.collections = rootCollections;
+    }
   }
 }

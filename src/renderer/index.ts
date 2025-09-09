@@ -51,8 +51,12 @@ class ApiCourierRenderer {
     // Remove window controls event listeners
     this.removeWindowControls();
     
-    // Load initial data
+    // Load initial data and restore state
     await this.loadInitialData();
+    await this.restoreApplicationState();
+    
+    // Setup auto-save and state persistence
+    this.setupStatePersistence();
     
     console.log('API Courier initialized successfully');
   }
@@ -84,6 +88,87 @@ class ApiCourierRenderer {
     } catch (error) {
       console.error('Failed to load initial data:', error);
     }
+  }
+
+  private async restoreApplicationState(): Promise<void> {
+    try {
+      const settings = await window.electronAPI.getSettings();
+      if (settings) {
+        // Restore expanded folders (already handled by CollectionsManager)
+        // Expanded folders are loaded automatically in CollectionsManager.initialize()
+
+        // Restore panel sizes if saved in settings
+        if (settings.sidebarWidth) {
+          const sidebar = document.querySelector('.sidebar') as HTMLElement;
+          if (sidebar) {
+            sidebar.style.width = `${settings.sidebarWidth}px`;
+          }
+        }
+
+        if (settings.requestPanelWidth) {
+          const requestPanel = document.querySelector('.request-panel') as HTMLElement;
+          if (requestPanel) {
+            requestPanel.style.width = `${settings.requestPanelWidth}px`;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore application state:', error);
+    }
+  }
+
+  private setupStatePersistence(): void {
+    // Save state periodically
+    setInterval(() => {
+      this.saveApplicationState();
+    }, 30000); // Save every 30 seconds
+
+    // Save state before window closes
+    window.addEventListener('beforeunload', (event) => {
+      this.saveApplicationState();
+    });
+
+    // Save state when visibility changes (app minimized/hidden)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.saveApplicationState();
+      }
+    });
+  }
+
+  private async saveApplicationState(): Promise<void> {
+    try {
+      const currentSettings = await window.electronAPI.getSettings();
+      const updatedSettings = {
+        ...currentSettings,
+        expandedFolders: this.collectionsManager.getExpandedFolders(),
+        sidebarWidth: this.getCurrentPanelSizes().collectionWidth,
+        requestPanelWidth: this.getCurrentPanelSizes().requestHeight,
+      };
+
+      await window.electronAPI.saveSettings(updatedSettings);
+      console.debug('Application state saved to settings');
+    } catch (error) {
+      console.error('Failed to save application state:', error);
+    }
+  }
+
+  private getCurrentPanelSizes(): Record<string, number> {
+    const sizes: Record<string, number> = {};
+    
+    // Get collection panel width
+    const collectionPanel = document.querySelector('.sidebar') as HTMLElement;
+    if (collectionPanel) {
+      sizes.collectionWidth = collectionPanel.offsetWidth;
+    }
+
+    // Get request panel height (if split horizontally)
+    const requestPanel = document.querySelector('.request-panel') as HTMLElement;
+    if (requestPanel) {
+      sizes.requestHeight = requestPanel.offsetHeight;
+    }
+
+    return sizes;
   }
 }
 

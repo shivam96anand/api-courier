@@ -67,4 +67,5 @@ export interface AppSettings {
   fontSize: number;
   sidebarWidth: number;
   requestPanelWidth: number;
+  expandedFolders: string[];
 }

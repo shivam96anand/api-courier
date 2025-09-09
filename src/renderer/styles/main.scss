@@ -121,32 +121,36 @@ body {
 
 // Sidebar
 .sidebar {
-  width: 80px;
+  width: 60px;
   background-color: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 16px 8px;
+  padding: 12px 4px;
 
   .tab-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
   }
 
   .tab-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 12px 8px;
+    gap: 1px;
+    padding: 6px 2px;
     background: transparent;
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 4px;
     transition: all 0.2s;
-    font-size: 11px;
+    font-size: 8px;
+    text-align: center;
+    line-height: 1.0;
+    white-space: nowrap;
+    overflow: hidden;
 
     &:hover {
       background-color: var(--surface-elevated);
@@ -159,7 +163,7 @@ body {
     }
 
     .tab-icon {
-      font-size: 20px;
+      font-size: 16px;
     }
   }
 }
@@ -231,13 +235,13 @@ body {
       border-radius: 2px;
       color: white;
 
-      &.method-get { background-color: #4caf50; }
-      &.method-post { background-color: #ff9800; }
-      &.method-put { background-color: #2196f3; }
-      &.method-patch { background-color: #9c27b0; }
-      &.method-delete { background-color: #f44336; }
-      &.method-head { background-color: #607d8b; }
-      &.method-options { background-color: #795548; }
+      &.method-get { background-color: var(--primary); }
+      &.method-post { background-color: var(--warning); }
+      &.method-put { background-color: var(--primary); }
+      &.method-patch { background-color: var(--primary); }
+      &.method-delete { background-color: var(--error); }
+      &.method-head { background-color: var(--secondary); }
+      &.method-options { background-color: var(--secondary); }
     }
 
     .tab-name {
@@ -1041,13 +1045,13 @@ body {
       text-transform: uppercase;
       margin-right: 8px;
       
-      &.method-get { color: #4caf50; }
-      &.method-post { color: #ff9800; }
-      &.method-put { color: #2196f3; }
-      &.method-patch { color: #9c27b0; }
-      &.method-delete { color: #f44336; }
-      &.method-head { color: #607d8b; }
-      &.method-options { color: #795548; }
+      &.method-get { color: var(--primary); }
+      &.method-post { color: var(--warning); }
+      &.method-put { color: var(--primary); }
+      &.method-patch { color: var(--primary); }
+      &.method-delete { color: var(--error); }
+      &.method-head { color: var(--secondary); }
+      &.method-options { color: var(--secondary); }
     }
 
     .request-name {

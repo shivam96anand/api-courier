@@ -43,6 +43,19 @@ export class IPCManager {
       return this.storeManager.saveSettings(settings);
     });
 
+    // Response handlers
+    ipcMain.handle('store:save-response', (_, requestId: string, response: Response) => {
+      return this.storeManager.saveResponse(requestId, response);
+    });
+
+    ipcMain.handle('store:get-response', (_, requestId: string) => {
+      return this.storeManager.getResponse(requestId);
+    });
+
+    ipcMain.handle('store:delete-response', (_, requestId: string) => {
+      return this.storeManager.deleteResponse(requestId);
+    });
+
     // File handlers
     ipcMain.handle('file:import-collection', async () => {
       try {

@@ -13,6 +13,7 @@ export class CollectionsManager {
     this.setupEventListeners();
     this.setupImportButton();
     this.setupNewCollectionButton();
+    this.loadExpandedFolders();
   }
 
   private setupEventListeners(): void {
@@ -30,6 +31,11 @@ export class CollectionsManager {
     this.eventBus.on('request:selected', (request: Request) => {
       this.selectedRequest = request;
       this.highlightSelectedRequest(request);
+    });
+
+    // Auto-save request changes when they are modified
+    this.eventBus.on('request:changed', (request: Request) => {
+      this.autoSaveRequest(request);
     });
   }
 
@@ -107,7 +113,12 @@ export class CollectionsManager {
     this.expandedFolders.add(folder.id);
 
     this.renderCollections();
-    await this.saveCollection(folder);
+    
+    // Save the root collection that contains this folder
+    const rootCollection = this.findRootCollection(folder.parentId!);
+    if (rootCollection) {
+      await this.saveCollection(rootCollection);
+    }
     
     // Start inline editing immediately
     setTimeout(() => this.startInlineEdit(folder.id, 'collection'), 100);
@@ -139,7 +150,15 @@ export class CollectionsManager {
     }
 
     this.renderCollections();
-    await this.saveRequest(request);
+    
+    // Save the root collection that contains this request
+    const rootCollection = this.findRootCollection(request.parentId || request.collectionId || '');
+    if (rootCollection) {
+      await this.saveCollection(rootCollection);
+    } else {
+      // Fallback: save request directly if no parent collection found
+      await this.saveRequest(request);
+    }
     
     // Start inline editing immediately
     setTimeout(() => this.startInlineEdit(request.id, 'request'), 100);
@@ -204,15 +223,8 @@ export class CollectionsManager {
       container.appendChild(element);
     });
 
-    // Clear any existing data attributes to ensure fresh event listener attachment
-    container.querySelectorAll('[data-listeners-attached]').forEach(el => {
-      el.removeAttribute('data-listeners-attached');
-    });
-
     // Add event listeners for request items after rendering
     this.attachRequestEventListeners();
-    // Also attach event listeners for all collection items (including subfolders)
-    this.attachCollectionEventListeners();
   }
 
   private attachCollectionEventListeners(): void {
@@ -353,7 +365,14 @@ export class CollectionsManager {
     if (newName && newName.trim() && newName.trim() !== request.name) {
       request.name = newName.trim();
       this.renderCollections();
-      await this.saveRequest(request);
+      
+      // Save the root collection that contains this request
+      const rootCollection = this.findRootCollection(request.parentId || request.collectionId || '');
+      if (rootCollection) {
+        await this.saveCollection(rootCollection);
+      } else {
+        await this.saveRequest(request);
+      }
     }
   }
 
@@ -374,7 +393,14 @@ export class CollectionsManager {
     }
 
     this.renderCollections();
-    await this.saveRequest(duplicate);
+    
+    // Save the root collection that contains this request
+    const rootCollection = this.findRootCollection(duplicate.parentId || duplicate.collectionId || '');
+    if (rootCollection) {
+      await this.saveCollection(rootCollection);
+    } else {
+      await this.saveRequest(duplicate);
+    }
     
     // Start inline editing immediately
     setTimeout(() => this.startInlineEdit(duplicate.id, 'request'), 100);
@@ -394,6 +420,9 @@ export class CollectionsManager {
         await window.electronAPI.deleteRequest(id);
         this.removeRequestById(id);
         this.renderCollections();
+        
+        // Notify TabsManager to close any open tab for this request
+        this.eventBus.emit('request:deleted', id);
         
         this.eventBus.emit('toast:show', {
           message: `Request "${request.name}" deleted`,
@@ -437,19 +466,29 @@ export class CollectionsManager {
     const icon = collection.type === 'collection' ? '📁' : '📂';
     const isExpanded = this.expandedFolders.has(collection.id);
     
-    div.innerHTML = `
-      <div class="collection-header" data-id="${collection.id}">
-        <span class="collection-toggle" style="margin-right: 4px; cursor: pointer; font-size: 12px; color: var(--text-secondary);">${isExpanded ? '▼' : '▶'}</span>
-        <span class="collection-icon" style="margin-right: 8px;">${icon}</span>
-        <span class="collection-name" style="flex: 1; font-size: 13px;">${collection.name}</span>
-        <div class="collection-actions" style="opacity: 0; transition: opacity 0.2s;">
-          <button class="action-btn" data-action="menu" data-id="${collection.id}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 2px; font-size: 12px;">⋯</button>
-        </div>
-      </div>
-      <div class="collection-children" style="display: ${isExpanded ? 'block' : 'none'};">
-        ${this.renderCollectionContent(collection, depth + 1)}
+    // Create the main structure first
+    const header = document.createElement('div');
+    header.className = 'collection-header';
+    header.setAttribute('data-id', collection.id);
+    header.innerHTML = `
+      <span class="collection-toggle" style="margin-right: 4px; cursor: pointer; font-size: 12px; color: var(--text-secondary);">${isExpanded ? '▼' : '▶'}</span>
+      <span class="collection-icon" style="margin-right: 8px;">${icon}</span>
+      <span class="collection-name" style="flex: 1; font-size: 13px;">${collection.name}</span>
+      <div class="collection-actions" style="opacity: 0; transition: opacity 0.2s;">
+        <button class="action-btn" data-action="menu" data-id="${collection.id}" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; border-radius: 2px; font-size: 12px;">⋯</button>
       </div>
     `;
+    
+    const children = document.createElement('div');
+    children.className = 'collection-children';
+    children.style.display = isExpanded ? 'block' : 'none';
+    
+    // Append the rendered content (DocumentFragment)
+    const content = this.renderCollectionContent(collection, depth + 1);
+    children.appendChild(content);
+    
+    div.appendChild(header);
+    div.appendChild(children);
 
     // Setup event listeners
     this.setupCollectionEvents(div, collection);
@@ -463,66 +502,62 @@ export class CollectionsManager {
     const children = element.querySelector('.collection-children') as HTMLElement;
     const actionBtn = element.querySelector('[data-action="menu"]') as HTMLElement;
 
-    // Only attach if not already attached
-    if (header && !header.hasAttribute('data-listeners-attached')) {
-      header.setAttribute('data-listeners-attached', 'true');
-      
-      // Single click to expand/collapse
-      if (toggle && children) {
-        const toggleChildren = () => {
-          const isExpanded = this.expandedFolders.has(collection.id);
-          if (isExpanded) {
-            this.expandedFolders.delete(collection.id);
-            children.style.display = 'none';
-            toggle.textContent = '▶';
-          } else {
-            this.expandedFolders.add(collection.id);
-            children.style.display = 'block';
-            toggle.textContent = '▼';
-          }
-        };
+    // Single click to expand/collapse
+    if (toggle && children) {
+      const toggleChildren = () => {
+        const isExpanded = this.expandedFolders.has(collection.id);
+        if (isExpanded) {
+          this.expandedFolders.delete(collection.id);
+          children.style.display = 'none';
+          toggle.textContent = '▶';
+        } else {
+          this.expandedFolders.add(collection.id);
+          children.style.display = 'block';
+          toggle.textContent = '▼';
+        }
+        // Persist the expanded state
+        this.saveExpandedFolders();
+      };
 
-        // Single click on header expands/collapses
-        header.addEventListener('click', (e) => {
-          // Don't trigger if clicking on action button
-          if (e.target === actionBtn || (actionBtn && actionBtn.contains(e.target as Node))) {
-            return;
-          }
-          e.stopPropagation();
-          toggleChildren();
-        });
-
-        // Double click on header renames
-        header.addEventListener('dblclick', (e) => {
-          if (e.target === actionBtn || (actionBtn && actionBtn.contains(e.target as Node))) {
-            return;
-          }
-          e.stopPropagation();
-          this.startInlineEdit(collection.id, 'collection');
-        });
-      }
-
-      // Show/hide actions on hover
-      header.addEventListener('mouseenter', () => {
-        const actions = element.querySelector('.collection-actions') as HTMLElement;
-        if (actions) actions.style.opacity = '1';
+      // Single click on header expands/collapses
+      header.addEventListener('click', (e) => {
+        // Don't trigger if clicking on action button
+        if (e.target === actionBtn || (actionBtn && actionBtn.contains(e.target as Node))) {
+          return;
+        }
+        e.stopPropagation();
+        toggleChildren();
       });
 
-      header.addEventListener('mouseleave', () => {
-        const actions = element.querySelector('.collection-actions') as HTMLElement;
-        if (actions) actions.style.opacity = '0';
-      });
-
-      // Right-click context menu
-      header.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        this.showContextMenu(e, collection);
+      // Double click on header renames
+      header.addEventListener('dblclick', (e) => {
+        if (e.target === actionBtn || (actionBtn && actionBtn.contains(e.target as Node))) {
+          return;
+        }
+        e.stopPropagation();
+        this.startInlineEdit(collection.id, 'collection');
       });
     }
 
+    // Show/hide actions on hover
+    header.addEventListener('mouseenter', () => {
+      const actions = element.querySelector('.collection-actions') as HTMLElement;
+      if (actions) actions.style.opacity = '1';
+    });
+
+    header.addEventListener('mouseleave', () => {
+      const actions = element.querySelector('.collection-actions') as HTMLElement;
+      if (actions) actions.style.opacity = '0';
+    });
+
+    // Right-click context menu
+    header.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      this.showContextMenu(e, collection);
+    });
+
     // Context menu button
-    if (actionBtn && !actionBtn.hasAttribute('data-listeners-attached')) {
-      actionBtn.setAttribute('data-listeners-attached', 'true');
+    if (actionBtn) {
       actionBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.showContextMenu(e, collection);
@@ -567,14 +602,14 @@ export class CollectionsManager {
     Modal.showMenu(event.clientX, event.clientY, menuItems);
   }
 
-  private renderCollectionContent(collection: Collection, depth: number): string {
-    let html = '';
+  private renderCollectionContent(collection: Collection, depth: number): DocumentFragment {
+    const fragment = document.createDocumentFragment();
 
     // Render child collections/folders first
     if (collection.children && collection.children.length > 0) {
       collection.children.forEach(child => {
         const childElement = this.createCollectionElement(child, depth);
-        html += childElement.outerHTML;
+        fragment.appendChild(childElement);
       });
     }
 
@@ -582,26 +617,29 @@ export class CollectionsManager {
     if (collection.requests && collection.requests.length > 0) {
       collection.requests.forEach(request => {
         const isSelected = this.selectedRequest?.id === request.id;
-        html += `
-          <div class="request-item ${isSelected ? 'selected' : ''}" 
-               data-request-id="${request.id}" 
-               style="margin-left: ${depth * 16}px; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 13px; transition: all 0.2s; display: flex; align-items: center; position: relative;">
-            ${isSelected ? '<div class="request-selection-indicator"></div>' : ''}
-            <span class="request-method method-${request.method.toLowerCase()}" 
-                  style="display: inline-block; width: 40px; font-weight: 600; font-size: 10px; text-transform: uppercase; margin-right: 8px;">
-              ${request.method}
-            </span>
-            <span class="request-name" style="flex: 1;">${request.name}</span>
-            <div class="request-actions" style="opacity: 0; transition: opacity 0.2s;">
-              <button class="action-btn" data-action="request-menu" data-id="${request.id}" 
-                      style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 6px; border-radius: 2px; font-size: 12px; display: flex; align-items: center; justify-content: center;">⋯</button>
-            </div>
+        const requestElement = document.createElement('div');
+        requestElement.className = `request-item ${isSelected ? 'selected' : ''}`;
+        requestElement.setAttribute('data-request-id', request.id);
+        requestElement.style.cssText = `margin-left: ${depth * 16}px; padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 13px; transition: all 0.2s; display: flex; align-items: center; position: relative;`;
+        
+        requestElement.innerHTML = `
+          ${isSelected ? '<div class="request-selection-indicator"></div>' : ''}
+          <span class="request-method method-${request.method.toLowerCase()}" 
+                style="display: inline-block; width: 40px; font-weight: 600; font-size: 10px; text-transform: uppercase; margin-right: 8px;">
+            ${request.method}
+          </span>
+          <span class="request-name" style="flex: 1;">${request.name}</span>
+          <div class="request-actions" style="opacity: 0; transition: opacity 0.2s;">
+            <button class="action-btn" data-action="request-menu" data-id="${request.id}" 
+                    style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 6px; border-radius: 2px; font-size: 12px; display: flex; align-items: center; justify-content: center;">⋯</button>
           </div>
         `;
+        
+        fragment.appendChild(requestElement);
       });
     }
 
-    return html;
+    return fragment;
   }
 
   private async renameCollection(collection: Collection): Promise<void> {
@@ -735,6 +773,29 @@ export class CollectionsManager {
     return search(this.collections);
   }
 
+  private findRootCollection(childId: string): Collection | null {
+    const findRoot = (collections: Collection[], targetId: string): Collection | null => {
+      for (const collection of collections) {
+        // Check if this collection or any of its children contain the target
+        if (this.containsChild(collection, targetId)) {
+          // If this collection has no parent, it's the root
+          return collection;
+        }
+      }
+      return null;
+    };
+
+    return findRoot(this.collections, childId);
+  }
+
+  private containsChild(collection: Collection, childId: string): boolean {
+    if (collection.id === childId) return true;
+    if (collection.children) {
+      return collection.children.some(child => this.containsChild(child, childId));
+    }
+    return false;
+  }
+
   private removeCollectionById(id: string): boolean {
     const remove = (collections: Collection[]): boolean => {
       for (let i = 0; i < collections.length; i++) {
@@ -767,6 +828,50 @@ export class CollectionsManager {
     } catch (error) {
       console.error('Failed to save request:', error);
       throw error;
+    }
+  }
+
+  private async autoSaveRequest(request: Request): Promise<void> {
+    try {
+      // Also update the request in the local collections structure
+      this.updateRequestInCollections(request);
+      
+      // Save to disk
+      await this.saveRequest(request);
+      console.debug('Auto-saved request:', request.name);
+    } catch (error) {
+      console.error('Failed to auto-save request:', error);
+    }
+  }
+
+  private updateRequestInCollections(updatedRequest: Request): void {
+    const updateInCollection = (collection: Collection): boolean => {
+      // Check requests in this collection
+      if (collection.requests) {
+        const requestIndex = collection.requests.findIndex(r => r.id === updatedRequest.id);
+        if (requestIndex >= 0) {
+          collection.requests[requestIndex] = updatedRequest;
+          return true;
+        }
+      }
+
+      // Check child collections recursively
+      if (collection.children) {
+        for (const child of collection.children) {
+          if (updateInCollection(child)) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    };
+
+    // Update in all collections
+    for (const collection of this.collections) {
+      if (updateInCollection(collection)) {
+        break; // Found and updated, no need to continue
+      }
     }
   }
 
@@ -818,7 +923,13 @@ export class CollectionsManager {
           const request = this.findRequestById(itemId);
           if (request) {
             request.name = newName;
-            await this.saveRequest(request);
+            // Save the root collection that contains this request
+            const rootCollection = this.findRootCollection(request.parentId || request.collectionId || '');
+            if (rootCollection) {
+              await this.saveCollection(rootCollection);
+            } else {
+              await this.saveRequest(request);
+            }
           }
         }
       }
@@ -852,5 +963,29 @@ export class CollectionsManager {
 
   getSelectedRequest(): Request | null {
     return this.selectedRequest;
+  }
+
+  private async loadExpandedFolders(): Promise<void> {
+    try {
+      const settings = await window.electronAPI.getSettings();
+      if (settings.expandedFolders) {
+        this.expandedFolders = new Set(settings.expandedFolders);
+      }
+    } catch (error) {
+      console.error('Failed to load expanded folders:', error);
+    }
+  }
+
+  private async saveExpandedFolders(): Promise<void> {
+    try {
+      const expandedFolders = Array.from(this.expandedFolders);
+      await window.electronAPI.saveSettings({ expandedFolders });
+    } catch (error) {
+      console.error('Failed to save expanded folders:', error);
+    }
+  }
+
+  getExpandedFolders(): string[] {
+    return Array.from(this.expandedFolders);
   }
 }

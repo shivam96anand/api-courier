@@ -121,7 +121,7 @@ export class UIManager {
         const resizeType = handle.getAttribute('data-resize');
         if (resizeType === 'collections') {
           panel = document.querySelector('.collections-panel') as HTMLElement;
-        } else if (resizeType === 'request') {
+        } else if (resizeType === 'response') {
           panel = document.querySelector('.response-panel') as HTMLElement;
         }
         
@@ -143,7 +143,8 @@ export class UIManager {
         if (resizeType === 'collections') {
           const newWidth = startWidth + diff;
           panel.style.width = `${Math.max(200, Math.min(500, newWidth))}px`;
-        } else if (resizeType === 'request') {
+        } else if (resizeType === 'response') {
+          // For response panel (right side), dragging right should shrink it (negative diff)
           const newWidth = startWidth - diff;
           panel.style.width = `${Math.max(300, Math.min(600, newWidth))}px`;
         }
@@ -161,7 +162,7 @@ export class UIManager {
             
             if (resizeType === 'collections') {
               window.electronAPI.saveSettings({ sidebarWidth: width });
-            } else if (resizeType === 'request') {
+            } else if (resizeType === 'response') {
               window.electronAPI.saveSettings({ requestPanelWidth: width });
             }
           }

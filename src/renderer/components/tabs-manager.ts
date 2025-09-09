@@ -22,7 +22,7 @@ export class TabsManager {
 
   private setupEventListeners(): void {
     this.eventBus.on('request:selected', (request: Request) => {
-      this.openTab(request);
+      this.openTab(request).catch(console.error);
     });
 
     this.eventBus.on('tab:close', (tabId: string) => {
@@ -36,16 +36,40 @@ export class TabsManager {
     this.eventBus.on('response:received', (response: Response) => {
       this.storeResponseForActiveTab(response);
     });
+
+    // Close tab when request is deleted
+    this.eventBus.on('request:deleted', (requestId: string) => {
+      this.closeTabByRequestId(requestId);
+    });
   }
 
   private storeResponseForActiveTab(response: Response): void {
     const activeTab = this.getActiveTab();
     if (activeTab) {
       activeTab.response = response;
+      // Persist response to disk
+      this.saveResponseToDisk(activeTab.request.id, response);
     }
   }
 
-  openTab(request: Request): void {
+  private async saveResponseToDisk(requestId: string, response: Response): Promise<void> {
+    try {
+      await window.electronAPI.saveResponse(requestId, response);
+    } catch (error) {
+      console.error('Failed to save response:', error);
+    }
+  }
+
+  private async loadResponseFromDisk(requestId: string): Promise<Response | null> {
+    try {
+      return await window.electronAPI.getResponse(requestId);
+    } catch (error) {
+      console.error('Failed to load response:', error);
+      return null;
+    }
+  }
+
+  async openTab(request: Request): Promise<void> {
     // Check if tab already exists
     let existingTab = this.tabs.find(tab => tab.request.id === request.id);
     
@@ -54,12 +78,15 @@ export class TabsManager {
       existingTab.request = request;
       this.activateTab(existingTab.id);
     } else {
-      // Create new tab
+      // Create new tab and load any existing response
+      const savedResponse = await this.loadResponseFromDisk(request.id);
+      
       const tab: Tab = {
         id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         request: request,
         isActive: true,
-        isDirty: false
+        isDirty: false,
+        response: savedResponse // Load existing response if available
       };
 
       // Deactivate all other tabs
@@ -69,6 +96,13 @@ export class TabsManager {
       this.activeTabId = tab.id;
       
       this.eventBus.emit('tab:opened', tab);
+      
+      // Display response if available, otherwise clear
+      if (savedResponse) {
+        this.eventBus.emit('response:restore', savedResponse);
+      } else {
+        this.eventBus.emit('response:clear');
+      }
     }
 
     this.renderTabs();
@@ -92,10 +126,18 @@ export class TabsManager {
     } else if (this.tabs.length === 0) {
       this.activeTabId = null;
       this.eventBus.emit('request:display', null);
+      this.eventBus.emit('response:clear');
     }
 
     this.renderTabs();
     this.eventBus.emit('tab:closed', tabId);
+  }
+
+  closeTabByRequestId(requestId: string): void {
+    const tab = this.tabs.find(tab => tab.request.id === requestId);
+    if (tab) {
+      this.closeTab(tab.id);
+    }
   }
 
   activateTab(tabId: string): void {
