@@ -420,17 +420,50 @@ body {
   font-size: 12px;
 }
 
-.add-header-btn {
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 12px;
+// Shared styling for professional add buttons (headers, params, etc.)
+.add-header-btn,
+.add-param-btn {
+  background-color: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  font-family: inherit !important;
+  font-weight: normal !important;
+  text-decoration: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  display: inline-block !important;
+  line-height: normal !important;
+  white-space: nowrap !important;
+  vertical-align: baseline !important;
+  transition: background-color 0.2s ease !important;
+  text-align: center !important;
+  min-width: auto !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
 
   &:hover {
-    background-color: var(--hover-color);
+    background-color: var(--hover-color) !important;
+  }
+
+  &:focus {
+    outline: 2px solid var(--primary-color) !important;
+    outline-offset: 2px !important;
+  }
+
+  &:active {
+    background-color: var(--border-color) !important;
   }
 }
 
