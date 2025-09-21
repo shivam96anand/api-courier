@@ -83,6 +83,17 @@ export class TabsManager {
         this.closeTabsByRequestId(requestId);
       }
     });
+
+    // Listen for collection renames to update tab names
+    document.addEventListener('collection-renamed', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const collection = customEvent.detail.collection;
+      const newName = customEvent.detail.newName;
+
+      if (collection && collection.type === 'request' && collection.request) {
+        this.updateTabNameForRequest(collection.request.id, newName);
+      }
+    });
   }
 
   private createNewTab(): void {
@@ -546,5 +557,23 @@ export class TabsManager {
         document.body.removeChild(notification);
       }
     }, 3000);
+  }
+
+  updateTabNameForRequest(requestId: string, newName: string): void {
+    // Find all tabs with the given request ID and update their names
+    let updated = false;
+
+    this.tabs.forEach(tab => {
+      if (tab.request.id === requestId) {
+        tab.name = newName;
+        tab.request.name = newName;
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      this.renderTabs();
+      this.saveState();
+    }
   }
 }

@@ -851,7 +851,24 @@ export class CollectionsManager {
     try {
       await window.apiCourier.collection.update(collectionId, { name: newName });
       collection.name = newName;
+      collection.updatedAt = new Date();
       this.renderCollections();
+
+      // Dispatch event to notify other components of the collection name change
+      const event = new CustomEvent('collection-renamed', {
+        detail: {
+          collectionId,
+          newName,
+          collection
+        }
+      });
+      document.dispatchEvent(event);
+
+      // Also dispatch collections-changed for state persistence
+      const collectionsChangedEvent = new CustomEvent('collections-changed', {
+        detail: { collections: this.collections }
+      });
+      document.dispatchEvent(collectionsChangedEvent);
     } catch (error) {
       console.error('Failed to rename collection:', error);
       this.showError('Failed to rename collection');
@@ -1257,6 +1274,21 @@ export class CollectionsManager {
         detail: { collections: this.collections }
       });
       document.dispatchEvent(event);
+    }
+  }
+
+  setSelectedCollection(collectionId: string): void {
+    // Only update if it's different from current selection
+    if (this.selectedCollectionId !== collectionId) {
+      this.selectedCollectionId = collectionId;
+      this.renderCollections(); // Re-render to update highlighting
+    }
+  }
+
+  clearSelection(): void {
+    if (this.selectedCollectionId) {
+      this.selectedCollectionId = undefined;
+      this.renderCollections(); // Re-render to remove highlighting
     }
   }
 }

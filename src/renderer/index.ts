@@ -127,6 +127,20 @@ class ApiCourierRenderer {
     document.addEventListener('collections-changed', () => {
       this.saveState();
     });
+
+    // Listen for tab changes to update collection selection
+    document.addEventListener('tab-changed', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const activeTab = customEvent.detail.activeTab;
+
+      // If the active tab belongs to a collection, select that collection
+      if (activeTab && activeTab.collectionId) {
+        this.collectionsManager.setSelectedCollection(activeTab.collectionId);
+      } else if (!activeTab) {
+        // If no active tab, clear collection selection
+        this.collectionsManager.clearSelection();
+      }
+    });
   }
 
   private setupAutoSave(): void {

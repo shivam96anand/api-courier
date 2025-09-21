@@ -1,119 +1,245 @@
-# API Courier - Copilot Instructions
+# API Courier - Claude CLI Instructions
 
-This is an Electron desktop application for API testing, similar to Postman and Insomnia.
+This is an Electron desktop application for API testing, competing with Postman and Insomnia.
 
-## Architecture
-- **Main Process (TypeScript, modularized):** Located under `src/main/`. Must be split by concern into small modules (bootstrap, windows, IPC, persistence, request engine, OAuth/OIDC, file dialogs, logging). No single file may exceed ~300 lines.
-- **Preload Script:** `src/preload/` bridge exposing only whitelisted, documented APIs. No generic invoke or wildcard channels.
-- **Renderer Process:** `src/renderer/` UI in HTML/CSS/TypeScript. Runs with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.
+## Project Overview
 
-## Key Features
-- HTTP request testing (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS).
-- Request collections and organization.
-- Environment variables and quick environment switching.
-- Request history.
-- Response visualization (Pretty, Raw, Headers) with format detection.
-- Authentication support (None, Basic, Bearer, API Key, OAuth 2.0 including Discovery, PKCE, Device Code, Refresh).
-- Import/Export functionality (Postman/Insomnia or other tools collections).
-- “Save As…” for responses via native file dialog.
-- Keyboard shortcuts for send/cancel and navigation.
-- Optional secure storage for secrets and refresh tokens.
-- Automatic token refresh (see OAuth section for constraints).
+API Courier is a secure, modular Electron app built with TypeScript that provides comprehensive API testing capabilities including HTTP requests, collections, environments, authentication (including OAuth 2.0/OIDC), and response visualization.
 
-## Persistence Guidelines (IMPORTANT)
-- Do **not** use `window.localStorage` for saving data.
-- All persistent state (tabs, collections, environments, history, settings, response metadata) must be stored in a **disk-backed JSON database** at the app’s user data directory.
-- Use a persistence utility that wraps the JSON database and provides typed CRUD methods. It must:
-  - Initialize with a known schema.
-  - Validate payloads before writing.
-  - Coalesce writes via a **write queue/debounce** and flush on app exit.
-- Access persistence **only from the main process** through **strictly defined IPC**. The renderer must never read/write files directly.
-- Add optional secure secret storage. Prefer OS keychain for client secrets and refresh tokens when enabled.
+## Architecture & File Organization
 
-## Development Guidelines
-- Use **TypeScript** across main, preload, and renderer.
-- Enforce **ESLint + Prettier**; add **pre-commit hooks** to run lint/format on staged files.
-- Add **unit tests** for pure logic and **smoke tests** for key user flows.
-- Keep modules cohesive and small. **Never** aggregate multiple concerns in one file.
-- Provide user-friendly error states and non-blocking UI updates.
-- Follow Electron security best practices; never relax them without an explicit setting.
+### Main Process (`src/main/`)
+- **Modular TypeScript architecture** - Split by concern into small modules
+- **File size limit**: Maximum ~300 lines per file
+- **Required modules**:
+  - `bootstrap.ts` - Application initialization
+  - `windows.ts` - Window management
+  - `ipc.ts` - Inter-process communication handlers
+  - `persistence.ts` - Data storage utilities
+  - `request-engine.ts` - HTTP request handling
+  - `oauth.ts` - OAuth/OIDC authentication
+  - `file-dialogs.ts` - Native file operations
+  - `logging.ts` - Centralized logging
 
-## Code Style
-- Favor clear names, small pure functions, early returns, and explicit types.
-- Use async/await consistently with structured error handling and user feedback.
-- Redact secrets in all logs and UI surfaces. Do not log tokens, cookies, or client secrets.
-- Prefer immutable updates for UI state; keep renderer state separate from persisted state.
-- Document every IPC channel: purpose, request/response shapes, and error cases.
+### Preload Script (`src/preload/`)
+- **Security-focused bridge** between main and renderer
+- **Whitelist-only APIs** - No generic invoke or wildcard channels
+- **Frozen objects** mapping to specific IPC channels
+- Must validate all input/output against shared types
 
-## Dependencies
-- Electron for the desktop shell.
-- Built-in Node modules for networking and filesystem operations.
-- A lightweight JSON database for persistence.
-- Optional keychain integration for secure secret storage.
-- TypeScript, ESLint/Prettier, test runners, and end-to-end testing tools.
-- No heavy UI framework is required; keep styling accessible and consistent.
+### Renderer Process (`src/renderer/`)
+- **HTML/CSS/TypeScript UI** with strict security:
+  - `contextIsolation: true`
+  - `nodeIntegration: false` 
+  - `sandbox: true`
+- Never access `ipcRenderer` directly
+- All file operations through IPC only
 
-## External Libraries Policy (REQUIRED)
-- Default stance: **avoid external libraries** unless explicitly allow-listed here.
-- Allowed (minimal) set for functionality and security:
-  - **Persistence:** a lightweight JSON DB (e.g., lowdb) or an equivalent small-footprint alternative.
-  - **Keychain:** OS keychain integration (e.g., keytar) when secure storage is enabled.
-  - **MIME/types & multipart utilities:** minimal utilities for content-type detection and multipart/form-data encoding.
-- Any additional dependency must be **justified**, lightweight, actively maintained, and security-reviewed. No telemetry/analytics dependencies. No runtime CDN-loaded code.
+## Core Features Requirements
 
-## IPC Contract (REQUIRED)
-- Use **named, whitelisted channels** only. No dynamic channel names.
-- Group channels by concern (store, networking, OAuth, files). Each channel must validate input and output against shared types.
-- The preload bridge must expose **frozen objects** that map exactly to the whitelisted channels.
-- The renderer must never access `ipcRenderer` directly.
+### HTTP Request Testing
+- Support: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+- Full header control with auto-Content-Type setting
+- Body types: JSON, Raw, x-www-form-urlencoded, form-data, binary
+- Redirect handling with user toggle
+- Request abort by ID
+- TLS verification (default on, opt-in insecure)
+- Proxy support and basic cookie jar
 
-## Networking Requirements
-- Support common HTTP methods and full header control.
-- Support body types: JSON, raw text, x-www-form-urlencoded, form-data with file streaming, and binary file upload.
-- Auto-set sensible `Content-Type` per body type unless explicitly overridden by the user.
-- Implement redirect handling (limited hops) and respect a user toggle for following redirects.
-- Implement request **abort** by ID.
-- Enforce TLS verification by default; allow opt-in insecure mode per request.
-- Support optional proxy and basic cookie jar behavior.
-- Return structured results with status, headers, body, timings, final URL, and redirect chain.
+### Data Organization
+- Request collections with drag-reorder
+- Environment variables with quick switching  
+- Request history with search/filter
+- Import/Export (Postman/Insomnia compatibility)
 
-## OAuth 2.0 / OIDC Requirements
-- Support Discovery from issuer to prefill endpoints and scopes.
-- Implement Client Credentials, Authorization Code (with PKCE), Device Code, and Refresh Token flows.
-- Store secrets/tokens in the OS keychain when enabled; otherwise persist minimal required metadata.
-- Allow token placement in Authorization header (default) or as a query parameter.
-- Provide token metadata (expiry, scopes) and a decoded claims view for JWTs.
-- **Automatic refresh:** attempt silent refresh on expiry or 401 **only if** refresh configuration is present and user has enabled it. Do not initiate interactive consent flows without explicit user action. Surface token status in UI.
+### Authentication Support
+- None, Basic, Bearer, API Key
+- **OAuth 2.0/OIDC flows**:
+  - Authorization Code with PKCE
+  - Client Credentials  
+  - Device Code
+  - Refresh Token
+  - Discovery endpoint support
+  - Automatic token refresh (user-enabled only)
 
-## Security
-- Enforce strict Content Security Policy.
-- Sanitize or escape any HTML rendered from untrusted content.
-- Disable remote module usage and any insecure web preferences.
-- Never expose wildcard invocation from preload; do not leak file paths or secrets to the renderer.
-- Provide a global debug switch for logs; always redact sensitive values.
-- Do not include third-party telemetry or tracking. Do not load code from remote CDNs.
+### Response Handling
+- Pretty/Raw/Headers views with format detection
+- Response search and export via native dialogs
+- Timing information and redirect chains
 
-## Renderer UX (Acceptance)
-- **Body Editor:** distinct sub-tabs for JSON, Raw, x-www-form-urlencoded, form-data, and Binary; live validation; beautify/minify where applicable; file chooser with size/MIME display; automatic header sync that respects manual overrides.
-- **Auth Panel:** grant-specific fields; issuer discovery; scope chips; token status with expiry countdown; header/query placement; inheritance from collection with clear override indicators.
-- **Response Panel:** pretty/raw/headers views; format badge; search; enlarge; export via native dialog; remember last selected sub-view per tab.
-- **Collections/Environments/History:** fast search/filter; drag-reorder; inline rename; quick environment switch.
-- **Shortcuts:** send, cancel, and global search. Persist per-tab UI preferences.
+## Critical Persistence Rules
 
-## Guidelines for Code Changes
-- Prioritize **security**, **correctness**, and **user experience** over shortcuts.
-- Maintain backward-compatible IPC and data shapes unless a deliberate migration is specified.
-- Keep commits small and scoped to a single concern.
-- Do not introduce new persistence paths or bypass the main-process store.
-- Adhere to the architectural boundaries, typing, and file size limits.
-- When adding features, update tests, types, and documentation in the same change.
-- Always run "npm run build" after your code changes everytime.
+⚠️ **NEVER use `window.localStorage`** - All data must persist through main process
 
-## Implementation Order
-- Scaffold the modular structure and build tooling.
-- Implement persistence with schema and write-queue.
-- Implement preload bridge with whitelisted APIs.
-- Implement the networking engine.
-- Wire IPC across persistence, networking, OAuth, and file dialogs.
-- Build the minimal renderer experience for API requests.
-- Add unit and smoke tests, then iterate on UX polish.
+### Required Persistence Strategy
+- **Disk-backed JSON database** in app's user data directory
+- **Write queue/debounce** with flush on app exit
+- **Main process only** - renderer accesses via IPC
+- **Schema validation** before writes
+- **Optional secure storage** using OS keychain for secrets/tokens
+
+### Data Types to Persist
+- Request tabs and collections
+- Environment configurations
+- Request history
+- Application settings
+- Response metadata (not full responses)
+- Authentication tokens (keychain preferred)
+
+## Development Standards
+
+### Code Quality
+- **TypeScript everywhere** (main, preload, renderer)
+- **ESLint + Prettier** with pre-commit hooks
+- **File size limits**: 150-300 lines for components, max 300 for main process modules
+- **Unit tests** for pure logic, **smoke tests** for user flows
+- **Clear naming** and small, pure functions
+- **Async/await** with structured error handling
+
+### Security Requirements
+- **Strict CSP** enforcement
+- **No remote code loading** or CDN dependencies
+- **Secret redaction** in all logs and UI
+- **Input sanitization** for untrusted content
+- **Minimal external dependencies** (see approved list below)
+
+## External Dependencies Policy
+
+### Approved Dependencies Only
+- **Persistence**: Lightweight JSON DB (lowdb or similar)
+- **Keychain**: OS integration (keytar when secure storage enabled)
+- **Utilities**: Minimal MIME/multipart utilities only
+- **Dev tools**: TypeScript, ESLint, Prettier, test runners
+
+### Forbidden
+- Heavy UI frameworks
+- Telemetry/analytics libraries
+- Runtime CDN-loaded code
+- Generic HTTP clients with excessive features
+
+## IPC Architecture
+
+### Channel Requirements
+- **Named, whitelisted channels only** - no dynamic names
+- **Grouped by concern**: `store:*`, `network:*`, `oauth:*`, `files:*`
+- **Input/output validation** against shared TypeScript types
+- **Documentation required**: purpose, shapes, error cases
+
+### Example Channel Groups
+```typescript
+// Store operations
+'store:get-collections'
+'store:save-request'
+'store:get-environments'
+
+// Network operations  
+'network:send-request'
+'network:abort-request'
+'network:get-history'
+
+// OAuth operations
+'oauth:start-flow'
+'oauth:refresh-token'
+'oauth:get-token-info'
+
+// File operations
+'files:export-collection'
+'files:save-response'
+```
+
+## UI/UX Requirements
+
+### Request Builder
+- **Body editor tabs**: JSON, Raw, form-urlencoded, form-data, Binary
+- **Live validation** with beautify/minify
+- **File chooser** with size/MIME display
+- **Automatic header sync** respecting manual overrides
+
+### Authentication Panel
+- **Flow-specific fields** with issuer discovery
+- **Scope management** with chip UI
+- **Token status** with expiry countdown
+- **Inheritance indicators** from collection settings
+
+### Response Viewer
+- **Multi-view tabs**: Pretty, Raw, Headers
+- **Format detection badge**
+- **Search functionality** within responses
+- **Export via native dialogs**
+- **Per-tab view preferences** persistence
+
+### Navigation & Shortcuts
+- **Global shortcuts**: Send (Cmd/Ctrl+Enter), Cancel (Esc)
+- **Fast search/filter** across collections/history
+- **Drag-and-drop reordering**
+- **Inline rename** capabilities
+
+## Implementation Priorities
+
+1. **Foundation**: Modular architecture + build tooling
+2. **Data Layer**: Persistence with schema + write queue  
+3. **Security**: Preload bridge with whitelisted APIs
+4. **Core Engine**: HTTP networking with full feature set
+5. **Integration**: IPC wiring for all subsystems
+6. **UI Foundation**: Basic renderer for API requests
+7. **Testing**: Unit tests + smoke tests
+8. **Polish**: Advanced UX features and optimizations
+
+## Development Workflow
+
+### Before Each Commit
+- Run `npm run build` (mandatory)
+- Execute lint/format via pre-commit hooks
+- Ensure tests pass
+- Validate no new security vulnerabilities
+
+### Code Review Checklist
+- Architectural boundaries respected?
+- File size limits maintained?
+- IPC contracts properly defined?
+- Secrets properly redacted?
+- TypeScript types complete?
+- Tests updated for changes?
+
+## Common Patterns to Follow
+
+### Error Handling
+```typescript
+try {
+  const result = await riskyOperation();
+  return { success: true, data: result };
+} catch (error) {
+  logger.error('Operation failed', { error: redactSecrets(error) });
+  return { success: false, error: error.message };
+}
+```
+
+### IPC Type Safety
+```typescript
+// shared/types.ts
+export interface SendRequestParams {
+  method: HttpMethod;
+  url: string;
+  headers: Record<string, string>;
+  body?: RequestBody;
+}
+
+export interface SendRequestResponse {
+  success: boolean;
+  data?: HttpResponse;
+  error?: string;
+}
+```
+
+### State Management
+```typescript
+// Immutable updates in renderer
+const updatedState = {
+  ...currentState,
+  requests: currentState.requests.map(req => 
+    req.id === targetId ? { ...req, ...updates } : req
+  )
+};
+```
+
+Remember: **Security, correctness, and user experience** are the top priorities. When in doubt, choose the more secure, maintainable approach over shortcuts.
