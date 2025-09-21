@@ -12,6 +12,7 @@ const defaultTheme: AppTheme = {
 const defaultState: AppState = {
   collections: [],
   openTabs: [],
+  history: [],
   theme: defaultTheme,
 };
 
@@ -29,15 +30,25 @@ class StoreManager {
     if (existsSync(this.dbPath)) {
       try {
         const fileContent = readFileSync(this.dbPath, 'utf-8');
-        this.data = JSON.parse(fileContent);
+        const loadedData = JSON.parse(fileContent);
+
+        // Merge with default state to handle new fields
+        this.data = {
+          ...defaultState,
+          ...loadedData,
+          // Ensure history exists if not present
+          history: loadedData.history || []
+        };
       } catch (error) {
         console.error('Failed to read database file, using default state:', error);
         this.data = defaultState;
       }
     } else {
       this.data = defaultState;
-      await this.writeToFile();
     }
+
+    // Always write to ensure migrations are persisted
+    await this.writeToFile();
   }
 
   getState(): AppState {

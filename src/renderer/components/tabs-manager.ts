@@ -1,4 +1,4 @@
-import { RequestTab, ApiRequest } from '../../shared/types';
+import { RequestTab, ApiRequest, ApiResponse } from '../../shared/types';
 
 export class TabsManager {
   private tabs: RequestTab[] = [];
@@ -121,6 +121,19 @@ export class TabsManager {
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) return;
 
+    const tab = this.tabs[tabIndex];
+
+    // Save to history if the tab has both request and response
+    if (tab.response) {
+      const event = new CustomEvent('tab-closed-with-response', {
+        detail: {
+          request: tab.request,
+          response: tab.response
+        }
+      });
+      document.dispatchEvent(event);
+    }
+
     this.tabs.splice(tabIndex, 1);
 
     if (this.activeTabId === tabId) {
@@ -189,6 +202,7 @@ export class TabsManager {
     this.tabs = tabs;
     this.activeTabId = activeTabId;
     this.renderTabs();
+    this.notifyTabChange();
   }
 
   getTabs(): RequestTab[] {
@@ -230,7 +244,7 @@ export class TabsManager {
     document.dispatchEvent(event);
   }
 
-  openRequestInTab(request: ApiRequest): void {
+  openRequestInTab(request: ApiRequest, collectionId?: string): void {
     // Check if request is already open in a tab
     const existingTab = this.tabs.find(tab => tab.request.id === request.id);
 
@@ -247,6 +261,37 @@ export class TabsManager {
         name: request.name,
         request: { ...request }, // Clone the request
         isModified: false,
+        collectionId: collectionId, // Store the collection ID
+      };
+
+      this.tabs.push(newTab);
+      this.activeTabId = newTab.id;
+      this.renderTabs();
+      this.notifyTabChange();
+      this.saveState();
+    }
+  }
+
+  openRequestInTabWithResponse(request: ApiRequest, response: ApiResponse, collectionId?: string): void {
+    // Check if request is already open in a tab
+    const existingTab = this.tabs.find(tab => tab.request.id === request.id);
+
+    if (existingTab) {
+      // Switch to existing tab and update with response
+      this.activeTabId = existingTab.id;
+      this.updateActiveTab({ response }, false); // Don't mark as modified since this is restored data
+      this.renderTabs();
+      this.notifyTabChange();
+      this.saveState();
+    } else {
+      // Create new tab for this request with response
+      const newTab: RequestTab = {
+        id: this.generateId(),
+        name: request.name,
+        request: { ...request }, // Clone the request
+        response: { ...response }, // Clone the response
+        isModified: false,
+        collectionId: collectionId, // Store the collection ID
       };
 
       this.tabs.push(newTab);

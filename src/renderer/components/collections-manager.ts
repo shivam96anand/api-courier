@@ -1,4 +1,4 @@
-import { Collection } from '../../shared/types';
+import { Collection, ApiRequest } from '../../shared/types';
 import { modal } from '../utils/modal';
 
 interface CollectionTreeState {
@@ -892,7 +892,10 @@ export class CollectionsManager {
     if (collection && collection.type === 'request' && collection.request) {
       // Notify that a collection request should be opened in a tab
       const event = new CustomEvent('open-request-in-tab', {
-        detail: { request: collection.request }
+        detail: {
+          request: collection.request,
+          collectionId: collection.id
+        }
       });
       document.dispatchEvent(event);
     }
@@ -1240,5 +1243,20 @@ export class CollectionsManager {
       overlay.appendChild(content);
       document.body.appendChild(overlay);
     });
+  }
+
+  updateCollectionRequest(collectionId: string, updatedRequest: ApiRequest): void {
+    const collection = this.findCollectionById(collectionId);
+    if (collection && collection.type === 'request' && collection.request) {
+      // Update the collection's request with the new data
+      collection.request = { ...collection.request, ...updatedRequest };
+      collection.updatedAt = new Date();
+
+      // Trigger a save by dispatching an event
+      const event = new CustomEvent('collections-changed', {
+        detail: { collections: this.collections }
+      });
+      document.dispatchEvent(event);
+    }
   }
 }

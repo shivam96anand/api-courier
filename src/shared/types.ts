@@ -41,6 +41,14 @@ export interface RequestTab {
   request: ApiRequest;
   response?: ApiResponse;
   isModified: boolean;
+  collectionId?: string; // Track which collection this tab belongs to
+}
+
+export interface HistoryItem {
+  id: string;
+  request: ApiRequest;
+  response: ApiResponse;
+  timestamp: Date;
 }
 
 export interface AppTheme {
@@ -52,6 +60,7 @@ export interface AppTheme {
 export interface AppState {
   collections: Collection[];
   openTabs: RequestTab[];
+  history: HistoryItem[];
   activeTabId?: string;
   selectedCollectionId?: string;
   theme: AppTheme;

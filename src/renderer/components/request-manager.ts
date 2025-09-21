@@ -302,7 +302,7 @@ export class RequestManager {
       const response = await window.apiCourier.request.send(this.currentRequest);
 
       const event = new CustomEvent('response-received', {
-        detail: { response }
+        detail: { response, request: this.currentRequest }
       });
       document.dispatchEvent(event);
     } catch (error) {
