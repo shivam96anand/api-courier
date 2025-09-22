@@ -7,6 +7,7 @@ export class ThemeManager {
     { name: 'purple', primaryColor: '#8b5cf6', accentColor: '#7c3aed' },
     { name: 'orange', primaryColor: '#f59e0b', accentColor: '#d97706' },
     { name: 'red', primaryColor: '#ef4444', accentColor: '#dc2626' },
+    { name: 'magenta', primaryColor: '#E20074', accentColor: '#B8005A' },
   ];
 
   private currentTheme: AppTheme;

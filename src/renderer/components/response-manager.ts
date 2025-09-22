@@ -1,7 +1,9 @@
 import { ApiResponse } from '../../shared/types';
+import { JsonViewer } from './JsonViewer';
 
 export class ResponseManager {
   private currentResponse: ApiResponse | null = null;
+  private jsonViewer: JsonViewer | null = null;
 
   initialize(): void {
     this.setupResponseTabs();
@@ -78,21 +80,51 @@ export class ResponseManager {
 
     if (!response.body) {
       bodyElement.innerHTML = '<div class="response-placeholder">No response body</div>';
+      this.jsonViewer = null;
       return;
     }
 
     const contentType = response.headers['content-type'] || '';
-    let formattedBody = response.body;
+    const isJson = contentType.includes('application/json') || this.isValidJSON(response.body);
 
-    // Try to format JSON
-    if (contentType.includes('application/json') || this.isValidJSON(response.body)) {
+    if (isJson) {
       try {
         const parsed = JSON.parse(response.body);
-        formattedBody = JSON.stringify(parsed, null, 2);
+        this.setupJsonViewer(bodyElement, parsed);
       } catch (e) {
-        // Keep original if parsing fails
+        // If JSON parsing fails, fall back to plain text
+        this.setupPlainTextView(bodyElement, response.body);
       }
+    } else {
+      this.setupPlainTextView(bodyElement, response.body);
     }
+  }
+
+  private setupJsonViewer(container: HTMLElement, jsonData: any): void {
+    // Clear any existing content
+    container.innerHTML = '';
+
+    // Create a container for the JSON viewer
+    const jsonContainer = document.createElement('div');
+    jsonContainer.id = 'json-viewer-container';
+    jsonContainer.style.height = '100%';
+    jsonContainer.style.minHeight = '400px';
+
+    container.appendChild(jsonContainer);
+
+    // Initialize the JSON viewer
+    try {
+      this.jsonViewer = new JsonViewer('json-viewer-container');
+      this.jsonViewer.setData(jsonData);
+    } catch (error) {
+      console.error('Failed to initialize JSON viewer:', error);
+      // Fall back to plain text if JSON viewer fails
+      this.setupPlainTextView(container, JSON.stringify(jsonData, null, 2));
+    }
+  }
+
+  private setupPlainTextView(container: HTMLElement, content: string): void {
+    this.jsonViewer = null;
 
     const preElement = document.createElement('pre');
     preElement.style.whiteSpace = 'pre-wrap';
@@ -108,11 +140,11 @@ export class ResponseManager {
     preElement.style.maxHeight = '400px';
 
     const codeElement = document.createElement('code');
-    codeElement.textContent = formattedBody;
+    codeElement.textContent = content;
     preElement.appendChild(codeElement);
 
-    bodyElement.innerHTML = '';
-    bodyElement.appendChild(preElement);
+    container.innerHTML = '';
+    container.appendChild(preElement);
   }
 
   private updateResponseHeaders(response: ApiResponse): void {
@@ -189,6 +221,12 @@ export class ResponseManager {
 
   clearResponse(): void {
     this.currentResponse = null;
+
+    // Clean up JSON viewer
+    if (this.jsonViewer) {
+      this.jsonViewer.clear();
+      this.jsonViewer = null;
+    }
 
     const bodyElement = document.getElementById('response-body');
     const headersElement = document.getElementById('response-headers');
