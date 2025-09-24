@@ -120,7 +120,7 @@ API Courier is a secure, modular Electron app built with TypeScript that provide
 
 ### Channel Requirements
 - **Named, whitelisted channels only** - no dynamic names
-- **Grouped by concern**: `store:*`, `network:*`, `oauth:*`, `files:*`
+- **Grouped by concern**: `store:*`, `network:*`, `oauth:*`, `files:*`, `loadtest:*`
 - **Input/output validation** against shared TypeScript types
 - **Documentation required**: purpose, shapes, error cases
 
@@ -144,6 +144,14 @@ API Courier is a secure, modular Electron app built with TypeScript that provide
 // File operations
 'files:export-collection'
 'files:save-response'
+
+// Load Testing operations
+'loadtest:start'            // Start a load test with configuration
+'loadtest:progress'         // Progress events during test execution
+'loadtest:summary'          // Final test results summary
+'loadtest:cancel'           // Cancel a running test
+'loadtest:export-csv'       // Export test results as CSV
+'loadtest:export-pdf'       // Export test summary as PDF
 ```
 
 ## UI/UX Requirements

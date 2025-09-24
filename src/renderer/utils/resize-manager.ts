@@ -32,7 +32,7 @@ export class ResizeManager {
     this.currentHandle = handle;
     this.startX = e.clientX;
 
-    const panel = handle.closest('.collections-panel, .request-panel') as HTMLElement;
+    const panel = handle.closest('.collections-panel, .request-panel, .json-input-panel') as HTMLElement;
     if (panel) {
       this.startWidth = panel.offsetWidth;
     }
@@ -48,7 +48,7 @@ export class ResizeManager {
     const deltaX = e.clientX - this.startX;
     const newWidth = this.startWidth + deltaX;
 
-    const panel = this.currentHandle.closest('.collections-panel, .request-panel') as HTMLElement;
+    const panel = this.currentHandle.closest('.collections-panel, .request-panel, .json-input-panel') as HTMLElement;
     if (!panel) return;
 
     const panelType = this.currentHandle.dataset.panel;
@@ -64,6 +64,19 @@ export class ResizeManager {
       const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
       panel.style.width = clampedWidth + 'px';
       panel.style.flex = 'none'; // Override flex when manually resized
+    } else if (panelType === 'json-input') {
+      const minWidth = 250;
+      const maxWidth = window.innerWidth - 300; // Leave minimum space for viewer panel
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      panel.style.width = clampedWidth + 'px';
+      panel.style.flex = 'none'; // Override flex when manually resized
+
+      // Update the viewer panel to take remaining space
+      const viewerPanel = panel.parentElement?.querySelector('.json-viewer-panel') as HTMLElement;
+      if (viewerPanel) {
+        viewerPanel.style.width = `calc(100% - ${clampedWidth}px)`;
+        viewerPanel.style.flex = 'none';
+      }
     }
   }
 

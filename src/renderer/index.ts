@@ -6,6 +6,8 @@ import { CollectionsManager } from './components/collections-manager';
 import { RequestManager } from './components/request-manager';
 import { ResponseManager } from './components/response-manager';
 import { HistoryManager } from './components/history-manager';
+import { LoadTestManager } from './components/loadtest-manager';
+import { JsonViewerTab } from './components/JsonViewerTab';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
 
@@ -22,6 +24,8 @@ class ApiCourierRenderer {
   private requestManager: RequestManager;
   private responseManager: ResponseManager;
   private historyManager: HistoryManager;
+  private loadTestManager: LoadTestManager;
+  private jsonViewerTab: JsonViewerTab;
   private themeManager: ThemeManager;
 
   constructor() {
@@ -32,6 +36,8 @@ class ApiCourierRenderer {
     this.requestManager = new RequestManager();
     this.responseManager = new ResponseManager();
     this.historyManager = new HistoryManager();
+    this.loadTestManager = new LoadTestManager();
+    this.jsonViewerTab = new JsonViewerTab();
   }
 
   async initialize(): Promise<void> {
@@ -46,6 +52,7 @@ class ApiCourierRenderer {
     this.requestManager.initialize();
     this.responseManager.initialize();
     this.historyManager.initialize();
+    await this.loadTestManager.initialize();
     resizeManager.initialize();
 
     // Load initial state after all managers are initialized

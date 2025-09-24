@@ -8,6 +8,14 @@ const IPC_CHANNELS = {
   COLLECTION_CREATE: 'collection:create',
   COLLECTION_UPDATE: 'collection:update',
   COLLECTION_DELETE: 'collection:delete',
+
+  // Load Testing channels
+  LOADTEST_START: 'loadtest:start',
+  LOADTEST_PROGRESS: 'loadtest:progress',
+  LOADTEST_SUMMARY: 'loadtest:summary',
+  LOADTEST_CANCEL: 'loadtest:cancel',
+  LOADTEST_EXPORT_CSV: 'loadtest:export-csv',
+  LOADTEST_EXPORT_PDF: 'loadtest:export-pdf',
 } as const;
 
 // Define types inline to avoid import issues
@@ -52,6 +60,69 @@ interface AppState {
   theme: AppTheme;
 }
 
+// Load Testing Types
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+
+interface RequestBody {
+  type: 'none' | 'json' | 'raw' | 'form-data' | 'form-urlencoded';
+  content: string;
+}
+
+interface LoadTestTargetFromCollection {
+  kind: 'collection';
+  requestId: string;
+}
+
+interface LoadTestTargetAdHoc {
+  kind: 'adhoc';
+  method: HttpMethod;
+  url: string;
+  params?: Record<string, string | number | boolean>;
+  headers?: Record<string, string>;
+  auth?: { type: 'none' | 'basic' | 'bearer' | 'apikey' | 'oauth2'; data?: unknown };
+  body?: RequestBody;
+}
+
+type LoadTestTarget = LoadTestTargetFromCollection | LoadTestTargetAdHoc;
+
+interface LoadTestConfig {
+  rpm: number;
+  durationSec: number;
+  target: LoadTestTarget;
+  followRedirects?: boolean;
+  insecureTLS?: boolean;
+  requestTimeoutMs?: number;
+}
+
+interface LoadTestProgressTick {
+  runId: string;
+  scheduled: number;
+  sent: number;
+  completed: number;
+  inFlight: number;
+  elapsedSec: number;
+}
+
+interface LoadTestSummary {
+  runId: string;
+  totalPlanned: number;
+  sent: number;
+  completed: number;
+  success: number;
+  error: number;
+  codeCounts: Record<string, number>;
+  minMs: number;
+  maxMs: number;
+  avgMs: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  throughputRps: number;
+  wallTimeMs: number;
+  startedAt: number;
+  finishedAt: number;
+}
+
 const apiCourierAPI = {
   store: {
     get: (): Promise<AppState> => ipcRenderer.invoke(IPC_CHANNELS.STORE_GET),
@@ -69,6 +140,25 @@ const apiCourierAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.COLLECTION_UPDATE, id, updates),
     delete: (id: string): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.COLLECTION_DELETE, id),
+  },
+
+  loadtest: {
+    start: (config: LoadTestConfig): Promise<{ runId: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LOADTEST_START, config),
+    cancel: (runId: string): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LOADTEST_CANCEL, { runId }),
+    exportCsv: (runId: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LOADTEST_EXPORT_CSV, { runId }),
+    exportPdf: (runId: string, summary: LoadTestSummary): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LOADTEST_EXPORT_PDF, { runId, summary }),
+    onProgress: (callback: (progress: LoadTestProgressTick) => void): (() => void) => {
+      ipcRenderer.on(IPC_CHANNELS.LOADTEST_PROGRESS, (_, progress) => callback(progress));
+      return () => ipcRenderer.removeAllListeners(IPC_CHANNELS.LOADTEST_PROGRESS);
+    },
+    onSummary: (callback: (summary: LoadTestSummary) => void): (() => void) => {
+      ipcRenderer.on(IPC_CHANNELS.LOADTEST_SUMMARY, (_, summary) => callback(summary));
+      return () => ipcRenderer.removeAllListeners(IPC_CHANNELS.LOADTEST_SUMMARY);
+    },
   },
 };
 

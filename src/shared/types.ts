@@ -66,6 +66,77 @@ export interface AppState {
   theme: AppTheme;
 }
 
+// Load Testing Types
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
+
+export interface RequestBody {
+  type: 'none' | 'json' | 'raw' | 'form-data' | 'form-urlencoded';
+  content: string;
+}
+
+export interface LoadTestTargetFromCollection {
+  kind: 'collection';
+  requestId: string; // reference to saved request
+}
+
+export interface LoadTestTargetAdHoc {
+  kind: 'adhoc';
+  method: HttpMethod;
+  url: string;
+  params?: Record<string, string | number | boolean>;
+  headers?: Record<string, string>;
+  auth?: { type: 'none' | 'basic' | 'bearer' | 'apikey' | 'oauth2'; data?: unknown };
+  body?: RequestBody;
+}
+
+export type LoadTestTarget = LoadTestTargetFromCollection | LoadTestTargetAdHoc;
+
+export interface LoadTestConfig {
+  rpm: number;         // requests per minute
+  durationSec: number; // total duration in seconds
+  target: LoadTestTarget;
+  followRedirects?: boolean;
+  insecureTLS?: boolean;
+  requestTimeoutMs?: number; // default to same as app default
+}
+
+export interface LoadTestProgressTick {
+  runId: string;
+  scheduled: number;   // requests scheduled so far
+  sent: number;        // requests actually dispatched
+  completed: number;   // responses received (success + error)
+  inFlight: number;
+  elapsedSec: number;
+}
+
+export interface LoadSample {
+  t0: number;           // ms epoch when request started
+  durationMs: number;   // total time
+  status?: number;      // undefined if network error
+  bytes?: number;
+  error?: string | null;
+}
+
+export interface LoadTestSummary {
+  runId: string;
+  totalPlanned: number; // rpm * duration
+  sent: number;
+  completed: number;
+  success: number;
+  error: number;
+  codeCounts: Record<string, number>;
+  minMs: number;
+  maxMs: number;
+  avgMs: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  throughputRps: number;
+  wallTimeMs: number;
+  startedAt: number;
+  finishedAt: number;
+}
+
 export interface IpcChannels {
   'store:get': () => AppState;
   'store:set': (state: Partial<AppState>) => void;

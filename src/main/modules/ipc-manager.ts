@@ -2,7 +2,9 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc';
 import { storeManager } from './store-manager';
 import { requestManager } from './request-manager';
-import { Collection, ApiRequest, AppState } from '../../shared/types';
+import { loadTestEngine } from './loadtest-engine';
+import { loadTestExporter } from './loadtest-export';
+import { Collection, ApiRequest, AppState, LoadTestConfig, LoadTestSummary } from '../../shared/types';
 import { randomUUID } from 'crypto';
 
 class IpcManager {
@@ -65,6 +67,46 @@ class IpcManager {
       const state = storeManager.getState();
       const updatedCollections = state.collections.filter(col => col.id !== id);
       storeManager.setState({ collections: updatedCollections });
+    });
+
+    // Load Testing IPC handlers
+    ipcMain.handle(IPC_CHANNELS.LOADTEST_START, async (_, config: LoadTestConfig) => {
+      try {
+        return await loadTestEngine.startLoadTest(config);
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to start load test');
+      }
+    });
+
+    ipcMain.handle(IPC_CHANNELS.LOADTEST_CANCEL, async (_, { runId }: { runId: string }) => {
+      return await loadTestEngine.cancelLoadTest(runId);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.LOADTEST_EXPORT_CSV, async (_, { runId }: { runId: string }) => {
+      return await loadTestExporter.exportCsv(runId);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.LOADTEST_EXPORT_PDF, async (_, { runId, summary }: { runId: string; summary: LoadTestSummary }) => {
+      return await loadTestExporter.exportPdf(runId, summary);
+    });
+
+    // Set up load test event forwarding
+    loadTestEngine.on('progress', (progress) => {
+      // Forward progress events to renderer
+      const { BrowserWindow } = require('electron');
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window: any) => {
+        window.webContents.send(IPC_CHANNELS.LOADTEST_PROGRESS, progress);
+      });
+    });
+
+    loadTestEngine.on('summary', (summary) => {
+      // Forward summary events to renderer
+      const { BrowserWindow } = require('electron');
+      const windows = BrowserWindow.getAllWindows();
+      windows.forEach((window: any) => {
+        window.webContents.send(IPC_CHANNELS.LOADTEST_SUMMARY, summary);
+      });
     });
   }
 }

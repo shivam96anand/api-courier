@@ -5,6 +5,14 @@ export const IPC_CHANNELS = {
   COLLECTION_CREATE: 'collection:create',
   COLLECTION_UPDATE: 'collection:update',
   COLLECTION_DELETE: 'collection:delete',
+
+  // Load Testing channels
+  LOADTEST_START: 'loadtest:start',
+  LOADTEST_PROGRESS: 'loadtest:progress',
+  LOADTEST_SUMMARY: 'loadtest:summary',
+  LOADTEST_CANCEL: 'loadtest:cancel',
+  LOADTEST_EXPORT_CSV: 'loadtest:export-csv',
+  LOADTEST_EXPORT_PDF: 'loadtest:export-pdf',
 } as const;
 
 export type IpcChannelKey = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

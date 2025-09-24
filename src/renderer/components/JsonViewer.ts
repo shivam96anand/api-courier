@@ -26,6 +26,10 @@ export class JsonViewer {
   private currentSearchIndex = -1;
   private searchQuery = '';
   private updateTimer: number | null = null;
+  private formattedJsonText = '';
+  private totalLines = 0;
+  private resizeObserver: ResizeObserver | null = null;
+  private lineHeightPx = 0;
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId);
@@ -40,18 +44,6 @@ export class JsonViewer {
   private setupDOMStructure(): void {
     this.container.innerHTML = `
       <div class="json-viewer">
-        <div class="json-viewer-toolbar">
-          <div class="search-container">
-            <input type="text" class="search-input" placeholder="Search in JSON...">
-            <span class="search-results">0/0</span>
-          </div>
-          <div class="toolbar-actions">
-            <button class="export-btn">📤 Export</button>
-            <button class="collapse-all">📁 Collapse</button>
-            <button class="expand-all">📂 Expand</button>
-            <button class="fullscreen-btn">⛶ Fullscreen</button>
-          </div>
-        </div>
         <div class="json-viewer-content">
           <div class="line-numbers"></div>
           <div class="json-content">
@@ -63,50 +55,169 @@ export class JsonViewer {
   }
 
   private bindEvents(): void {
-    const searchInput = this.container.querySelector('.search-input') as HTMLInputElement;
-    const exportBtn = this.container.querySelector('.export-btn') as HTMLButtonElement;
-    const expandAll = this.container.querySelector('.expand-all') as HTMLButtonElement;
-    const collapseAll = this.container.querySelector('.collapse-all') as HTMLButtonElement;
-    const fullscreenBtn = this.container.querySelector('.fullscreen-btn') as HTMLButtonElement;
     const nodesContainer = this.container.querySelector('.json-nodes-container') as HTMLElement;
     const content = this.container.querySelector('.json-content') as HTMLElement;
-
-    searchInput.addEventListener('input', (e) => {
-      this.searchQuery = (e.target as HTMLInputElement).value;
-      this.performSearch();
-    });
-
-    // Handle keyboard navigation for search
-    searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.navigateSearch(e.shiftKey ? -1 : 1);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        this.clearSearch();
-      }
-    });
-
-    exportBtn.addEventListener('click', () => this.exportJson());
-    expandAll.addEventListener('click', () => this.expandAll());
-    collapseAll.addEventListener('click', () => this.collapseAll());
-    fullscreenBtn.addEventListener('click', () => this.openFullscreen());
 
     nodesContainer.addEventListener('click', (e) => this.handleNodeClick(e));
 
     content.addEventListener('scroll', () => {
       this.syncLineNumbersScroll();
     });
+
+    // Set up ResizeObserver to re-measure line numbers when content changes
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+
+    this.resizeObserver = new ResizeObserver(() => {
+      this.debounceGenerateLineNumbers();
+    });
+
+    this.resizeObserver.observe(content);
+    this.resizeObserver.observe(nodesContainer);
+  }
+
+  private debounceGenerateLineNumbers(): void {
+    if (this.updateTimer) {
+      cancelAnimationFrame(this.updateTimer);
+    }
+
+    this.updateTimer = requestAnimationFrame(() => {
+      this.generateLineNumbers();
+    }) as unknown as number;
   }
 
   public setData(jsonData: any): void {
     this.jsonData = jsonData;
     this.parseJson();
-    this.renderNodes();
-    this.updateLineNumbersBatched(); // Use batched for initial load
-    this.syncLineNumbersScroll();
-    // Perform search without triggering another line number update
-    this.performSearchWithoutUpdate();
+    this.renderNodesOptimized();
+    // Use requestAnimationFrame to ensure DOM is updated before measuring
+    requestAnimationFrame(() => {
+      this.generateLineNumbers();
+      this.syncLineNumbersScroll();
+    });
+  }
+
+  private renderJsonAsText(): void {
+    if (!this.jsonData) {
+      this.formattedJsonText = '';
+      this.totalLines = 0;
+      return;
+    }
+
+    try {
+      // Format JSON with proper indentation
+      this.formattedJsonText = JSON.stringify(this.jsonData, null, 2);
+
+      // Count total lines
+      this.totalLines = this.formattedJsonText.split('\n').length;
+
+      // Render the text content
+      const textContent = this.container.querySelector('.json-text-content') as HTMLElement;
+      if (textContent) {
+        textContent.textContent = this.formattedJsonText;
+      }
+    } catch (error) {
+      console.error('Failed to format JSON:', error);
+      this.formattedJsonText = 'Invalid JSON data';
+      this.totalLines = 1;
+
+      const textContent = this.container.querySelector('.json-text-content') as HTMLElement;
+      if (textContent) {
+        textContent.textContent = this.formattedJsonText;
+      }
+    }
+  }
+
+  private generateLineNumbers(): void {
+    const lineNumbers = this.container.querySelector('.line-numbers') as HTMLElement;
+    const nodesContainer = this.container.querySelector('.json-nodes-container') as HTMLElement;
+    if (!lineNumbers || !nodesContainer) return;
+
+    // Get all rendered node elements in DOM order
+    const nodeElements = nodesContainer.querySelectorAll('.json-node, .json-node-bracket');
+    const fragment = document.createDocumentFragment();
+
+    // Measure baseline line height if not done already
+    if (this.lineHeightPx === 0) {
+      this.measureLineHeight();
+    }
+
+    let lineNumber = 1;
+
+    // Performance safeguard: for very large JSON (>1000 nodes), use simple 1:1 mapping
+    if (nodeElements.length > 1000) {
+      nodeElements.forEach((element: Element) => {
+        const nodeElement = element as HTMLElement;
+        const lineDiv = document.createElement('div');
+        lineDiv.className = 'line-number';
+        lineDiv.textContent = lineNumber.toString();
+
+        // Match node height exactly
+        const nodeHeight = nodeElement.getBoundingClientRect().height;
+        lineDiv.style.height = `${nodeHeight}px`;
+        lineDiv.style.lineHeight = `${nodeHeight}px`;
+
+        fragment.appendChild(lineDiv);
+        lineNumber++;
+      });
+    } else {
+      // Precise line-by-line approach
+      nodeElements.forEach((element: Element) => {
+        const nodeElement = element as HTMLElement;
+        const nodeHeight = nodeElement.getBoundingClientRect().height;
+
+        // Calculate how many actual text lines this node contains
+        const visualLines = Math.max(1, Math.round(nodeHeight / this.lineHeightPx));
+
+        // Create a line number for each visual line
+        for (let i = 0; i < visualLines; i++) {
+          const lineDiv = document.createElement('div');
+          lineDiv.className = 'line-number';
+          lineDiv.textContent = lineNumber.toString();
+
+          // Each line number gets exactly one line height
+          lineDiv.style.height = `${this.lineHeightPx}px`;
+          lineDiv.style.lineHeight = `${this.lineHeightPx}px`;
+          lineDiv.style.display = 'block';
+
+          fragment.appendChild(lineDiv);
+          lineNumber++;
+        }
+      });
+    }
+
+    // Clear and append new line numbers
+    lineNumbers.innerHTML = '';
+    lineNumbers.appendChild(fragment);
+  }
+
+
+  private measureLineHeight(): void {
+    const nodesContainer = this.container.querySelector('.json-nodes-container') as HTMLElement;
+    if (!nodesContainer) return;
+
+    // Create a temporary element with exactly one line of text to measure line height
+    const testElement = document.createElement('div');
+    testElement.className = 'json-node';
+    testElement.style.position = 'absolute';
+    testElement.style.visibility = 'hidden';
+    testElement.style.top = '-9999px';
+    testElement.style.left = '-9999px';
+    testElement.style.whiteSpace = 'nowrap';
+    testElement.style.height = 'auto';
+    testElement.style.minHeight = '0';
+    testElement.style.maxHeight = 'none';
+    testElement.innerHTML = '<div class="node-content"><span class="expand-icon"></span><span class="key">"test"</span><span class="separator">: </span><span class="value">"M"</span></div>';
+
+    nodesContainer.appendChild(testElement);
+    this.lineHeightPx = testElement.getBoundingClientRect().height;
+    nodesContainer.removeChild(testElement);
+
+    // Fallback if measurement fails
+    if (this.lineHeightPx <= 0) {
+      this.lineHeightPx = 20; // Reasonable default based on CSS line-height: 1.3 and font-size: 13px
+    }
   }
 
   private parseJson(): void {
@@ -168,22 +279,6 @@ export class JsonViewer {
     return 'string';
   }
 
-  private renderNodes(): void {
-    const container = this.container.querySelector('.json-nodes-container') as HTMLElement;
-    container.innerHTML = '';
-
-    const visibleNodes = this.getVisibleNodesWithClosingBrackets();
-
-    visibleNodes.forEach(nodeData => {
-      if (nodeData.isClosingBracket) {
-        const closingElement = this.createClosingBracketElement(nodeData.node!);
-        container.appendChild(closingElement);
-      } else {
-        const nodeElement = this.createNodeElement(nodeData.node!);
-        container.appendChild(nodeElement);
-      }
-    });
-  }
 
   private renderNodesOptimized(): void {
     const container = this.container.querySelector('.json-nodes-container') as HTMLElement;
@@ -427,69 +522,17 @@ export class JsonViewer {
     return result;
   }
 
-  private updateLineNumbers(): void {
-    this.updateLineNumbersImmediate();
-  }
-
-  private updateLineNumbersBatched(): void {
-    // Clear any pending updates to prevent multiple rapid calls
-    if (this.updateTimer) {
-      cancelAnimationFrame(this.updateTimer);
-    }
-
-    // Use requestAnimationFrame for smoother updates in batch scenarios
-    this.updateTimer = requestAnimationFrame(() => {
-      this.updateLineNumbersImmediate();
-    }) as unknown as number;
-  }
-
-  private updateLineNumbersImmediate(): void {
-    const lineNumbers = this.container.querySelector('.line-numbers') as HTMLElement;
-    const visibleNodes = this.getVisibleNodesWithClosingBrackets();
-
-    // Create a document fragment for batch DOM updates
-    const fragment = document.createDocumentFragment();
-    
-    visibleNodes.forEach((_, index) => {
-      const lineDiv = document.createElement('div');
-      lineDiv.className = 'line-number';
-      lineDiv.textContent = (index + 1).toString();
-      fragment.appendChild(lineDiv);
-    });
-
-    // Single DOM update
-    lineNumbers.innerHTML = '';
-    lineNumbers.appendChild(fragment);
-
-    // Sync heights immediately after DOM update
-    this.syncLineHeightsImmediate();
-  }
 
 
-  private syncLineHeightsImmediate(): void {
-    const lineNumbers = this.container.querySelectorAll('.line-number') as NodeListOf<HTMLElement>;
-    const jsonNodes = this.container.querySelectorAll('.json-node') as NodeListOf<HTMLElement>;
-
-    // Ensure we have the same number of elements
-    if (lineNumbers.length !== jsonNodes.length) return;
-
-    // Force a reflow to ensure DOM is updated, then sync heights immediately
-    this.container.offsetHeight;
-    
-    lineNumbers.forEach((lineNumber, index) => {
-      if (jsonNodes[index]) {
-        const nodeHeight = jsonNodes[index].offsetHeight;
-        lineNumber.style.minHeight = `${nodeHeight}px`;
-      }
-    });
-  }
 
   private syncLineNumbersScroll(): void {
     const lineNumbers = this.container.querySelector('.line-numbers') as HTMLElement;
     const content = this.container.querySelector('.json-content') as HTMLElement;
 
-    // Sync scroll positions
-    lineNumbers.scrollTop = content.scrollTop;
+    if (lineNumbers && content) {
+      // Sync scroll positions perfectly
+      lineNumbers.scrollTop = content.scrollTop;
+    }
   }
 
   private handleNodeClick(e: Event): void {
@@ -502,7 +545,7 @@ export class JsonViewer {
     if (!nodeId) return;
 
     const lineNumber = parseInt(nodeId);
-    const node = this.nodes.find(n => n.lineNumber === lineNumber);
+    const node = this.findNodeByLineNumber(lineNumber);
 
     if (!node || (node.type !== 'object' && node.type !== 'array')) return;
 
@@ -511,13 +554,41 @@ export class JsonViewer {
     }
   }
 
+  private findNodeByLineNumber(lineNumber: number): JsonNode | null {
+    const searchInNode = (node: JsonNode): JsonNode | null => {
+      if (node.lineNumber === lineNumber) {
+        return node;
+      }
+
+      if (node.children) {
+        for (const child of node.children) {
+          const found = searchInNode(child);
+          if (found) return found;
+        }
+      }
+
+      return null;
+    };
+
+    // Search through all root nodes
+    for (const rootNode of this.nodes) {
+      const found = searchInNode(rootNode);
+      if (found) return found;
+    }
+
+    return null;
+  }
+
   private toggleNode(node: JsonNode): void {
     node.isExpanded = !node.isExpanded;
     this.renderNodesOptimized();
-    this.updateLineNumbersBatched();
+    // Use requestAnimationFrame to ensure DOM is updated before measuring
+    requestAnimationFrame(() => {
+      this.generateLineNumbers();
+    });
   }
 
-  private expandAll(): void {
+  public expandAll(): void {
     const expandNode = (node: JsonNode) => {
       if (node.type === 'object' || node.type === 'array') {
         node.isExpanded = true;
@@ -533,10 +604,13 @@ export class JsonViewer {
     }
 
     this.renderNodesOptimized();
-    this.updateLineNumbersBatched();
+    // Use requestAnimationFrame to ensure DOM is updated before measuring
+    requestAnimationFrame(() => {
+      this.generateLineNumbers();
+    });
   }
 
-  private collapseAll(): void {
+  public collapseAll(): void {
     const collapseNode = (node: JsonNode) => {
       if (node.type === 'object' || node.type === 'array') {
         node.isExpanded = false;
@@ -552,31 +626,36 @@ export class JsonViewer {
     }
 
     this.renderNodesOptimized();
-    this.updateLineNumbersBatched();
+    // Use requestAnimationFrame to ensure DOM is updated before measuring
+    requestAnimationFrame(() => {
+      this.generateLineNumbers();
+    });
   }
 
-  private performSearch(): void {
+  public performSearch(query: string): void {
+    this.searchQuery = query;
     this.searchMatches = [];
+    this.currentSearchIndex = -1;
 
     if (!this.searchQuery.trim()) {
-      this.updateSearchResults();
-      this.renderNodes();
-      this.updateLineNumbers();
-      this.syncLineNumbersScroll();
+      this.renderNodesOptimized();
+      try {
+        this.updateSearchResults();
+      } catch (error) {
+        console.debug('Search results update skipped (toolbar not present)');
+      }
       return;
     }
 
-    const query = this.searchQuery.toLowerCase();
-
-    // Only search in visible nodes
+    const queryLower = this.searchQuery.toLowerCase();
     const visibleNodes = this.getVisibleNodes();
 
     visibleNodes.forEach(node => {
-      // Search in key - find ALL occurrences
+      // Search in key
       if (node.key) {
         const keyLower = node.key.toLowerCase();
         let startIndex = 0;
-        let index = keyLower.indexOf(query, startIndex);
+        let index = keyLower.indexOf(queryLower, startIndex);
 
         while (index !== -1) {
           this.searchMatches.push({
@@ -584,20 +663,20 @@ export class JsonViewer {
             lineNumber: node.lineNumber,
             text: node.key,
             startIndex: index,
-            endIndex: index + query.length,
+            endIndex: index + queryLower.length,
             isKey: true
           });
           startIndex = index + 1;
-          index = keyLower.indexOf(query, startIndex);
+          index = keyLower.indexOf(queryLower, startIndex);
         }
       }
 
-      // Search in value (only for non-object/array nodes) - find ALL occurrences
+      // Search in value (only for non-object/array nodes)
       if (node.type !== 'object' && node.type !== 'array') {
         const valueStr = this.formatValue(node.value, node.type);
         const valueLower = valueStr.toLowerCase();
         let startIndex = 0;
-        let index = valueLower.indexOf(query, startIndex);
+        let index = valueLower.indexOf(queryLower, startIndex);
 
         while (index !== -1) {
           this.searchMatches.push({
@@ -605,95 +684,47 @@ export class JsonViewer {
             lineNumber: node.lineNumber,
             text: valueStr,
             startIndex: index,
-            endIndex: index + query.length,
+            endIndex: index + queryLower.length,
             isKey: false
           });
           startIndex = index + 1;
-          index = valueLower.indexOf(query, startIndex);
+          index = valueLower.indexOf(queryLower, startIndex);
         }
       }
     });
 
     this.currentSearchIndex = this.searchMatches.length > 0 ? 0 : -1;
-    this.updateSearchResults();
-    this.highlightSearchMatches();
-  }
+    this.renderNodesOptimized();
 
-  private performSearchWithoutUpdate(): void {
-    this.searchMatches = [];
-
-    if (!this.searchQuery.trim()) {
-      this.updateSearchResults();
-      // Skip the render/update calls since they were already done
-      return;
+    if (this.currentSearchIndex >= 0) {
+      this.scrollToMatch();
     }
 
-    const query = this.searchQuery.toLowerCase();
-
-    // Only search in visible nodes
-    const visibleNodes = this.getVisibleNodes();
-
-    visibleNodes.forEach(node => {
-      // Search in key - find ALL occurrences
-      if (node.key) {
-        const keyLower = node.key.toLowerCase();
-        let startIndex = 0;
-        let index = keyLower.indexOf(query, startIndex);
-
-        while (index !== -1) {
-          this.searchMatches.push({
-            node,
-            lineNumber: node.lineNumber,
-            text: node.key,
-            startIndex: index,
-            endIndex: index + query.length,
-            isKey: true
-          });
-          startIndex = index + 1;
-          index = keyLower.indexOf(query, startIndex);
-        }
-      }
-
-      // Search in value (only for non-object/array nodes) - find ALL occurrences
-      if (node.type !== 'object' && node.type !== 'array') {
-        const valueStr = this.formatValue(node.value, node.type);
-        const valueLower = valueStr.toLowerCase();
-        let startIndex = 0;
-        let index = valueLower.indexOf(query, startIndex);
-
-        while (index !== -1) {
-          this.searchMatches.push({
-            node,
-            lineNumber: node.lineNumber,
-            text: valueStr,
-            startIndex: index,
-            endIndex: index + query.length,
-            isKey: false
-          });
-          startIndex = index + 1;
-          index = valueLower.indexOf(query, startIndex);
-        }
-      }
-    });
-
-    this.currentSearchIndex = this.searchMatches.length > 0 ? 0 : -1;
-    this.updateSearchResults();
-    // Skip highlightSearchMatches() since it triggers render/update cycle
+    try {
+      this.updateSearchResults();
+    } catch (error) {
+      console.debug('Search results update skipped (toolbar not present)');
+    }
   }
 
-  private navigateSearch(direction: number): void {
+
+  public navigateSearch(direction: number): void {
     if (this.searchMatches.length === 0) return;
 
-    this.currentSearchIndex += direction;
-
-    if (this.currentSearchIndex >= this.searchMatches.length) {
-      this.currentSearchIndex = 0;
-    } else if (this.currentSearchIndex < 0) {
-      this.currentSearchIndex = this.searchMatches.length - 1;
+    if (direction === 1) {
+      this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchMatches.length;
+    } else {
+      this.currentSearchIndex = this.currentSearchIndex <= 0 ? this.searchMatches.length - 1 : this.currentSearchIndex - 1;
     }
 
-    this.updateSearchResults();
     this.scrollToMatch();
+    this.renderNodesOptimized();
+
+    try {
+      this.updateSearchResults();
+    } catch (error) {
+      console.debug('Search results update skipped (toolbar not present)');
+    }
   }
 
   private scrollToMatch(): void {
@@ -721,32 +752,35 @@ export class JsonViewer {
 
   private updateSearchResults(): void {
     const resultsSpan = this.container.querySelector('.search-results') as HTMLElement;
-    const total = this.searchMatches.length;
-    const current = this.currentSearchIndex === -1 ? 0 : this.currentSearchIndex + 1;
-    resultsSpan.textContent = `${current}/${total}`;
+    if (resultsSpan) {
+      const total = this.searchMatches.length;
+      const current = this.currentSearchIndex === -1 ? 0 : this.currentSearchIndex + 1;
+      resultsSpan.textContent = `${current}/${total}`;
+    }
+    // Note: Search results are now handled by the floating search bar in ResponseManager
   }
 
-  private clearSearch(): void {
+  public clearSearch(): void {
     this.searchQuery = '';
     this.searchMatches = [];
     this.currentSearchIndex = -1;
 
-    const searchInput = this.container.querySelector('.search-input') as HTMLInputElement;
-    if (searchInput) {
-      searchInput.value = '';
+    this.renderNodesOptimized();
+
+    try {
+      this.updateSearchResults();
+    } catch (error) {
+      console.debug('Search results update skipped (toolbar not present)');
     }
-
-    this.updateSearchResults();
-    this.renderNodes();
-    this.updateLineNumbers();
-    this.syncLineNumbersScroll();
   }
 
-  private highlightSearchMatches(): void {
-    this.renderNodes();
-    this.updateLineNumbers();
-    this.syncLineNumbersScroll();
+  public getSearchInfo(): { total: number, current: number } {
+    return {
+      total: this.searchMatches.length,
+      current: this.currentSearchIndex === -1 ? 0 : this.currentSearchIndex + 1
+    };
   }
+
 
   public clear(): void {
     // Clear any pending updates
@@ -755,7 +789,16 @@ export class JsonViewer {
       this.updateTimer = null;
     }
 
+    // Disconnect ResizeObserver
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+
     this.jsonData = null;
+    this.formattedJsonText = '';
+    this.totalLines = 0;
+    this.lineHeightPx = 0;
     this.nodes = [];
     this.searchMatches = [];
     this.currentSearchIndex = -1;
@@ -763,16 +806,18 @@ export class JsonViewer {
 
     const nodesContainer = this.container.querySelector('.json-nodes-container') as HTMLElement;
     const lineNumbers = this.container.querySelector('.line-numbers') as HTMLElement;
-    const searchInput = this.container.querySelector('.search-input') as HTMLInputElement;
 
     if (nodesContainer) nodesContainer.innerHTML = '';
     if (lineNumbers) lineNumbers.innerHTML = '';
-    if (searchInput) searchInput.value = '';
 
-    this.updateSearchResults();
+    try {
+      this.updateSearchResults();
+    } catch (error) {
+      console.debug('Search results update skipped (toolbar not present)');
+    }
   }
 
-  private exportJson(): void {
+  public exportJson(): void {
     if (!this.jsonData) return;
 
     const jsonString = JSON.stringify(this.jsonData, null, 2);
@@ -788,7 +833,7 @@ export class JsonViewer {
     URL.revokeObjectURL(url);
   }
 
-  private openFullscreen(): void {
+  public openFullscreen(): void {
     if (!this.jsonData) return;
 
     // Create fullscreen modal

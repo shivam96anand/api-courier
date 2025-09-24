@@ -153,6 +153,23 @@
                                     <button class="tab active" data-section="body">Body</button>
                                     <button class="tab" data-section="headers">Headers</button>
                                 </div>
+                                <div class="response-actions" id="response-actions" style="display: none;">
+                                    <button class="response-action-btn" id="enlarge-btn" title="Open in fullscreen mode">Enlarge</button>
+                                    <button class="response-action-btn" id="copy-btn" title="Copy JSON response to clipboard">Copy</button>
+                                    <button class="response-action-btn" id="search-btn" title="Search within JSON response">Search</button>
+                                    <button class="response-action-btn" id="collapse-btn" title="Collapse all JSON nodes">Collapse</button>
+                                    <button class="response-action-btn" id="expand-btn" title="Expand all JSON nodes">Expand</button>
+                                    <button class="response-action-btn" id="top-btn" title="Scroll to top of response">Top</button>
+                                    <button class="response-action-btn" id="bottom-btn" title="Scroll to bottom of response">Bottom</button>
+                                    <button class="response-action-btn ask-ai-btn" id="ask-ai-btn" title="Ask AI about this response">Ask AI</button>
+                                </div>
+                                <div class="floating-search-bar" id="floating-search-bar" style="display: none;">
+                                    <input type="text" class="floating-search-input" placeholder="Search in JSON...">
+                                    <span class="floating-search-results">0/0</span>
+                                    <button class="floating-search-nav" id="search-prev">↑</button>
+                                    <button class="floating-search-nav" id="search-next">↓</button>
+                                    <button class="floating-search-close" id="search-close">×</button>
+                                </div>
                                 <div id="response-body" class="response-section active">
                                     <div class="response-placeholder">Send a request to see the response here</div>
                                 </div>
@@ -165,10 +182,7 @@
                 </div>
 
                 <div id="json-viewer-tab" class="tab-content">
-                    <div class="coming-soon">
-                        <h2>JSON Viewer</h2>
-                        <p>Coming Soon...</p>
-                    </div>
+                    <!-- JSON Viewer content will be rendered here by JsonViewerTab -->
                 </div>
 
                 <div id="json-compare-tab" class="tab-content">
@@ -179,10 +193,7 @@
                 </div>
 
                 <div id="load-testing-tab" class="tab-content">
-                    <div class="coming-soon">
-                        <h2>Load Testing</h2>
-                        <p>Coming Soon...</p>
-                    </div>
+                    <!-- Load testing content will be rendered here by LoadTestPage -->
                 </div>
 
                 <div id="ask-ai-tab" class="tab-content">
