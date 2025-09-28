@@ -40,7 +40,7 @@ Please wait for my specific questions about this API call. Don't provide analysi
   /**
    * Welcome message shown to user when session starts
    */
-  WELCOME_MESSAGE: "Start with a greeting",
+  WELCOME_MESSAGE: "I'm ready to analyze this API response. What would you like to know?",
 
   /**
    * Fallback response if context is too large
