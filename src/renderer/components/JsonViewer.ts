@@ -49,9 +49,21 @@ export class JsonViewer {
 
     nodesContainer.addEventListener('click', (e) => this.handleNodeClick(e));
 
+    // Debounce scroll events for better performance
+    let scrollTimeout: number | null = null;
     content.addEventListener('scroll', () => {
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      
+      // Immediate sync for visual consistency
       this.lineNumbersManager.syncLineNumbersScroll(this.container);
-    });
+      
+      // Debounced cleanup for performance
+      scrollTimeout = window.setTimeout(() => {
+        scrollTimeout = null;
+      }, 16); // ~60fps
+    }, { passive: true });
 
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();

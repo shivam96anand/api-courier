@@ -14,42 +14,22 @@ export class LineNumbersManager {
     }
 
     let lineNumber = 1;
-
-    if (nodeElements.length > 1000) {
-      nodeElements.forEach((element: Element) => {
-        const nodeElement = element as HTMLElement;
-        const lineDiv = document.createElement('div');
-        lineDiv.className = 'line-number';
-        lineDiv.textContent = lineNumber.toString();
-
-        const nodeHeight = nodeElement.getBoundingClientRect().height;
-        lineDiv.style.height = `${nodeHeight}px`;
-        lineDiv.style.lineHeight = `${nodeHeight}px`;
-
-        fragment.appendChild(lineDiv);
-        lineNumber++;
-      });
-    } else {
-      nodeElements.forEach((element: Element) => {
-        const nodeElement = element as HTMLElement;
-        const nodeHeight = nodeElement.getBoundingClientRect().height;
-
-        const visualLines = Math.max(1, Math.round(nodeHeight / this.lineHeightPx));
-
-        for (let i = 0; i < visualLines; i++) {
-          const lineDiv = document.createElement('div');
-          lineDiv.className = 'line-number';
-          lineDiv.textContent = lineNumber.toString();
-
-          lineDiv.style.height = `${this.lineHeightPx}px`;
-          lineDiv.style.lineHeight = `${this.lineHeightPx}px`;
-          lineDiv.style.display = 'block';
-
-          fragment.appendChild(lineDiv);
-          lineNumber++;
-        }
-      });
-    }
+    
+    // Use fixed line height for better performance - avoid getBoundingClientRect
+    nodeElements.forEach((element: Element) => {
+      const lineDiv = document.createElement('div');
+      lineDiv.className = 'line-number';
+      lineDiv.textContent = lineNumber.toString();
+      
+      // Use consistent line height for all elements
+      lineDiv.style.height = `${this.lineHeightPx}px`;
+      lineDiv.style.lineHeight = `${this.lineHeightPx}px`;
+      lineDiv.style.display = 'block';
+      lineDiv.style.boxSizing = 'border-box';
+      
+      fragment.appendChild(lineDiv);
+      lineNumber++;
+    });
 
     lineNumbers.innerHTML = '';
     lineNumbers.appendChild(fragment);
@@ -82,7 +62,10 @@ export class LineNumbersManager {
     const content = container.querySelector('.json-content') as HTMLElement;
 
     if (lineNumbers && content) {
-      lineNumbers.scrollTop = content.scrollTop;
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        lineNumbers.scrollTop = content.scrollTop;
+      });
     }
   }
 

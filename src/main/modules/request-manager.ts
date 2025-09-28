@@ -84,10 +84,16 @@ class RequestManager {
 
         const req = httpModule.request(options, (res) => {
           const chunks: Buffer[] = [];
+          const rawChunks: Buffer[] = [];
 
           // Handle compressed responses
           const encoding = res.headers['content-encoding'];
           let responseStream: NodeJS.ReadableStream = res;
+
+          // Collect raw compressed data for accurate size calculation
+          res.on('data', (chunk: Buffer) => {
+            rawChunks.push(chunk);
+          });
 
           if (encoding === 'gzip') {
             responseStream = res.pipe(zlib.createGunzip());
@@ -110,13 +116,18 @@ class RequestManager {
               responseHeaders[key] = Array.isArray(value) ? value.join(', ') : value || '';
             });
 
+            // Calculate correct size: use compressed size if compression was used, otherwise uncompressed size
+            const compressedSize = Buffer.concat(rawChunks).length;
+            const uncompressedSize = Buffer.byteLength(body);
+            const actualTransferSize = encoding ? compressedSize : uncompressedSize;
+
             resolve({
               status: res.statusCode || 0,
               statusText: res.statusMessage || '',
               headers: responseHeaders,
               body,
               time: endTime - startTime,
-              size: Buffer.byteLength(body),
+              size: actualTransferSize,
             });
           });
 

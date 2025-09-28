@@ -7,8 +7,8 @@
   background-color: transparent;
   overflow: hidden;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 12px;
+  line-height: 16px;
   word-spacing: -0.1em;
   letter-spacing: -0.02em;
 
@@ -27,15 +27,16 @@
       border-right: 1px solid var(--border-color);
       margin-right: 8px;
       overflow: hidden;
-      will-change: auto;
+      will-change: scroll-position;
       contain: layout style;
+      scroll-behavior: auto;
 
       .line-number {
         text-align: right;
         color: var(--text-secondary);
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 11px;
-        line-height: 14px;
+        font-size: 12px;
+        line-height: 16px;
         word-spacing: -0.1em;
         letter-spacing: -0.02em;
         opacity: 0.6;
@@ -53,12 +54,15 @@
       overflow: auto;
       position: relative;
       background-color: transparent;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
 
       .json-nodes-container {
         position: relative;
-        padding: 2px 0;
-        will-change: contents;
+        padding: 2px 0 20px 0; /* Add bottom padding to prevent cut-off */
+        will-change: scroll-position;
         contain: layout;
+        min-height: 100%;
       }
     }
   }
@@ -71,20 +75,22 @@
     overflow-wrap: break-word;
     cursor: pointer;
     padding: 1px 4px;
-    line-height: 14px;
+    line-height: 16px;
     border-radius: 4px;
     margin: 0;
     position: relative;
     box-sizing: border-box;
-    will-change: auto;
+    will-change: transform;
     contain: layout style;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 11px;
+    font-size: 12px;
     word-spacing: -0.1em;
     letter-spacing: -0.02em;
+    transition: background-color 0.1s ease-out;
 
     &:hover {
       background-color: var(--hover-color);
+      transform: translateZ(0); /* Force hardware acceleration */
     }
 
     .node-content {
@@ -198,17 +204,18 @@
     overflow-wrap: break-word;
     cursor: pointer;
     padding: 1px 4px;
-    line-height: 14px;
+    line-height: 16px;
     border-radius: 4px;
     margin: 0;
     position: relative;
     box-sizing: border-box;
-    will-change: auto;
+    will-change: transform;
     contain: layout style;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 11px;
+    font-size: 12px;
     word-spacing: -0.1em;
     letter-spacing: -0.02em;
+    transition: background-color 0.1s ease-out;
 
     &:hover {
       background-color: var(--hover-color);
