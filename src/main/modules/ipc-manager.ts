@@ -4,7 +4,8 @@ import { storeManager } from './store-manager';
 import { requestManager } from './request-manager';
 import { loadTestEngine } from './loadtest-engine';
 import { loadTestExporter } from './loadtest-export';
-import { Collection, ApiRequest, AppState, LoadTestConfig, LoadTestSummary } from '../../shared/types';
+import { oauthManager } from './oauth';
+import { Collection, ApiRequest, AppState, LoadTestConfig, LoadTestSummary, OAuthConfig } from '../../shared/types';
 import { randomUUID } from 'crypto';
 
 class IpcManager {
@@ -107,6 +108,27 @@ class IpcManager {
       windows.forEach((window: any) => {
         window.webContents.send(IPC_CHANNELS.LOADTEST_SUMMARY, summary);
       });
+    });
+
+    // OAuth IPC handlers
+    ipcMain.handle(IPC_CHANNELS.OAUTH_START_FLOW, async (_, config: OAuthConfig) => {
+      try {
+        return await oauthManager.startFlow(config);
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to start OAuth flow');
+      }
+    });
+
+    ipcMain.handle(IPC_CHANNELS.OAUTH_REFRESH_TOKEN, async (_, config: OAuthConfig) => {
+      try {
+        return await oauthManager.refreshToken(config);
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to refresh OAuth token');
+      }
+    });
+
+    ipcMain.handle(IPC_CHANNELS.OAUTH_GET_TOKEN_INFO, (_, config: OAuthConfig) => {
+      return oauthManager.getTokenInfo(config);
     });
   }
 }

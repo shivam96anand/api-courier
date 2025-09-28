@@ -384,6 +384,371 @@
   }
 }
 
+// OAuth 2.0 Styles
+.oauth-config {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.oauth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  input, select {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 12px;
+    min-height: 20px;
+
+    &::placeholder {
+      color: var(--text-secondary);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    }
+  }
+
+  // Password field with eye button
+  .password-field {
+    position: relative;
+
+    input {
+      padding-right: 40px;
+    }
+
+    .eye-button {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 14px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 2px;
+      transition: all 0.15s ease;
+
+      &:hover {
+        color: var(--text-primary);
+        background-color: var(--hover-color, rgba(0, 0, 0, 0.05));
+      }
+    }
+  }
+
+  .select-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+
+    &::after {
+      content: '';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid var(--text-secondary);
+      pointer-events: none;
+    }
+  }
+
+  .oauth-grant-type {
+    appearance: none;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    padding: 8px 32px 8px 12px;
+    border-radius: 4px;
+    width: 100%;
+  }
+}
+
+.oauth-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.oauth-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--primary-hover, var(--primary-color));
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.oauth-refresh-token {
+    background-color: var(--secondary-color, #6b7280);
+  }
+}
+
+// OAuth Advanced Options
+.oauth-essential-fields {
+  margin-bottom: 15px;
+}
+
+.oauth-auth-code-fields {
+  margin-bottom: 15px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.oauth-advanced-section {
+  margin-top: 15px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 15px;
+}
+
+.oauth-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+  user-select: none;
+
+  &:hover {
+    background-color: var(--hover-color, rgba(0, 0, 0, 0.05));
+  }
+
+  .toggle-icon {
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: transform 0.15s ease;
+  }
+
+  span:last-child {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+}
+
+.oauth-advanced-content {
+  margin-top: 10px;
+  padding-left: 20px;
+  border-left: 2px solid var(--border-color);
+}
+
+.required {
+  color: var(--error-color, #ef4444);
+  font-weight: bold;
+}
+
+// OAuth Token Information Panel
+.oauth-token-info {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: var(--bg-secondary, #f8f9fa);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+
+  &.valid {
+    border-color: #10b981; // Green border for valid tokens
+  }
+
+  &.expired {
+    border-color: #ef4444; // Red border for expired tokens
+  }
+
+  .token-info-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+
+    .token-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--success-color, #22c55e);
+    }
+
+    .token-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+  }
+
+  .token-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .token-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+
+    .token-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      min-width: 80px;
+    }
+
+    .token-value {
+      color: var(--text-primary);
+      font-family: 'Monaco', 'Menlo', monospace;
+      background-color: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--border-color);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      position: relative;
+
+      &.token-preview {
+        cursor: pointer;
+
+        &:hover {
+          background-color: var(--hover-color, rgba(0, 0, 0, 0.05));
+        }
+      }
+    }
+
+    .copy-token-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      position: relative;
+
+      // Create two rectangle effect using pseudo-elements
+      &::before {
+        content: '';
+        position: absolute;
+        width: 10px;
+        height: 12px;
+        border: 1.5px solid currentColor;
+        border-radius: 2px;
+        top: 6px;
+        left: 7px;
+        background: var(--bg-primary);
+      }
+
+      &::after {
+        content: '';
+        position: absolute;
+        width: 10px;
+        height: 12px;
+        border: 1.5px solid currentColor;
+        border-radius: 2px;
+        top: 8px;
+        left: 9px;
+        background: var(--bg-primary);
+        border-top: none;
+        border-left: none;
+      }
+
+      &:hover {
+        background: var(--bg-tertiary);
+        color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+
+      &:active {
+        transform: translateY(1px);
+      }
+    }
+  }
+
+  .token-expiry {
+    &.expires-soon {
+      .token-value {
+        color: var(--warning-color, #f59e0b);
+        border-color: var(--warning-color, #f59e0b);
+      }
+    }
+
+    &.expired {
+      .token-value {
+        color: var(--error-color, #ef4444);
+        border-color: var(--error-color, #ef4444);
+      }
+    }
+  }
+}
+
+.oauth-status {
+  display: none !important; // Always hide OAuth status box
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+
+  &.loading {
+    background-color: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
+  }
+
+  &.success {
+    background-color: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+  }
+
+  &.error {
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+  }
+}
+
 .response-content {
   flex: 1;
   display: flex;
@@ -418,6 +783,17 @@
   font-size: 12px;
   display: flex;
   justify-content: space-between;
+
+  .meta-separator {
+    color: var(--text-secondary);
+    margin: 0 12px;
+    opacity: 0.6;
+  }
+
+  span {
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 .status-success {
@@ -444,4 +820,43 @@
 
 pre, code, .json-viewer, .json-content {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+// Error Response Styling
+.response-body-error {
+  .json-viewer {
+    .error-title {
+      color: var(--error-color, #ef4444);
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .error-message {
+      color: var(--text-primary);
+      margin: 8px 0;
+    }
+
+    .error-suggestions {
+      color: var(--text-secondary);
+      font-size: 12px;
+
+      ul {
+        margin: 8px 0;
+        padding-left: 16px;
+
+        li {
+          margin: 4px 0;
+          color: var(--text-secondary);
+        }
+      }
+    }
+
+    .error-details {
+      color: var(--text-muted, var(--text-secondary));
+      font-size: 11px;
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-color);
+    }
+  }
 }

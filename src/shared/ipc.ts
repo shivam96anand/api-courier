@@ -13,6 +13,11 @@ export const IPC_CHANNELS = {
   LOADTEST_CANCEL: 'loadtest:cancel',
   LOADTEST_EXPORT_CSV: 'loadtest:export-csv',
   LOADTEST_EXPORT_PDF: 'loadtest:export-pdf',
+
+  // OAuth channels
+  OAUTH_START_FLOW: 'oauth:start-flow',
+  OAUTH_REFRESH_TOKEN: 'oauth:refresh-token',
+  OAUTH_GET_TOKEN_INFO: 'oauth:get-token-info',
 } as const;
 
 export type IpcChannelKey = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

@@ -21,7 +21,7 @@ export interface ApiRequest {
     content: string;
   };
   auth?: {
-    type: 'none' | 'basic' | 'bearer' | 'api-key';
+    type: 'none' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
     config: Record<string, string>;
   };
 }
@@ -137,6 +137,34 @@ export interface LoadTestSummary {
   finishedAt: number;
 }
 
+// OAuth 2.0 Types
+export interface OAuthConfig {
+  grantType: 'authorization_code' | 'client_credentials' | 'device_code';
+  clientId: string;
+  clientSecret?: string;
+  authUrl: string;
+  tokenUrl: string;
+  scope?: string;
+  redirectUri: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: string;
+}
+
+export interface OAuthTokenResponse {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn: number;
+  tokenType: string;
+  scope?: string;
+}
+
+export interface OAuthResult {
+  success: boolean;
+  data?: OAuthTokenResponse;
+  error?: string;
+}
+
 export interface IpcChannels {
   'store:get': () => AppState;
   'store:set': (state: Partial<AppState>) => void;
@@ -144,4 +172,7 @@ export interface IpcChannels {
   'collection:create': (collection: Omit<Collection, 'id' | 'createdAt' | 'updatedAt'>) => Collection;
   'collection:update': (id: string, updates: Partial<Collection>) => void;
   'collection:delete': (id: string) => void;
+  'oauth:start-flow': (config: OAuthConfig) => OAuthResult;
+  'oauth:refresh-token': (config: OAuthConfig) => OAuthResult;
+  'oauth:get-token-info': (config: OAuthConfig) => { isValid: boolean; expiresIn?: number };
 }

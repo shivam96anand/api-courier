@@ -13,12 +13,13 @@ export class RequestManager {
       (updates) => this.updateRequest(updates)
     );
 
-    this.dataManager = new RequestDataManager(
-      (message) => this.formHandler.showError(message)
-    );
-
     this.editorsManager = new RequestEditorsManager(
       (updates) => this.updateRequest(updates)
+    );
+
+    this.dataManager = new RequestDataManager(
+      (message) => this.formHandler.showError(message),
+      this.editorsManager
     );
   }
 

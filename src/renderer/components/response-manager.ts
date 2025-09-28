@@ -154,7 +154,7 @@ export class ResponseManager {
     const timeBadge = `<span>${response.time}ms</span>`;
     const sizeBadge = `<span>${this.formatBytes(response.size)}</span>`;
 
-    metaElement.innerHTML = `${statusBadge} ${timeBadge} ${sizeBadge}`;
+    metaElement.innerHTML = `${statusBadge}<span class="meta-separator">•</span>${timeBadge}<span class="meta-separator">•</span>${sizeBadge}`;
   }
 
   private updateResponseBody(response: ApiResponse): void {

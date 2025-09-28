@@ -16,6 +16,11 @@ const IPC_CHANNELS = {
   LOADTEST_CANCEL: 'loadtest:cancel',
   LOADTEST_EXPORT_CSV: 'loadtest:export-csv',
   LOADTEST_EXPORT_PDF: 'loadtest:export-pdf',
+
+  // OAuth channels
+  OAUTH_START_FLOW: 'oauth:start-flow',
+  OAUTH_REFRESH_TOKEN: 'oauth:refresh-token',
+  OAUTH_GET_TOKEN_INFO: 'oauth:get-token-info',
 } as const;
 
 // Define types inline to avoid import issues
@@ -30,7 +35,7 @@ interface ApiRequest {
     content: string;
   };
   auth?: {
-    type: 'none' | 'basic' | 'bearer' | 'api-key';
+    type: 'none' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
     config: Record<string, string>;
   };
 }
@@ -123,6 +128,34 @@ interface LoadTestSummary {
   finishedAt: number;
 }
 
+// OAuth 2.0 Types
+interface OAuthConfig {
+  grantType: 'authorization_code' | 'client_credentials' | 'device_code';
+  clientId: string;
+  clientSecret?: string;
+  authUrl: string;
+  tokenUrl: string;
+  scope?: string;
+  redirectUri: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: string;
+}
+
+interface OAuthTokenResponse {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn: number;
+  tokenType: string;
+  scope?: string;
+}
+
+interface OAuthResult {
+  success: boolean;
+  data?: OAuthTokenResponse;
+  error?: string;
+}
+
 const apiCourierAPI = {
   store: {
     get: (): Promise<AppState> => ipcRenderer.invoke(IPC_CHANNELS.STORE_GET),
@@ -160,8 +193,18 @@ const apiCourierAPI = {
       return () => ipcRenderer.removeAllListeners(IPC_CHANNELS.LOADTEST_SUMMARY);
     },
   },
+
+  oauth: {
+    startFlow: (config: OAuthConfig): Promise<OAuthResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OAUTH_START_FLOW, config),
+    refreshToken: (config: OAuthConfig): Promise<OAuthResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OAUTH_REFRESH_TOKEN, config),
+    getTokenInfo: (config: OAuthConfig): Promise<{ isValid: boolean; expiresIn?: number }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OAUTH_GET_TOKEN_INFO, config),
+  },
 };
 
 contextBridge.exposeInMainWorld('apiCourier', apiCourierAPI);
+contextBridge.exposeInMainWorld('electronAPI', apiCourierAPI);
 
 export type ApiCourierAPI = typeof apiCourierAPI;

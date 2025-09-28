@@ -40,6 +40,14 @@ export class RequestFormHandler {
         if (section) {
           section.classList.add('active');
         }
+
+        // If Auth tab is clicked, hide the OAuth status box completely
+        if (sectionName === 'auth') {
+          const oauthStatus = document.getElementById('oauth-status');
+          if (oauthStatus) {
+            oauthStatus.style.display = 'none';
+          }
+        }
       });
     });
   }
