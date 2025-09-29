@@ -109,24 +109,34 @@ export function summarizeLargeJson(value: any, maxTokens: number = 1000): string
   // For large content, create an intelligent summary
   if (Array.isArray(value)) {
     const itemTypes = new Set();
-    const firstFewItems = value.slice(0, 3);
+    // Show more items for small arrays, fewer for large ones
+    const sampleSize = value.length <= 5 ? value.length : Math.min(3, value.length);
+    const firstFewItems = value.slice(0, sampleSize);
 
     // Analyze item types in the array
     firstFewItems.forEach(item => {
       if (item === null) itemTypes.add('null');
       else if (Array.isArray(item)) itemTypes.add('array');
       else if (typeof item === 'object') {
-        const keys = Object.keys(item).slice(0, 3).join(', ');
-        itemTypes.add(`object{${keys}${Object.keys(item).length > 3 ? '...' : ''}}`);
+        const keys = Object.keys(item).slice(0, 5).join(', ');
+        itemTypes.add(`object{${keys}${Object.keys(item).length > 5 ? '...' : ''}}`);
       } else itemTypes.add(typeof item);
+    });
+
+    // Try to include actual sample items first
+    const detailedSample = firstFewItems.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return summarizeLargeJson(item, Math.max(300, maxTokens / 3));
+      }
+      return item;
     });
 
     const summary = {
       __type: 'array',
       __length: value.length,
-      __item_types: Array.from(itemTypes),
-      __summary: `Array with ${value.length} items of types: ${Array.from(itemTypes).join(', ')}`,
-      __sample: firstFewItems,
+      __sample_items: detailedSample,
+      __summary: `Array with ${value.length} items. Sample shows: ${Array.from(itemTypes).join(', ')}`,
+      ...(value.length > sampleSize && { __note: `Showing ${sampleSize} of ${value.length} items` })
     };
 
     const summaryString = JSON.stringify(summary, null, 2);
@@ -134,53 +144,59 @@ export function summarizeLargeJson(value: any, maxTokens: number = 1000): string
       return summaryString;
     }
 
-    // If still too large, just show structure
+    // If still too large, fall back to structure-only
     return JSON.stringify({
       __type: 'array',
       __length: value.length,
       __item_types: Array.from(itemTypes),
-      __note: 'Content truncated due to size - ask for specific indices or patterns'
+      __note: `Large array truncated. Contains ${value.length} items of types: ${Array.from(itemTypes).join(', ')}`
     }, null, 2);
   }
 
   if (typeof value === 'object' && value !== null) {
     const keys = Object.keys(value);
-    const summary: any = {
-      __type: 'object',
-      __keys: keys.length,
-      __summary: `Object with ${keys.length} keys: ${keys.slice(0, 10).join(', ')}${keys.length > 10 ? '...' : ''}`,
-    };
+    const result: any = {};
 
-    // Include sample key-value pairs within token limit
-    let currentTokens = estimateTokenCount(JSON.stringify(summary, null, 2));
-    const maxKeysToShow = Math.min(5, keys.length);
+    // Try to include actual content for each key
+    let currentTokens = 0;
+    const maxKeysToShow = Math.min(8, keys.length); // Show more keys
 
     for (let i = 0; i < maxKeysToShow; i++) {
       const key = keys[i];
-      const val = value[key];
+      let val = value[key];
 
-      let truncatedVal = val;
-      if (typeof val === 'string' && val.length > 50) {
-        truncatedVal = val.substring(0, 50) + '... [truncated]';
-      } else if (Array.isArray(val)) {
-        truncatedVal = val.length > 2 ?
-          [...val.slice(0, 2), `... [${val.length - 2} more]`] : val;
-      } else if (typeof val === 'object' && val !== null) {
-        truncatedVal = `{...} [object with ${Object.keys(val).length} keys]`;
+      // Recursively summarize nested content with generous token budget
+      if (typeof val === 'object' && val !== null) {
+        const remainingTokens = Math.max(400, (maxTokens - currentTokens) / (maxKeysToShow - i));
+        val = summarizeLargeJson(val, remainingTokens);
       }
 
-      const testSummary = { ...summary, [key]: truncatedVal };
-      const testTokens = estimateTokenCount(JSON.stringify(testSummary, null, 2));
+      // Don't truncate strings as aggressively  
+      const truncatedVal = typeof val === 'string' && val.length > 500 ? 
+        val.substring(0, 500) + '... [truncated]' : val;
+
+      // Test if adding this key would exceed limits
+      const testResult = { ...result, [key]: truncatedVal };
+      const testTokens = estimateTokenCount(JSON.stringify(testResult, null, 2));
 
       if (testTokens > maxTokens) {
+        // Add summary of remaining keys if we're stopping early
+        if (i < keys.length - 1) {
+          const remainingKeys = keys.slice(i);
+          result.__remaining_keys = {
+            __count: remainingKeys.length,
+            __keys: remainingKeys.slice(0, 5).join(', ') + (remainingKeys.length > 5 ? '...' : ''),
+            __note: 'Ask about specific keys for detailed content'
+          };
+        }
         break;
       }
 
-      summary[key] = truncatedVal;
+      result[key] = truncatedVal;
       currentTokens = testTokens;
     }
 
-    return JSON.stringify(summary, null, 2);
+    return JSON.stringify(result, null, 2);
   }
 
   // For primitives, truncate to fit token limit
