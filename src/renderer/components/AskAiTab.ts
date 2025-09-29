@@ -592,17 +592,27 @@ export class AskAiTab {
       messagesToSend.push({ role: 'system', content: session.systemPrompt });
     }
 
-    // Add context message (if this is the first user message)
-    if (isFirstUserMessage && session.contextMessage) {
+    // Add context message, but manage token usage carefully
+    if (session.contextMessage) {
       messagesToSend.push({ role: 'user', content: session.contextMessage });
-      messagesToSend.push({ role: 'assistant', content: 'I have received the API request and response context. What would you like to know about this API call?' });
+      // Only add the acknowledgment response for the first message to avoid repetition
+      if (isFirstUserMessage) {
+        messagesToSend.push({ role: 'assistant', content: 'I have received the API request and response context. What would you like to know about this API call?' });
+      }
     }
 
     // Add conversation history (only visible messages, excluding welcome message)
+    // Limit history to prevent context overflow
     const conversationHistory = session.messages.filter(m =>
       m.role !== 'system' && m.content !== AI_PROMPTS.WELCOME_MESSAGE
     );
-    messagesToSend.push(...conversationHistory);
+
+    // For follow-up questions, limit conversation history to last 4 messages to save tokens
+    const limitedHistory = isFirstUserMessage ?
+      conversationHistory :
+      conversationHistory.slice(-4);
+
+    messagesToSend.push(...limitedHistory);
 
     // Add current user message
     messagesToSend.push({ role: 'user', content: message });

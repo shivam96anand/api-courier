@@ -6,9 +6,9 @@ export const AI_CONFIG = {
   LLM_URL: 'http://127.0.0.1:8080/v1/chat/completions',
   DEFAULT_MODEL: 'qwen2.5-7b',
   DEFAULT_TEMPERATURE: 0.2,
-  DEFAULT_MAX_TOKENS: 1024,
+  DEFAULT_MAX_TOKENS: 2048,
   MAX_CONTEXT_SIZE: 120000, // 120KB limit for request/response bodies
-  MAX_TOKENS_FOR_CONTEXT: 2000, // Reserve tokens for context (out of 4096 total)
+  MAX_TOKENS_FOR_CONTEXT: 2500, // Reserve tokens for context (4096 total - 1500 for response = 2500)
 };
 
 // Types
@@ -88,10 +88,10 @@ export function maskSecrets(input: any): any {
 }
 
 /**
- * Rough token count estimation (4 chars ≈ 1 token for most content)
+ * More accurate token count estimation (3 chars ≈ 1 token for JSON content)
  */
 function estimateTokenCount(text: string): number {
-  return Math.ceil(text.length / 4);
+  return Math.ceil(text.length / 3);
 }
 
 /**
@@ -131,64 +131,67 @@ export function summarizeLargeJson(value: any, maxTokens: number = 1000): string
       return item;
     });
 
-    const summary = {
-      __type: 'array',
-      __length: value.length,
-      __sample_items: detailedSample,
-      __summary: `Array with ${value.length} items. Sample shows: ${Array.from(itemTypes).join(', ')}`,
-      ...(value.length > sampleSize && { __note: `Showing ${sampleSize} of ${value.length} items` })
-    };
+    // Instead of adding metadata fields, just return the sample items directly
+    // with a comment at the end indicating truncation
+    const summary = detailedSample;
 
     const summaryString = JSON.stringify(summary, null, 2);
     if (estimateTokenCount(summaryString) <= maxTokens) {
       return summaryString;
     }
 
-    // If still too large, fall back to structure-only
-    return JSON.stringify({
-      __type: 'array',
-      __length: value.length,
-      __item_types: Array.from(itemTypes),
-      __note: `Large array truncated. Contains ${value.length} items of types: ${Array.from(itemTypes).join(', ')}`
-    }, null, 2);
+    // If still too large, truncate to just first few items
+    const simpleSample = value.slice(0, Math.min(2, value.length));
+    return JSON.stringify(simpleSample, null, 2) +
+           `\n/* Array truncated: showing 2 of ${value.length} items */`;
   }
 
   if (typeof value === 'object' && value !== null) {
     const keys = Object.keys(value);
     const result: any = {};
 
+    // List of important keys that should always be preserved completely
+    const importantKeys = ['status', 'productCharacteristic', 'realizingResource', 'productRelationship', 'productPrice', 'productOrderItem'];
+
+    // Sort keys to prioritize important ones
+    const sortedKeys = keys.sort((a, b) => {
+      const aImportant = importantKeys.includes(a);
+      const bImportant = importantKeys.includes(b);
+      if (aImportant && !bImportant) return -1;
+      if (!aImportant && bImportant) return 1;
+      return 0;
+    });
+
     // Try to include actual content for each key
     let currentTokens = 0;
-    const maxKeysToShow = Math.min(8, keys.length); // Show more keys
+    const maxKeysToShow = Math.min(20, sortedKeys.length); // Show even more keys
 
     for (let i = 0; i < maxKeysToShow; i++) {
-      const key = keys[i];
+      const key = sortedKeys[i];
       let val = value[key];
+
+      // For important keys, give them much more generous token budget
+      const isImportantKey = importantKeys.includes(key);
 
       // Recursively summarize nested content with generous token budget
       if (typeof val === 'object' && val !== null) {
-        const remainingTokens = Math.max(400, (maxTokens - currentTokens) / (maxKeysToShow - i));
+        const remainingTokens = isImportantKey ?
+          Math.max(1000, maxTokens / 2) : // Important keys get much more space
+          Math.max(400, (maxTokens - currentTokens) / (maxKeysToShow - i));
         val = summarizeLargeJson(val, remainingTokens);
       }
 
-      // Don't truncate strings as aggressively  
-      const truncatedVal = typeof val === 'string' && val.length > 500 ? 
-        val.substring(0, 500) + '... [truncated]' : val;
+      // Don't truncate strings as aggressively, especially for important keys
+      const maxStringLength = isImportantKey ? 1000 : 500;
+      const truncatedVal = typeof val === 'string' && val.length > maxStringLength ?
+        val.substring(0, maxStringLength) + '... [truncated]' : val;
 
-      // Test if adding this key would exceed limits
+      // Test if adding this key would exceed limits (but be more lenient for important keys)
       const testResult = { ...result, [key]: truncatedVal };
       const testTokens = estimateTokenCount(JSON.stringify(testResult, null, 2));
 
-      if (testTokens > maxTokens) {
-        // Add summary of remaining keys if we're stopping early
-        if (i < keys.length - 1) {
-          const remainingKeys = keys.slice(i);
-          result.__remaining_keys = {
-            __count: remainingKeys.length,
-            __keys: remainingKeys.slice(0, 5).join(', ') + (remainingKeys.length > 5 ? '...' : ''),
-            __note: 'Ask about specific keys for detailed content'
-          };
-        }
+      if (testTokens > maxTokens && !isImportantKey) {
+        // Stop here for non-important keys only
         break;
       }
 
@@ -210,8 +213,8 @@ export function summarizeLargeJson(value: any, maxTokens: number = 1000): string
  * Builds the first turn for a new AI session with token-aware content limits
  */
 export function buildFirstTurn(requestCtx: RequestContext, responseCtx: ResponseContext): FirstTurnResult {
-  // Budget tokens carefully (targeting ~1500 tokens for context, leaving room for system prompt and response)
-  const MAX_CONTEXT_TOKENS = 1500;
+  // Budget tokens carefully (targeting ~2500 tokens for context, leaving room for response)
+  const MAX_CONTEXT_TOKENS = 2500;
 
   // Create concise request summary
   const requestSummary = `${requestCtx.method} ${requestCtx.url}`;
@@ -235,15 +238,23 @@ export function buildFirstTurn(requestCtx: RequestContext, responseCtx: Response
 
     try {
       const parsed = JSON.parse(responseCtx.body);
-      // Use token limit for response body, but show more info for very large responses
-      responseBodySummary = summarizeLargeJson(parsed, 800);
 
-      // For very large responses, add helpful context
-      if (originalSize > 50000) { // 50KB+
+      // For smaller responses (under 20KB), try sending complete JSON
+      if (originalSize < 20000) {
+        const completeJson = JSON.stringify(parsed, null, 2);
+        // Check if complete JSON fits in our token budget
+        if (estimateTokenCount(completeJson) <= 1800) {
+          responseBodySummary = completeJson;
+        } else {
+          // Even small response is too many tokens, summarize it
+          responseBodySummary = summarizeLargeJson(parsed, 1800);
+        }
+      } else {
+        // Larger responses need summarization
+        responseBodySummary = summarizeLargeJson(parsed, 1800);
         responseBodySummary += `\n\n📊 LARGE RESPONSE DETECTED (${Math.round(originalSize/1000)}KB)
-- Consider asking about specific fields or patterns
-- Use follow-up questions to dive deeper into sections
-- Response was intelligently summarized to fit context`;
+- Response was summarized due to size
+- Ask about specific sections for complete details`;
       }
     } catch {
       // Not JSON, truncate but preserve more for large responses

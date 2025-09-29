@@ -605,6 +605,9 @@
 .message-text {
   font-size: 13px;
   line-height: 1.4;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
 
   .code-block {
     background: var(--bg-primary);
