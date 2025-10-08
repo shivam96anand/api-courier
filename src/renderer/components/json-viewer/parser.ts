@@ -110,7 +110,8 @@ export class JsonParser {
       if (node.isExpanded && node.children) {
         node.children.forEach(child => addVisibleNodes(child));
 
-        if (node.children.length > 0) {
+        // Always add closing bracket for objects/arrays when expanded
+        if (node.type === 'object' || node.type === 'array') {
           result.push({node, isClosingBracket: true});
         }
       }

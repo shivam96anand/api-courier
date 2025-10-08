@@ -161,7 +161,12 @@ export class JsonNodeRenderer {
       const closeBracket = node.type === 'array' ? ']' : '}';
 
       if (node.isExpanded) {
-        displayValue = bracket;
+        // For empty arrays/objects, show both brackets on same line
+        if (node.childCount === 0) {
+          displayValue = `${bracket}${closeBracket}`;
+        } else {
+          displayValue = bracket;
+        }
       } else {
         preview = node.childCount > 0 ? ` ${node.childCount} ${node.childCount === 1 ? 'item' : 'items'} ` : ' ';
         displayValue = `${bracket}${preview}${closeBracket}`;
