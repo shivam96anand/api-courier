@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
   entry: './src/renderer/index.ts',
@@ -53,6 +54,10 @@ module.exports = {
     new webpack.DefinePlugin({
       'global': 'window',
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+    }),
+    new MonacoWebpackPlugin({
+      languages: ['json'],
+      features: ['bracketMatching', 'folding', 'find', 'format'],
     }),
   ],
   devServer: {

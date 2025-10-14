@@ -1,116 +1,103 @@
 import { ApiResponse } from '../../shared/types';
-import { JsonViewer } from './JsonViewer';
+import { ResponseState, ResponseManagerConfig } from '../types/response-types';
+import { ResponseViewer } from './response-viewer/ResponseViewer';
+import { ResponseTabs } from './response-viewer/ResponseTabs';
+import { ResponseSearch } from './response-viewer/ResponseSearch';
+import { ResponseActions } from './response-viewer/ResponseActions';
 
 export class ResponseManager {
-  private currentResponse: ApiResponse | null = null;
-  private jsonViewer: JsonViewer | null = null;
-  private isFloatingSearchVisible = false;
+  private viewer!: ResponseViewer;
+  private tabs!: ResponseTabs;
+  private search!: ResponseSearch;
+  private actions!: ResponseActions;
+  private state: ResponseState;
+  private container: HTMLElement;
 
-  initialize(): void {
-    this.setupResponseTabs();
-    this.setupResponseActions();
+  constructor(container: HTMLElement) {
+    this.container = container;
+    this.state = {
+      currentResponse: null,
+      activeTab: 'body',
+      searchQuery: '',
+      viewPreferences: {},
+      isFloatingSearchVisible: false
+    };
+
+    this.initializeComponents();
+  }
+
+  private initializeComponents(): void {
+    const config: ResponseManagerConfig = {
+      viewerConfig: {
+        prettyConfig: {},
+        rawConfig: { wrapLines: true, fontSize: 12 },
+        headersConfig: { showSize: true, groupByType: false }
+      },
+      tabsConfig: {
+        defaultTab: 'body',
+        enabledTabs: ['body', 'headers', 'meta']
+      },
+      exportConfig: {
+        defaultFormat: 'json',
+        enabledFormats: ['json', 'text', 'csv']
+      },
+      searchConfig: {
+        caseSensitive: false,
+        regex: false
+      }
+    };
+
+    this.viewer = new ResponseViewer(this.container, config.viewerConfig);
+    this.tabs = new ResponseTabs(this.container, config.tabsConfig);
+    this.search = new ResponseSearch(this.container, config.searchConfig);
+    this.actions = new ResponseActions(this.container);
+
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners(): void {
+    this.tabs.onTabChange((tab) => this.handleTabChange(tab));
+    this.search.onSearchChange((query) => this.handleSearchChange(query));
+    this.search.onNavigate((direction) => this.handleSearchNavigate(direction));
+    
+    this.actions.onCopy(() => this.copyJsonResponse());
+    this.actions.onFullscreen(() => this.toggleFullscreen());
+    this.actions.onSearch(() => this.toggleFloatingSearch());
+    this.actions.onCollapse(() => this.collapseAll());
+    this.actions.onExpand(() => this.expandAll());
+    this.actions.onScrollTop(() => this.scrollToTop());
+    this.actions.onScrollBottom(() => this.scrollToBottom());
+    this.actions.onAskAi(() => this.handleAskAI());
+
     this.listenToResponses();
     this.listenToTabChanges();
   }
 
-  private setupResponseTabs(): void {
-    const tabs = document.querySelectorAll('.response-tabs .tab');
-    const sections = document.querySelectorAll('.response-section');
-
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const sectionName = (tab as HTMLElement).dataset.section;
-
-        tabs.forEach(t => t.classList.remove('active'));
-        sections.forEach(s => s.classList.remove('active'));
-
-        tab.classList.add('active');
-        const section = document.getElementById(`response-${sectionName}`);
-        if (section) {
-          section.classList.add('active');
-        }
-
-        // Show/hide action buttons based on active tab
-        this.updateActionButtonsVisibility(sectionName);
-      });
-    });
+  initialize(): void {
+    // Backward compatibility - components are initialized in constructor now
   }
 
-  private setupResponseActions(): void {
-    // Enlarge (Fullscreen) button
-    const enlargeBtn = document.getElementById('enlarge-btn');
-    enlargeBtn?.addEventListener('click', () => this.toggleFullscreen());
-
-    // Copy button
-    const copyBtn = document.getElementById('copy-btn');
-    copyBtn?.addEventListener('click', () => this.copyJsonResponse());
-
-    // Search button
-    const searchBtn = document.getElementById('search-btn');
-    searchBtn?.addEventListener('click', () => this.toggleFloatingSearch());
-
-    // Collapse button
-    const collapseBtn = document.getElementById('collapse-btn');
-    collapseBtn?.addEventListener('click', () => this.collapseAll());
-
-    // Expand button
-    const expandBtn = document.getElementById('expand-btn');
-    expandBtn?.addEventListener('click', () => this.expandAll());
-
-    // Top button
-    const topBtn = document.getElementById('top-btn');
-    topBtn?.addEventListener('click', () => this.scrollToTop());
-
-    // Bottom button
-    const bottomBtn = document.getElementById('bottom-btn');
-    bottomBtn?.addEventListener('click', () => this.scrollToBottom());
-
-    // Ask AI button
-    const askAiBtn = document.getElementById('ask-ai-btn');
-    askAiBtn?.addEventListener('click', () => this.handleAskAI());
-
-    // Floating search bar events
-    this.setupFloatingSearchEvents();
-  }
-
-  private setupFloatingSearchEvents(): void {
-    const floatingSearchBar = document.getElementById('floating-search-bar');
-    const searchInput = floatingSearchBar?.querySelector('.floating-search-input') as HTMLInputElement;
-    const searchClose = document.getElementById('search-close');
-    const searchPrev = document.getElementById('search-prev');
-    const searchNext = document.getElementById('search-next');
-
-    searchInput?.addEventListener('input', (e) => {
-      const query = (e.target as HTMLInputElement).value;
-      this.performFloatingSearch(query);
-    });
-
-    searchInput?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.navigateFloatingSearch(e.shiftKey ? -1 : 1);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        this.hideFloatingSearch();
-      }
-    });
-
-    searchClose?.addEventListener('click', () => this.hideFloatingSearch());
-    searchPrev?.addEventListener('click', () => this.navigateFloatingSearch(-1));
-    searchNext?.addEventListener('click', () => this.navigateFloatingSearch(1));
-  }
-
-  private updateActionButtonsVisibility(activeSection: string | undefined): void {
-    const actionsContainer = document.getElementById('response-actions');
-    if (!actionsContainer) return;
-
-    // Show action buttons only for body section with JSON content
-    if (activeSection === 'body' && this.currentResponse && this.isJsonResponse()) {
-      actionsContainer.style.display = 'flex';
-    } else {
-      actionsContainer.style.display = 'none';
-      this.hideFloatingSearch(); // Hide search if switching away from body
+  private handleTabChange(tab: string): void {
+    this.state.activeTab = tab;
+    this.viewer.switchTab(tab);
+    this.actions.updateVisibility(this.state.currentResponse, tab);
+    
+    // Hide search if switching away from body
+    if (tab !== 'body') {
+      this.search.hide();
     }
+  }
+
+  private handleSearchChange(query: string): void {
+    this.state.searchQuery = query;
+    this.viewer.search(query);
+    this.updateFloatingSearchResults();
+  }
+
+  private handleSearchNavigate(direction: number): void {
+    // Navigation is handled by the viewer's search functionality
+    // This could be enhanced to provide feedback
+    this.updateFloatingSearchResults();
   }
 
   private listenToResponses(): void {
@@ -127,237 +114,45 @@ export class ResponseManager {
       const activeTab = customEvent.detail.activeTab;
 
       if (activeTab && activeTab.response) {
-        // Display the response for this tab
         this.displayResponse(activeTab.response);
       } else {
-        // Clear the response panel if no response
         this.clearResponse();
       }
     });
   }
 
   private displayResponse(response: ApiResponse): void {
-    this.currentResponse = response;
-    this.updateResponseMeta(response);
-    this.updateResponseBody(response);
-    this.updateResponseHeaders(response);
-    this.updateActionButtonsVisibility('body'); // Show buttons if JSON response
-  }
-
-
-  private updateResponseMeta(response: ApiResponse): void {
-    const metaElement = document.getElementById('response-meta');
-    if (!metaElement) return;
-
-    const statusClass = this.getStatusClass(response.status);
-    const statusBadge = `<span class="${statusClass}">${response.status} ${response.statusText}</span>`;
-    const timeBadge = `<span>${response.time}ms</span>`;
-    const sizeBadge = `<span>${this.formatBytes(response.size)}</span>`;
-
-    metaElement.innerHTML = `${statusBadge}<span class="meta-separator">•</span>${timeBadge}<span class="meta-separator">•</span>${sizeBadge}`;
-  }
-
-  private updateResponseBody(response: ApiResponse): void {
-    const bodyElement = document.getElementById('response-body');
-    if (!bodyElement) return;
-
-    if (!response.body) {
-      bodyElement.innerHTML = '<div class="response-placeholder">No response body</div>';
-      this.jsonViewer = null;
-      return;
-    }
-
-    const contentType = response.headers['content-type'] || '';
-    const isJson = contentType.includes('application/json') || this.isValidJSON(response.body);
-
-    if (isJson) {
-      try {
-        const parsed = JSON.parse(response.body);
-        this.setupJsonViewer(bodyElement, parsed);
-      } catch (e) {
-        // If JSON parsing fails, fall back to plain text
-        this.setupPlainTextView(bodyElement, response.body);
-      }
-    } else {
-      this.setupPlainTextView(bodyElement, response.body);
-    }
-  }
-
-  private setupJsonViewer(container: HTMLElement, jsonData: any): void {
-    // Clear any existing content
-    container.innerHTML = '';
-
-    // Create a container for the JSON viewer
-    const jsonContainer = document.createElement('div');
-    jsonContainer.id = 'response-json-viewer-container';
-    jsonContainer.style.height = '100%';
-    jsonContainer.style.minHeight = '400px';
-
-    container.appendChild(jsonContainer);
-
-    // Initialize the JSON viewer
-    try {
-      this.jsonViewer = new JsonViewer('response-json-viewer-container');
-      this.jsonViewer.setData(jsonData);
-    } catch (error) {
-      console.error('Failed to initialize JSON viewer:', error);
-      // Fall back to plain text if JSON viewer fails
-      this.setupPlainTextView(container, JSON.stringify(jsonData, null, 2));
-    }
-  }
-
-  private setupPlainTextView(container: HTMLElement, content: string): void {
-    this.jsonViewer = null;
-
-    const preElement = document.createElement('pre');
-    preElement.style.whiteSpace = 'pre-wrap';
-    preElement.style.wordBreak = 'break-word';
-    preElement.style.fontSize = '12px';
-    preElement.style.lineHeight = '1.4';
-    preElement.style.margin = '0';
-    preElement.style.padding = '16px';
-    preElement.style.backgroundColor = 'var(--bg-tertiary)';
-    preElement.style.border = '1px solid var(--border-color)';
-    preElement.style.borderRadius = '4px';
-    preElement.style.overflow = 'auto';
-    preElement.style.maxHeight = '400px';
-
-    const codeElement = document.createElement('code');
-    codeElement.textContent = content;
-    preElement.appendChild(codeElement);
-
-    container.innerHTML = '';
-    container.appendChild(preElement);
-  }
-
-  private updateResponseHeaders(response: ApiResponse): void {
-    const headersElement = document.getElementById('response-headers');
-    if (!headersElement) return;
-
-    if (!response.headers || Object.keys(response.headers).length === 0) {
-      headersElement.innerHTML = '<div class="response-placeholder">No response headers</div>';
-      return;
-    }
-
-    const table = document.createElement('table');
-    table.style.width = '100%';
-    table.style.borderCollapse = 'collapse';
-    table.style.fontSize = '12px';
-
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    headerRow.innerHTML = `
-      <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">Name</th>
-      <th style="text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color);">Value</th>
-    `;
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-    Object.entries(response.headers).forEach(([name, value]) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td style="padding: 8px; border-bottom: 1px solid var(--border-color); font-weight: 500;">${name}</td>
-        <td style="padding: 8px; border-bottom: 1px solid var(--border-color); word-break: break-word;">${value}</td>
-      `;
-      tbody.appendChild(row);
-    });
-    table.appendChild(tbody);
-
-    headersElement.innerHTML = '';
-    headersElement.appendChild(table);
-  }
-
-  private getStatusClass(status: number): string {
-    if (status >= 200 && status < 300) {
-      return 'status-success';
-    } else if (status >= 400) {
-      return 'status-error';
-    } else if (status >= 300) {
-      return 'status-warning';
-    }
-    return '';
-  }
-
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  }
-
-  private isValidJSON(str: string): boolean {
-    try {
-      JSON.parse(str);
-      return true;
-    } catch (e) {
-      return false;
-    }
+    this.state.currentResponse = response;
+    this.viewer.displayResponse(response);
+    this.tabs.updateTabs(response);
+    this.actions.updateVisibility(response, this.state.activeTab);
   }
 
   getCurrentResponse(): ApiResponse | null {
-    return this.currentResponse;
+    return this.state.currentResponse;
   }
 
   clearResponse(): void {
-    this.currentResponse = null;
-
-    // Clean up JSON viewer
-    if (this.jsonViewer) {
-      this.jsonViewer.clear();
-      this.jsonViewer = null;
-    }
-
-    const bodyElement = document.getElementById('response-body');
-    const headersElement = document.getElementById('response-headers');
-    const metaElement = document.getElementById('response-meta');
-    const actionsContainer = document.getElementById('response-actions');
-
-    if (bodyElement) {
-      bodyElement.innerHTML = '<div class="response-placeholder">Send a request to see the response here</div>';
-    }
-
-    if (headersElement) {
-      headersElement.innerHTML = '<div class="response-placeholder">No response headers</div>';
-    }
-
-    if (metaElement) {
-      metaElement.innerHTML = '<span>No response yet</span>';
-    }
-
-    if (actionsContainer) {
-      actionsContainer.style.display = 'none';
-    }
-
-    this.hideFloatingSearch();
+    this.state.currentResponse = null;
+    this.viewer.clear();
+    this.actions.hide();
+    this.search.hide();
   }
 
   // Action button implementations
-  private isJsonResponse(): boolean {
-    if (!this.currentResponse) return false;
-    const contentType = this.currentResponse.headers['content-type'] || '';
-    return contentType.includes('application/json') || this.isValidJSON(this.currentResponse.body || '');
-  }
-
   private toggleFullscreen(): void {
-    if (this.jsonViewer) {
-      // Use the existing fullscreen functionality from JsonViewer
-      this.jsonViewer.openFullscreen();
-    }
+    this.viewer.openFullscreen();
   }
 
   private copyJsonResponse(): void {
-    if (!this.currentResponse || !this.currentResponse.body) return;
+    if (!this.state.currentResponse || !this.state.currentResponse.body) return;
 
     try {
-      let textToCopy = this.currentResponse.body;
+      let textToCopy = this.state.currentResponse.body;
 
       // If it's JSON, format it nicely
       if (this.isJsonResponse()) {
-        const parsed = JSON.parse(this.currentResponse.body);
+        const parsed = JSON.parse(this.state.currentResponse.body);
         textToCopy = JSON.stringify(parsed, null, 2);
       }
 
@@ -379,116 +174,32 @@ export class ResponseManager {
   }
 
   private toggleFloatingSearch(): void {
-    if (this.isFloatingSearchVisible) {
-      this.hideFloatingSearch();
-    } else {
-      this.showFloatingSearch();
-    }
-  }
-
-  private showFloatingSearch(): void {
-    const floatingSearchBar = document.getElementById('floating-search-bar');
-    const searchInput = floatingSearchBar?.querySelector('.floating-search-input') as HTMLInputElement;
-
-    if (floatingSearchBar) {
-      floatingSearchBar.style.display = 'flex';
-      this.isFloatingSearchVisible = true;
-
-      // Focus the input
-      setTimeout(() => {
-        searchInput?.focus();
-      }, 100);
-    }
-  }
-
-  private hideFloatingSearch(): void {
-    const floatingSearchBar = document.getElementById('floating-search-bar');
-    const searchInput = floatingSearchBar?.querySelector('.floating-search-input') as HTMLInputElement;
-
-    if (floatingSearchBar) {
-      floatingSearchBar.style.display = 'none';
-      this.isFloatingSearchVisible = false;
-
-      // Clear search and reset
-      if (searchInput) {
-        searchInput.value = '';
-      }
-      this.clearFloatingSearch();
-    }
-  }
-
-  private performFloatingSearch(query: string): void {
-    if (this.jsonViewer && query.trim()) {
-      // Update the JsonViewer's internal search
-      this.jsonViewer.performSearch(query.trim());
-      this.updateFloatingSearchResults();
-    } else if (this.jsonViewer) {
-      this.jsonViewer.clearSearch();
-      this.updateFloatingSearchResults();
-    }
-  }
-
-  private navigateFloatingSearch(direction: number): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.navigateSearch(direction);
-      this.updateFloatingSearchResults();
-    }
-  }
-
-  private clearFloatingSearch(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.clearSearch();
-      this.updateFloatingSearchResults();
-    }
+    this.search.toggle();
   }
 
   private updateFloatingSearchResults(): void {
-    const resultsSpan = document.querySelector('.floating-search-results');
-    if (this.jsonViewer && resultsSpan) {
-      const matches = (this.jsonViewer as any).searchMatches || [];
-      const currentIndex = (this.jsonViewer as any).currentSearchIndex;
-      const total = matches.length;
-      const current = currentIndex === -1 ? 0 : currentIndex + 1;
-      resultsSpan.textContent = `${current}/${total}`;
-    }
+    // This could be enhanced to get actual search results from the viewer
+    this.search.updateResults(0, 0, -1);
   }
 
   private collapseAll(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.collapseAll();
-    }
+    this.viewer.collapseAll();
   }
 
   private expandAll(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.expandAll();
-    }
+    this.viewer.expandAll();
   }
 
   private scrollToTop(): void {
-    const responseBody = document.getElementById('response-body');
-    const jsonContent = responseBody?.querySelector('.json-content');
-
-    if (jsonContent) {
-      jsonContent.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (responseBody) {
-      responseBody.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    this.viewer.scrollToTop();
   }
 
   private scrollToBottom(): void {
-    const responseBody = document.getElementById('response-body');
-    const jsonContent = responseBody?.querySelector('.json-content');
-
-    if (jsonContent) {
-      jsonContent.scrollTo({ top: jsonContent.scrollHeight, behavior: 'smooth' });
-    } else if (responseBody) {
-      responseBody.scrollTo({ top: responseBody.scrollHeight, behavior: 'smooth' });
-    }
+    this.viewer.scrollToBottom();
   }
 
   private handleAskAI(): void {
-    if (!this.currentResponse) {
+    if (!this.state.currentResponse) {
       this.showToast('No response to analyze');
       return;
     }
@@ -500,10 +211,25 @@ export class ResponseManager {
     // We'll get the response via a custom event since we need to access TabsManager
     const askAiEvent = new CustomEvent('open-ask-ai', {
       detail: {
-        response: this.currentResponse
+        response: this.state.currentResponse
       }
     });
     document.dispatchEvent(askAiEvent);
+  }
+
+  private isJsonResponse(): boolean {
+    if (!this.state.currentResponse) return false;
+    const contentType = this.state.currentResponse.headers['content-type'] || '';
+    return contentType.includes('application/json') || this.isValidJSON(this.state.currentResponse.body || '');
+  }
+
+  private isValidJSON(str: string): boolean {
+    try {
+      JSON.parse(str);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   private showToast(message: string): void {

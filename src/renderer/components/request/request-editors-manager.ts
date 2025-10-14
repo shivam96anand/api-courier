@@ -1,99 +1,163 @@
 import { ApiRequest } from '../../../shared/types';
+import { RequestEditorsConfig, EditorType } from '../../types/request-types';
+import { RequestEditorFactory } from './editors/RequestEditorFactory';
+import { RequestEditorState } from './editors/RequestEditorState';
+import { RequestEditorValidator } from './editors/RequestEditorValidator';
+import { RequestEditorSync } from './editors/RequestEditorSync';
+import { ParamsManager } from './editors/ParamsManager';
+import { HeadersManager } from './editors/HeadersManager';
 import { RequestBodyEditor } from './RequestBodyEditor';
 
 export class RequestEditorsManager {
-  private onRequestUpdate: (updates: Partial<ApiRequest>) => void;
+  private factory!: RequestEditorFactory;
+  private state!: RequestEditorState;
+  private validator!: RequestEditorValidator;
+  private sync!: RequestEditorSync;
+  private paramsManager!: ParamsManager;
+  private headersManager!: HeadersManager;
   private bodyEditor: RequestBodyEditor | null = null;
+  private activeEditor: EditorType = 'json';
+  private onRequestUpdate: (updates: Partial<ApiRequest>) => void;
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
+    this.initializeComponents();
+  }
+
+  private initializeComponents(): void {
+    const config: RequestEditorsConfig = {
+      factoryConfig: {
+        jsonConfig: { enableValidation: true, enableBeautify: true, theme: 'default' },
+        rawConfig: { enableLineNumbers: true, enableWordWrap: true, theme: 'default' },
+        formDataConfig: { enableFileUpload: true, maxFileSize: 10485760, allowedFileTypes: ['*'] },
+        urlEncodedConfig: { enableValidation: true, showPreview: true },
+        binaryConfig: { maxFileSize: 10485760, allowedFileTypes: ['*'], showPreview: true }
+      },
+      stateConfig: {
+        persistState: true,
+        debounceMs: 300,
+        defaultEditor: 'json'
+      },
+      validatorConfig: {
+        validateOnChange: true,
+        showInlineErrors: true,
+        validationRules: {
+          'json': [],
+          'raw': [],
+          'form-data': [],
+          'x-www-form-urlencoded': [],
+          'binary': []
+        }
+      },
+      syncConfig: {
+        autoSyncHeaders: true,
+        syncContentType: true,
+        syncContentLength: false
+      }
+    };
+
+    // Find container elements from DOM
+    const editorsContainer = document.getElementById('request-editors') || document.body;
+    const paramsContainer = document.getElementById('params-container') || document.body;
+    const headersContainer = document.getElementById('headers-container') || document.body;
+
+    this.factory = new RequestEditorFactory(editorsContainer, config.factoryConfig);
+    this.state = new RequestEditorState(config.stateConfig);
+    this.validator = new RequestEditorValidator(config.validatorConfig);
+    this.sync = new RequestEditorSync(config.syncConfig);
+    this.paramsManager = new ParamsManager(paramsContainer);
+    this.headersManager = new HeadersManager(headersContainer);
+
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners(): void {
+    this.factory.onEditorChange((editor) => this.handleEditorChange());
+    this.state.onStateChange((state) => this.handleStateChange(state));
+    this.validator.onValidationChange((result) => this.handleValidationChange(result));
+    this.sync.onHeaderSync((headers) => this.handleHeaderSync(headers));
+    
+    this.paramsManager.onUpdate((params) => this.onRequestUpdate({ params }));
+    this.headersManager.onUpdate((headers) => this.onRequestUpdate({ headers }));
+  }
+
+  private handleEditorChange(): void {
+    const currentContent = this.getEditorContent();
+    this.sync.syncHeaders(currentContent, this.activeEditor);
+  }
+
+  private handleStateChange(state: any): void {
+    // Handle state persistence - could save to localStorage or trigger callbacks
+  }
+
+  private handleValidationChange(result: any): void {
+    this.displayValidationResult(result);
+  }
+
+  private handleHeaderSync(headers: Record<string, string>): void {
+    // Update headers in the headers manager
+    Object.entries(headers).forEach(([key, value]) => {
+      this.headersManager.updateHeader(key, value);
+    });
+  }
+
+  private displayValidationResult(result: any): void {
+    // Update UI with validation feedback
+    const statusElement = document.querySelector('.validation-status');
+    if (statusElement) {
+      statusElement.textContent = result.isValid ? 'Valid' : result.error;
+      statusElement.className = `validation-status ${result.isValid ? 'valid' : 'invalid'}`;
+    }
+  }
+
+  public switchEditor(type: EditorType): void {
+    if (this.activeEditor === type) return;
+
+    const currentContent = this.getEditorContent();
+    this.factory.switchEditor(this.activeEditor, type, currentContent);
+    this.activeEditor = type;
+    this.state.setActiveEditor(type);
+  }
+
+  public setContent(body: { type: string; content: any }): void {
+    if (this.bodyEditor) {
+      this.bodyEditor.setBody({
+        type: body.type as any,
+        content: body.content
+      });
+    }
+  }
+
+  public getContent(): { type: string; content: any } | null {
+    if (this.bodyEditor) {
+      return this.bodyEditor.getBody();
+    }
+    return null;
+  }
+
+  private getEditorContent(): any {
+    const editor = this.factory.getEditor(this.activeEditor);
+    return editor?.getContent() || null;
   }
 
   setupParamsEditor(): void {
-    const addParamBtn = document.querySelector('.add-param-btn');
-    const paramsEditor = document.getElementById('params-editor');
-
-    if (addParamBtn && paramsEditor) {
-      addParamBtn.addEventListener('click', () => {
-        this.addParamRow();
-      });
-
-      paramsEditor.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('remove-btn')) {
-          const row = target.closest('.kv-row');
-          if (row) {
-            row.remove();
-            this.updateParamsFromDOM();
-            // Add a new empty row if no rows left
-            if (paramsEditor.children.length === 0) {
-              this.addParamRow();
-            }
-          }
-        }
-      });
-
-      paramsEditor.addEventListener('input', () => {
-        this.updateParamsFromDOM();
-      });
-
-      paramsEditor.addEventListener('change', (e) => {
-        if ((e.target as HTMLElement).classList.contains('kv-checkbox')) {
-          this.updateRowVisualState(e.target as HTMLInputElement);
-        }
-        this.updateParamsFromDOM();
-      });
-    }
+    // ParamsManager handles this now
   }
 
   setupHeadersEditor(): void {
-    const addHeaderBtn = document.querySelector('.add-header-btn');
-    const headersEditor = document.getElementById('headers-editor');
-
-    if (addHeaderBtn && headersEditor) {
-      addHeaderBtn.addEventListener('click', () => {
-        this.addHeaderRow();
-      });
-
-      headersEditor.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('remove-btn')) {
-          const row = target.closest('.kv-row');
-          if (row) {
-            row.remove();
-            this.updateHeadersFromDOM();
-            // Add a new empty row if no rows left
-            if (headersEditor.children.length === 0) {
-              this.addHeaderRow();
-            }
-          }
-        }
-      });
-
-      headersEditor.addEventListener('input', () => {
-        this.updateHeadersFromDOM();
-      });
-
-      headersEditor.addEventListener('change', (e) => {
-        if ((e.target as HTMLElement).classList.contains('kv-checkbox')) {
-          this.updateRowVisualState(e.target as HTMLInputElement);
-        }
-        this.updateHeadersFromDOM();
-      });
-    }
+    // HeadersManager handles this now
   }
 
   setupBodyEditor(): void {
     const bodySection = document.getElementById('body-section');
     if (!bodySection) return;
 
-    // Initialize the enhanced body editor
+    // Initialize the enhanced body editor (keeping existing implementation)
     this.bodyEditor = new RequestBodyEditor(bodySection, {
       onBodyChange: (body) => {
         this.onRequestUpdate({ body });
       },
       onStatusUpdate: (type, message) => {
-        // We can add a global status handler here if needed
         if (type === 'error') {
           console.error('Body editor error:', message);
         }
@@ -251,58 +315,15 @@ export class RequestEditorsManager {
   }
 
   loadParams(params: Record<string, string>): void {
-    const paramsEditor = document.getElementById('params-editor');
-    if (!paramsEditor) return;
-
-    paramsEditor.innerHTML = '';
-
-    Object.entries(params).forEach(([key, value]) => {
-      const row = document.createElement('div');
-      row.className = 'kv-row';
-      row.innerHTML = `
-        <input type="checkbox" class="kv-checkbox" checked>
-        <input type="text" placeholder="Key" class="key-input" value="${key}">
-        <input type="text" placeholder="Value" class="value-input" value="${value}">
-        <button class="remove-btn">×</button>
-      `;
-      paramsEditor.appendChild(row);
-    });
-
-    if (paramsEditor.children.length === 0) {
-      this.addParamRow();
-    }
+    this.paramsManager.loadParams(params);
   }
 
   loadHeaders(headers: Record<string, string>): void {
-    const headersEditor = document.getElementById('headers-editor');
-    if (!headersEditor) return;
-
-    headersEditor.innerHTML = '';
-
-    Object.entries(headers).forEach(([key, value]) => {
-      const row = document.createElement('div');
-      row.className = 'kv-row';
-      row.innerHTML = `
-        <input type="checkbox" class="kv-checkbox" checked>
-        <input type="text" placeholder="Key" class="key-input" value="${key}">
-        <input type="text" placeholder="Value" class="value-input" value="${value}">
-        <button class="remove-btn">×</button>
-      `;
-      headersEditor.appendChild(row);
-    });
-
-    if (headersEditor.children.length === 0) {
-      this.addHeaderRow();
-    }
+    this.headersManager.loadHeaders(headers);
   }
 
   loadBody(body: { type: string; content: string }): void {
-    if (this.bodyEditor) {
-      this.bodyEditor.setBody({
-        type: body.type as any,
-        content: body.content
-      });
-    }
+    this.setContent(body);
   }
 
   loadAuth(auth: { type: string; config: Record<string, string> }): void {
@@ -358,22 +379,12 @@ export class RequestEditorsManager {
   }
 
   clearEditors(): void {
-    // Clear body editor using the enhanced body editor
     if (this.bodyEditor) {
       this.bodyEditor.clear();
     }
 
-    const paramsEditor = document.getElementById('params-editor');
-    if (paramsEditor) {
-      paramsEditor.innerHTML = '';
-      this.addParamRow();
-    }
-
-    const headersEditor = document.getElementById('headers-editor');
-    if (headersEditor) {
-      headersEditor.innerHTML = '';
-      this.addHeaderRow();
-    }
+    this.paramsManager.clear();
+    this.headersManager.clear();
 
     const authTypeSelect = document.getElementById('auth-type') as HTMLSelectElement;
     if (authTypeSelect) {

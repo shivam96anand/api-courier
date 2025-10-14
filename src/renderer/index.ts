@@ -12,7 +12,6 @@ import { JsonCompareTabManager } from './components/JsonCompareTab';
 import { AskAiTab } from './components/AskAiTab';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
-import { createRequestContext, createResponseContext } from '../ai/askAiService';
 
 declare global {
   interface Window {
@@ -39,12 +38,17 @@ class ApiCourierRenderer {
     this.tabsManager = new TabsManager();
     this.collectionsManager = new CollectionsManager();
     this.requestManager = new RequestManager();
-    this.responseManager = new ResponseManager();
+    
+    // Get container elements for managers that require them
+    const responseContainer = document.getElementById('response-area') || document.body;
+    const askAiContainer = document.getElementById('ask-ai-tab') || document.body;
+    
+    this.responseManager = new ResponseManager(responseContainer);
     this.historyManager = new HistoryManager();
     this.loadTestManager = new LoadTestManager();
     this.jsonViewerTab = new JsonViewerTab();
     this.jsonCompareTab = new JsonCompareTabManager();
-    this.askAiTab = new AskAiTab();
+    this.askAiTab = new AskAiTab(askAiContainer);
   }
 
   async initialize(): Promise<void> {
@@ -157,21 +161,10 @@ class ApiCourierRenderer {
       }
     });
 
-    // Listen for Ask AI requests
+    // Listen for Ask AI requests - show coming soon message
     document.addEventListener('open-ask-ai', (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const response = customEvent.detail.response;
-
-      // Get the current active tab to access request data
-      const activeTab = this.tabsManager.getActiveTab();
-      if (activeTab && activeTab.request && response) {
-        // Convert to context objects
-        const requestCtx = createRequestContext(activeTab.request);
-        const responseCtx = createResponseContext(response);
-
-        // Open Ask AI with context
-        this.askAiTab.openWithContext(requestCtx, responseCtx);
-      }
+      // Simply show the coming soon message by opening the Ask AI tab
+      this.askAiTab.openWithContext(null, null);
     });
 
     // Listen for tab switching requests (for Ask AI to switch tabs)

@@ -1,5 +1,130 @@
 /* Ask AI Styles */
 
+/* Coming Soon Styles */
+.coming-soon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--bg-primary);
+  padding: 40px;
+}
+
+.coming-soon-content {
+  text-align: center;
+  max-width: 600px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.coming-soon-icon {
+  font-size: 80px;
+  margin-bottom: 24px;
+  animation: pulse 2s infinite;
+}
+
+.coming-soon-content h2 {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.coming-soon-content h3 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 24px;
+}
+
+.coming-soon-content p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.coming-soon-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary-color);
+}
+
+.feature-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.feature-item span:last-child {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.coming-soon-note {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-bottom: 0;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .coming-soon-content {
+    padding: 20px;
+  }
+  
+  .coming-soon-content h2 {
+    font-size: 28px;
+  }
+  
+  .coming-soon-content h3 {
+    font-size: 20px;
+  }
+  
+  .coming-soon-features {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Legacy Ask AI Layout (kept for compatibility) */
 .ask-ai-layout {
   display: flex;
   height: 100%;
