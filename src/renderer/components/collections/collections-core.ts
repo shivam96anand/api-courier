@@ -34,7 +34,7 @@ export class CollectionsCore {
       (event) => this.showCreateMenu(event),
       (type, parentId) => this.showCreateDialog(type, parentId),
       (event, collectionId) => this.showContextMenu(event, collectionId),
-      (draggedId, targetFolderId) => this.operations.moveCollection(draggedId, targetFolderId),
+      (draggedId, targetFolderId) => this.handleMoveCollection(draggedId, targetFolderId),
       (id) => this.operations.findCollectionById(id)
     );
 
@@ -198,6 +198,11 @@ export class CollectionsCore {
       this.selectedCollectionId,
       filteredCollections
     );
+  }
+
+  private async handleMoveCollection(draggedId: string, targetFolderId: string): Promise<void> {
+    await this.operations.moveCollection(draggedId, targetFolderId);
+    this.renderCollections();
   }
 
 

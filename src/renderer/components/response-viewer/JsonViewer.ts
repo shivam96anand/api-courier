@@ -43,7 +43,7 @@ export class JsonViewer implements JsonViewerHandle {
       requestId: 'default',
       theme: 'light',
       fontSize: VIEWER_CONSTANTS.DEFAULT_FONT_SIZE,
-      showLineNumbers: true,
+      showLineNumbers: false,
       enableVirtualization: true,
       maxFileSize: VIEWER_CONSTANTS.MAX_FILE_SIZE,
       ...options

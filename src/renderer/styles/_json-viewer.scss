@@ -19,6 +19,7 @@
     position: relative;
 
     .line-numbers {
+      display: none; // Hidden by default
       background-color: transparent;
       padding: 4px 0;
       width: 40px;
@@ -45,7 +46,6 @@
         box-sizing: border-box;
         white-space: nowrap;
         display: block;
-        vertical-align: top;
       }
     }
 
