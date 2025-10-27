@@ -21,6 +21,14 @@ const IPC_CHANNELS = {
   OAUTH_START_FLOW: 'oauth:start-flow',
   OAUTH_REFRESH_TOKEN: 'oauth:refresh-token',
   OAUTH_GET_TOKEN_INFO: 'oauth:get-token-info',
+
+  // File operations channels
+  FILE_OPEN_DIALOG: 'file:open-dialog',
+  FILE_READ_CONTENT: 'file:read-content',
+
+  // Import channels
+  IMPORT_PARSE_PREVIEW: 'import:parse-preview',
+  IMPORT_COMMIT: 'import:commit',
 } as const;
 
 // Define types inline to avoid import issues
@@ -201,6 +209,20 @@ const apiCourierAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.OAUTH_REFRESH_TOKEN, config),
     getTokenInfo: (config: OAuthConfig): Promise<{ isValid: boolean; expiresIn?: number }> =>
       ipcRenderer.invoke(IPC_CHANNELS.OAUTH_GET_TOKEN_INFO, config),
+  },
+
+  files: {
+    openDialog: (): Promise<{ canceled: boolean; filePaths: string[] }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_DIALOG),
+    readContent: (filePath: string): Promise<{ success: boolean; content: string; filePath: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILE_READ_CONTENT, filePath),
+  },
+
+  import: {
+    parsePreview: (fileContent: string): Promise<{ success: boolean; preview?: any; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.IMPORT_PARSE_PREVIEW, fileContent),
+    commit: (preview: any): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.IMPORT_COMMIT, preview),
   },
 };
 

@@ -1,5 +1,7 @@
 import { ApiRequest, ApiResponse } from '../../shared/types';
 import { oauthManager } from './oauth';
+import { composeFinalRequest, buildFolderVars } from './variables';
+import { storeManager } from './store-manager';
 import * as http from 'http';
 import * as https from 'https';
 import * as zlib from 'zlib';
@@ -9,8 +11,29 @@ class RequestManager {
   async sendRequest(request: ApiRequest): Promise<ApiResponse> {
     const startTime = Date.now();
 
+    // Resolve variables first
+    const state = storeManager.getState();
+    const activeEnv = state.activeEnvironmentId
+      ? state.environments.find(e => e.id === state.activeEnvironmentId)
+      : undefined;
+
+    // Build folder variables from ancestor chain
+    const folderVars = buildFolderVars(request.collectionId, state.collections);
+
+    const resolvedRequest = composeFinalRequest(request, activeEnv, state.globals, folderVars);
+
+    // Create a request object with resolved values
+    const requestWithResolved: ApiRequest = {
+      ...request,
+      url: resolvedRequest.url,
+      params: resolvedRequest.params,
+      headers: resolvedRequest.headers,
+      body: resolvedRequest.body as any,
+      auth: resolvedRequest.auth,
+    };
+
     // Handle OAuth token refresh if needed
-    const updatedRequest = await this.handleOAuthRefresh(request);
+    const updatedRequest = await this.handleOAuthRefresh(requestWithResolved);
 
     return new Promise<ApiResponse>((resolve) => {
       try {
@@ -166,9 +189,10 @@ class RequestManager {
         req.end();
       } catch (error) {
         const endTime = Date.now();
+        const statusCode = this.getErrorStatusCode(error);
         const errorBody = this.formatGeneralError(error, request.url);
         resolve({
-          status: 500, // Internal Server Error - general request processing error
+          status: statusCode,
           statusText: 'Request Failed',
           headers: { 'Content-Type': 'application/json' },
           body: errorBody,
@@ -274,8 +298,7 @@ class RequestManager {
       timestamp: new Date().toLocaleString(),
       details: {
         errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : null
+        message: error instanceof Error ? error.message : String(error)
       },
       suggestions: [
         'Check the request URL for typos',
@@ -288,9 +311,19 @@ class RequestManager {
   }
 
   private getErrorStatusCode(error: any): number {
+    // Check for TypeError which typically indicates client-side errors (like invalid URL)
+    if (error instanceof TypeError) {
+      if (error.message?.includes('Invalid URL')) {
+        return 400; // Bad Request - invalid URL format
+      }
+      return 400; // Bad Request - client error
+    }
+
     const code = error.code || error.errno;
 
     switch (code) {
+      case 'ERR_INVALID_URL':
+        return 400; // Bad Request - invalid URL
       case 'ENOTFOUND':
         return 503; // Service Unavailable - can't reach the service
       case 'ECONNREFUSED':

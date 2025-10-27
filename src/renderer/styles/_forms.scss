@@ -967,3 +967,88 @@ pre, code, .json-viewer, .json-content {
     }
   }
 }
+
+// Variable highlighting and tooltips
+.variable-tooltip {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  pointer-events: none;
+  max-width: 400px;
+  animation: fadeIn 0.15s ease-in;
+
+  .variable-tooltip-name {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--primary-color);
+    margin-bottom: 4px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  }
+
+  .variable-tooltip-value {
+    font-size: 11px;
+    color: var(--text-primary);
+    word-break: break-all;
+    margin-bottom: 4px;
+    padding: 4px 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+
+    &.undefined {
+      color: var(--error-color);
+      font-style: italic;
+    }
+  }
+
+  .variable-tooltip-source {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Variable highlighting in inputs
+.url-input,
+input[type="text"],
+textarea {
+  position: relative;
+
+  &:focus {
+    .variable-highlight {
+      background-color: rgba(37, 99, 235, 0.15);
+    }
+  }
+}
+
+// Indicator that field contains variables
+.has-variables {
+  position: relative;
+
+  &::after {
+    content: '{{}}';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--text-muted);
+    pointer-events: none;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  }
+}

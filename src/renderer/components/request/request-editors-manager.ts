@@ -18,6 +18,7 @@ export class RequestEditorsManager {
   private bodyEditor: RequestBodyEditor | null = null;
   private activeEditor: EditorType = 'json';
   private onRequestUpdate: (updates: Partial<ApiRequest>) => void;
+  private currentCollectionId?: string; // Track current request's collectionId for variable resolution
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
@@ -288,6 +289,10 @@ export class RequestEditorsManager {
     authConfig.addEventListener('input', () => {
       this.updateAuthFromDOM(authType);
     });
+
+    // Dispatch event to notify that auth inputs have been rendered
+    const event = new CustomEvent('auth-inputs-rendered');
+    document.dispatchEvent(event);
   }
 
   private updateAuthFromDOM(authType: string): void {
@@ -326,7 +331,11 @@ export class RequestEditorsManager {
     this.setContent(body);
   }
 
-  loadAuth(auth: { type: string; config: Record<string, string> }): void {
+  loadAuth(auth: { type: string; config: Record<string, string> }, collectionId?: string): void {
+    // Store collectionId for variable resolution in OAuth
+    this.currentCollectionId = collectionId;
+    console.log('[Auth] Loaded auth with collectionId:', collectionId);
+
     const authTypeSelect = document.getElementById('auth-type') as HTMLSelectElement;
 
     if (authTypeSelect) {
@@ -576,18 +585,31 @@ export class RequestEditorsManager {
   }
 
   private async handleOAuthGetToken(): Promise<void> {
+    console.log('[OAuth] Get Token button clicked');
+
     const authConfig = document.getElementById('auth-config');
-    if (!authConfig) return;
+    if (!authConfig) {
+      console.error('[OAuth] Auth config element not found');
+      return;
+    }
 
     const config = this.getOAuthConfigFromDOM();
+    console.log('[OAuth] Config from DOM (with variables):', { ...config, clientSecret: config.clientSecret ? '***' : undefined });
 
     try {
       this.updateOAuthStatus('Getting token...', 'loading');
 
+      // Resolve variables in the config
+      const resolvedConfig = await this.resolveOAuthConfig(config);
+      console.log('[OAuth] Resolved config:', { ...resolvedConfig, clientSecret: resolvedConfig.clientSecret ? '***' : undefined });
+      console.log('[OAuth] Starting OAuth flow...');
+
       // Call OAuth flow through IPC
-      const result = await (window as any).electronAPI.oauth.startFlow(config);
+      const result = await (window as any).electronAPI.oauth.startFlow(resolvedConfig);
+      console.log('[OAuth] OAuth flow result:', { success: result.success, error: result.error });
 
       if (result.success) {
+        console.log('[OAuth] Token obtained successfully');
         this.showClearButton(true);
 
         const updatedConfig = {
@@ -607,16 +629,22 @@ export class RequestEditorsManager {
 
         // Update token info display
         this.updateTokenInfo(updatedConfig);
-        
-        // Hide the OAuth status box
-        const oauthStatus = document.getElementById('oauth-status');
-        if (oauthStatus) {
-          oauthStatus.style.display = 'none';
-        }
+
+        this.updateOAuthStatus('Token obtained successfully', 'success');
+
+        // Hide the OAuth status box after a short delay
+        setTimeout(() => {
+          const oauthStatus = document.getElementById('oauth-status');
+          if (oauthStatus) {
+            oauthStatus.style.display = 'none';
+          }
+        }, 2000);
       } else {
+        console.error('[OAuth] OAuth flow failed:', result.error);
         this.updateOAuthStatus(`Error: ${result.error}`, 'error');
       }
     } catch (error) {
+      console.error('[OAuth] Exception during OAuth flow:', error);
       this.updateOAuthStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   }
@@ -665,12 +693,149 @@ export class RequestEditorsManager {
     return config;
   }
 
-  updateOAuthStatus(message: string, type: 'loading' | 'success' | 'error'): void {
-    const oauthStatus = document.getElementById('oauth-status');
-    if (!oauthStatus) return;
+  /**
+   * Resolves variables in OAuth config using the same logic as request sending
+   */
+  private async resolveOAuthConfig(config: Record<string, string>): Promise<Record<string, string>> {
+    try {
+      // Get current app state
+      const state = await window.apiCourier.store.get();
 
-    // Always hide the OAuth status box - we don't want to show it anymore
-    oauthStatus.style.display = 'none';
+      // Get active environment
+      const activeEnvironment = state.activeEnvironmentId
+        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
+        : undefined;
+
+      const globals = state.globals || { variables: {} };
+
+      // Build folder variables from current request's collectionId
+      // We need to get the collectionId from the current request tab
+      const currentRequest = this.getCurrentRequestFromTab();
+      const collectionId = currentRequest?.collectionId;
+
+      console.log('[OAuth] Resolving with collectionId:', collectionId);
+
+      // Build folder variables
+      const folderVars = this.buildFolderVarsFromCollections(collectionId, state.collections);
+
+      console.log('[OAuth] Folder variables:', folderVars);
+      console.log('[OAuth] Environment variables:', activeEnvironment?.variables);
+      console.log('[OAuth] Global variables:', globals.variables);
+
+      // Resolve each field in the config
+      const resolvedConfig: Record<string, string> = {};
+
+      for (const [key, value] of Object.entries(config)) {
+        resolvedConfig[key] = this.resolveVariableInString(value, folderVars, activeEnvironment?.variables || {}, globals.variables);
+      }
+
+      return resolvedConfig;
+    } catch (error) {
+      console.error('[OAuth] Error resolving variables:', error);
+      return config; // Return original config if resolution fails
+    }
+  }
+
+  /**
+   * Simple variable resolution - replaces {{var}} with actual values
+   */
+  private resolveVariableInString(
+    input: string,
+    folderVars: Record<string, string>,
+    envVars: Record<string, string>,
+    globalVars: Record<string, string>
+  ): string {
+    // Simple regex to find {{variableName}}
+    return input.replace(/\{\{([^}]+)\}\}/g, (match, varName) => {
+      const trimmedVar = varName.trim();
+
+      // Check precedence: env > folder > global
+      if (envVars[trimmedVar] !== undefined) {
+        return envVars[trimmedVar];
+      }
+      if (folderVars[trimmedVar] !== undefined) {
+        return folderVars[trimmedVar];
+      }
+      if (globalVars[trimmedVar] !== undefined) {
+        return globalVars[trimmedVar];
+      }
+
+      // If not found, return the original placeholder
+      return match;
+    });
+  }
+
+  /**
+   * Build folder variables from collection hierarchy
+   */
+  private buildFolderVarsFromCollections(
+    collectionId: string | undefined,
+    collections: any[]
+  ): Record<string, string> {
+    if (!collectionId) return {};
+
+    const folderVars: Record<string, string> = {};
+    const ancestorChain: any[] = [];
+
+    // Build ancestor chain from child to root
+    let currentId: string | undefined = collectionId;
+    while (currentId) {
+      const collection = collections.find((c: any) => c.id === currentId);
+      if (!collection) break;
+
+      ancestorChain.push(collection);
+      currentId = collection.parentId;
+    }
+
+    // Merge variables from root to child (so child overrides parent)
+    for (let i = ancestorChain.length - 1; i >= 0; i--) {
+      const ancestor = ancestorChain[i];
+      if (ancestor.variables && ancestor.type === 'folder') {
+        Object.assign(folderVars, ancestor.variables);
+      }
+    }
+
+    return folderVars;
+  }
+
+  /**
+   * Get current request from active tab
+   */
+  private getCurrentRequestFromTab(): any {
+    // Return the stored collectionId
+    if (this.currentCollectionId) {
+      return { collectionId: this.currentCollectionId };
+    }
+    return null;
+  }
+
+  updateOAuthStatus(message: string, type: 'loading' | 'success' | 'error'): void {
+    console.log(`[OAuth] Status update: ${type} - ${message}`);
+
+    const oauthStatus = document.getElementById('oauth-status');
+    if (!oauthStatus) {
+      console.warn('[OAuth] OAuth status element not found');
+      return;
+    }
+
+    const statusText = oauthStatus.querySelector('.status-text');
+    if (statusText) {
+      statusText.textContent = message;
+    }
+
+    // Remove all status classes
+    oauthStatus.classList.remove('status-loading', 'status-success', 'status-error');
+
+    // Add the appropriate status class
+    oauthStatus.classList.add(`status-${type}`);
+
+    // Show the status box
+    oauthStatus.style.display = 'block';
+
+    // For errors, keep it visible
+    if (type === 'error') {
+      console.error('[OAuth] Error displayed to user:', message);
+    }
   }
 
   private showClearButton(show: boolean): void {

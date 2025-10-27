@@ -1,0 +1,37 @@
+{
+  "id": "env-123",
+  "name": "Production Environment",
+  "_postman_variable_scope": "environment",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.prod.example.com",
+      "enabled": true
+    },
+    {
+      "key": "token",
+      "value": "prod-token-abc123",
+      "enabled": true
+    },
+    {
+      "key": "tenant",
+      "value": "production",
+      "enabled": true
+    },
+    {
+      "key": "userName",
+      "value": "John Doe",
+      "enabled": true
+    },
+    {
+      "key": "userEmail",
+      "value": "john@example.com",
+      "enabled": true
+    },
+    {
+      "key": "disabledVar",
+      "value": "should-not-import",
+      "enabled": false
+    }
+  ]
+}

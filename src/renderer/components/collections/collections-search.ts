@@ -19,18 +19,7 @@ export class CollectionsSearch {
   }
 
   setupSearchFunctionality(): void {
-    const collectionsHeader = document.querySelector('.collections-panel .panel-header');
-    if (collectionsHeader) {
-      const importButton = document.createElement('button');
-      importButton.className = 'btn-import';
-      importButton.textContent = 'Import';
-      importButton.title = 'Import collections (coming soon)';
-
-      const addButton = document.getElementById('add-collection');
-      if (addButton) {
-        collectionsHeader.insertBefore(importButton, addButton);
-      }
-    }
+    // Note: Import button is now defined in HTML, not created dynamically
 
     const collectionsTree = document.getElementById('collections-tree');
     if (!collectionsTree) return;

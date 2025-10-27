@@ -121,7 +121,7 @@ export class TabsStateManager {
       const newTab: RequestTab = {
         id: this.generateId(),
         name: request.name,
-        request: { ...request },
+        request: { ...request, collectionId }, // Add collectionId to request
         isModified: false,
         collectionId: collectionId,
       };
@@ -145,7 +145,7 @@ export class TabsStateManager {
       const newTab: RequestTab = {
         id: this.generateId(),
         name: request.name,
-        request: { ...request },
+        request: { ...request, collectionId }, // Add collectionId to request
         response: { ...response },
         isModified: false,
         collectionId: collectionId,

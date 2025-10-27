@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { AppState, AppTheme } from '../../shared/types';
+import { AppState, AppTheme, Globals } from '../../shared/types';
 
 const defaultTheme: AppTheme = {
   name: 'blue',
@@ -9,11 +9,17 @@ const defaultTheme: AppTheme = {
   accentColor: '#1d4ed8',
 };
 
+const defaultGlobals: Globals = {
+  variables: {},
+};
+
 const defaultState: AppState = {
   collections: [],
   openTabs: [],
   history: [],
   theme: defaultTheme,
+  environments: [],
+  globals: defaultGlobals,
 };
 
 class StoreManager {
@@ -32,12 +38,16 @@ class StoreManager {
         const fileContent = readFileSync(this.dbPath, 'utf-8');
         const loadedData = JSON.parse(fileContent);
 
-        // Merge with default state to handle new fields
+        // Merge with default state to handle new fields (migration)
         this.data = {
           ...defaultState,
           ...loadedData,
           // Ensure history exists if not present
-          history: loadedData.history || []
+          history: loadedData.history || [],
+          // Migration: Add environments and globals if not present
+          environments: loadedData.environments || [],
+          activeEnvironmentId: loadedData.activeEnvironmentId,
+          globals: loadedData.globals || defaultGlobals,
         };
       } catch (error) {
         console.error('Failed to read database file, using default state:', error);

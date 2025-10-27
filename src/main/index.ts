@@ -19,9 +19,12 @@ class ApiCourierApp {
   }
 
   private setupEventHandlers(): void {
-    app.on('window-all-closed', () => {
+    app.on('window-all-closed', async () => {
       if (process.platform !== 'darwin') {
-        this.quit();
+        await this.quit();
+      } else {
+        // On macOS, flush when all windows close (app stays running)
+        await storeManager.flush();
       }
     });
 
@@ -31,11 +34,7 @@ class ApiCourierApp {
       }
     });
 
-    app.on('before-quit', () => {
-      this.isQuitting = true;
-    });
-
-    app.on('will-quit', async (event) => {
+    app.on('before-quit', async (event) => {
       if (!this.isQuitting) {
         event.preventDefault();
         await this.gracefulShutdown();
@@ -46,12 +45,15 @@ class ApiCourierApp {
   }
 
   private async gracefulShutdown(): Promise<void> {
+    console.log('Graceful shutdown: flushing database...');
     await storeManager.flush();
+    console.log('Database flushed successfully');
     windowManager.closeAllWindows();
   }
 
-  private quit(): void {
+  private async quit(): Promise<void> {
     this.isQuitting = true;
+    await storeManager.flush();
     app.quit();
   }
 }

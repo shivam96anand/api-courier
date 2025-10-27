@@ -72,4 +72,28 @@
     flex: 1;
     margin: 0;
   }
+
+  .panel-header-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .btn-import {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 16px;
+    line-height: 1;
+    transition: all 0.2s;
+
+    &:hover {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+  }
 }

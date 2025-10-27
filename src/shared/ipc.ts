@@ -18,6 +18,14 @@ export const IPC_CHANNELS = {
   OAUTH_START_FLOW: 'oauth:start-flow',
   OAUTH_REFRESH_TOKEN: 'oauth:refresh-token',
   OAUTH_GET_TOKEN_INFO: 'oauth:get-token-info',
+
+  // File operations channels
+  FILE_OPEN_DIALOG: 'file:open-dialog',
+  FILE_READ_CONTENT: 'file:read-content',
+
+  // Import channels
+  IMPORT_PARSE_PREVIEW: 'import:parse-preview',
+  IMPORT_COMMIT: 'import:commit',
 } as const;
 
 export type IpcChannelKey = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

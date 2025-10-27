@@ -1,0 +1,94 @@
+{
+  "__export_format": 4,
+  "__export_date": "2024-01-15T10:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "wrk_123",
+      "_type": "workspace",
+      "name": "Sample Workspace",
+      "description": "A simple Insomnia workspace",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "name": "Base Environment",
+      "data": {
+        "baseUrl": "https://api.example.com",
+        "apiVersion": "v1"
+      },
+      "parentId": "wrk_123"
+    },
+    {
+      "_id": "env_prod",
+      "_type": "environment",
+      "name": "Production",
+      "data": {
+        "baseUrl": "https://api.prod.example.com",
+        "token": "prod-token-xyz789"
+      },
+      "parentId": "wrk_123"
+    },
+    {
+      "_id": "fld_users",
+      "_type": "request_group",
+      "name": "Users API",
+      "parentId": "wrk_123",
+      "environment": {}
+    },
+    {
+      "_id": "req_get_users",
+      "_type": "request",
+      "name": "Get All Users",
+      "url": "{{ _.baseUrl }}/{{ _.apiVersion }}/users",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.token }}"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "page",
+          "value": "1"
+        }
+      ],
+      "body": {},
+      "parentId": "fld_users"
+    },
+    {
+      "_id": "req_create_user",
+      "_type": "request",
+      "name": "Create User",
+      "url": "{{ _.baseUrl }}/{{ _.apiVersion }}/users",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"{{ _.userName }}\",\n  \"email\": \"{{ _.userEmail }}\"\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}"
+      },
+      "parentId": "fld_users"
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "name": "Health Check",
+      "url": "{{ _.baseUrl }}/health",
+      "method": "GET",
+      "headers": [],
+      "body": {},
+      "parentId": "wrk_123"
+    }
+  ]
+}

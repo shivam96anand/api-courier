@@ -5,10 +5,34 @@
   border-bottom: 1px solid var(--border-color);
   padding: 12px 20px;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  -webkit-app-region: drag;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  margin-left: 80px; /* Space for macOS window controls */
+  -webkit-app-region: no-drag;
+}
+
+.header-center {
+  display: flex;
   justify-content: center;
   align-items: center;
-  position: relative;
-  -webkit-app-region: drag;
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  -webkit-app-region: no-drag;
 }
 
 .app-title {
@@ -17,8 +41,6 @@
 }
 
 .theme-selector {
-  position: absolute;
-  right: 20px;
   -webkit-app-region: no-drag;
 }
 

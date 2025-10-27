@@ -1,4 +1,5 @@
-import { ipcMain } from 'electron';
+import { ipcMain, dialog } from 'electron';
+import { readFileSync } from 'fs';
 import { IPC_CHANNELS } from '../../shared/ipc';
 import { storeManager } from './store-manager';
 import { requestManager } from './request-manager';
@@ -7,6 +8,7 @@ import { loadTestExporter } from './loadtest-export';
 import { oauthManager } from './oauth';
 import { Collection, ApiRequest, AppState, LoadTestConfig, LoadTestSummary, OAuthConfig } from '../../shared/types';
 import { randomUUID } from 'crypto';
+import { detectAndParse, generatePreview, parseJsonFile, ImportPreview } from './importers';
 
 class IpcManager {
   initialize(): void {
@@ -66,7 +68,25 @@ class IpcManager {
 
     ipcMain.handle(IPC_CHANNELS.COLLECTION_DELETE, (_, id: string): void => {
       const state = storeManager.getState();
-      const updatedCollections = state.collections.filter(col => col.id !== id);
+
+      // Helper to recursively find all descendant IDs
+      const getAllDescendantIds = (parentId: string, collections: Collection[]): string[] => {
+        const childIds: string[] = [];
+        collections.forEach(col => {
+          if (col.parentId === parentId) {
+            childIds.push(col.id);
+            // Recursively get descendants of this child
+            childIds.push(...getAllDescendantIds(col.id, collections));
+          }
+        });
+        return childIds;
+      };
+
+      // Get all IDs to delete (the collection itself + all descendants)
+      const idsToDelete = new Set<string>([id, ...getAllDescendantIds(id, state.collections)]);
+
+      // Filter out all collections with IDs in the deletion set
+      const updatedCollections = state.collections.filter(col => !idsToDelete.has(col.id));
       storeManager.setState({ collections: updatedCollections });
     });
 
@@ -129,6 +149,128 @@ class IpcManager {
 
     ipcMain.handle(IPC_CHANNELS.OAUTH_GET_TOKEN_INFO, (_, config: OAuthConfig) => {
       return oauthManager.getTokenInfo(config);
+    });
+
+    // File operations IPC handlers
+    ipcMain.handle(IPC_CHANNELS.FILE_OPEN_DIALOG, async () => {
+      try {
+        const result = await dialog.showOpenDialog({
+          properties: ['openFile', 'multiSelections'],
+          filters: [
+            { name: 'Collection Files', extensions: ['json', 'yaml', 'yml'] },
+            { name: 'JSON Files', extensions: ['json'] },
+            { name: 'YAML Files', extensions: ['yaml', 'yml'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
+
+        if (result.canceled || result.filePaths.length === 0) {
+          return { canceled: true, filePaths: [] };
+        }
+
+        return { canceled: false, filePaths: result.filePaths };
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to open file dialog');
+      }
+    });
+
+    ipcMain.handle(IPC_CHANNELS.FILE_READ_CONTENT, async (_, filePath: string) => {
+      try {
+        const content = readFileSync(filePath, 'utf-8');
+        return { success: true, content, filePath };
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to read file');
+      }
+    });
+
+    // Import IPC handlers
+    ipcMain.handle(IPC_CHANNELS.IMPORT_PARSE_PREVIEW, async (_, fileContent: string) => {
+      try {
+        const jsonData = parseJsonFile(fileContent);
+        const importResult = detectAndParse(jsonData);
+
+        if (importResult.kind === 'unknown') {
+          throw new Error('Unknown or unsupported file format. Please import a valid Postman or Insomnia file.');
+        }
+
+        const preview = generatePreview(importResult);
+        return { success: true, preview };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to parse import file',
+        };
+      }
+    });
+
+    ipcMain.handle(IPC_CHANNELS.IMPORT_COMMIT, async (_, preview: ImportPreview) => {
+      try {
+        const state = storeManager.getState();
+
+        // Helper function to flatten nested collections into a flat array
+        const flattenCollection = (collection: Collection): Collection[] => {
+          const result: Collection[] = [];
+
+          // Add the current collection without the children array
+          const { children, ...collectionWithoutChildren } = collection;
+          result.push(collectionWithoutChildren);
+
+          // Recursively flatten children
+          if (children && children.length > 0) {
+            children.forEach(child => {
+              result.push(...flattenCollection(child));
+            });
+          }
+
+          return result;
+        };
+
+        // Add imported collections to root level
+        const updatedCollections = [...state.collections];
+        if (preview.rootFolder) {
+          // If the root folder has children and no request (it's a wrapper folder),
+          // add its children directly instead of the wrapper
+          if (
+            preview.rootFolder.type === 'folder' &&
+            preview.rootFolder.children &&
+            preview.rootFolder.children.length > 0 &&
+            !preview.rootFolder.request
+          ) {
+            // Flatten each child and add to collections
+            preview.rootFolder.children.forEach(child => {
+              const { parentId, ...childWithoutParent } = child;
+              const flattened = flattenCollection(childWithoutParent as Collection);
+              updatedCollections.push(...flattened);
+            });
+          } else {
+            // Flatten and add the folder
+            const flattened = flattenCollection(preview.rootFolder);
+            updatedCollections.push(...flattened);
+          }
+        }
+
+        // Add imported environments
+        const updatedEnvironments = [...state.environments, ...preview.environments];
+
+        // Auto-activate first imported environment if no environment is currently active
+        let activeEnvironmentId = state.activeEnvironmentId;
+        if (!activeEnvironmentId && preview.environments.length > 0) {
+          activeEnvironmentId = preview.environments[0].id;
+        }
+
+        storeManager.setState({
+          collections: updatedCollections,
+          environments: updatedEnvironments,
+          activeEnvironmentId,
+        });
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to commit import',
+        };
+      }
     });
   }
 }

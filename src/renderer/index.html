@@ -9,16 +9,23 @@
 <body>
     <div id="app">
         <header class="app-header">
-            <div class="app-title">API Courier</div>
-            <div class="theme-selector">
-                <select id="theme-dropdown">
-                    <option value="blue">Blue</option>
-                    <option value="green">Green</option>
-                    <option value="purple">Purple</option>
-                    <option value="orange">Orange</option>
-                    <option value="red">Red</option>
-                    <option value="magenta">Magenta</option>
-                </select>
+            <div class="header-left">
+                <!-- Environment selector will be inserted here by EnvironmentManager -->
+            </div>
+            <div class="header-center">
+                <div class="app-title">API Courier</div>
+            </div>
+            <div class="header-right">
+                <div class="theme-selector">
+                    <select id="theme-dropdown">
+                        <option value="blue">Blue</option>
+                        <option value="green">Green</option>
+                        <option value="purple">Purple</option>
+                        <option value="orange">Orange</option>
+                        <option value="red">Red</option>
+                        <option value="magenta">Magenta</option>
+                    </select>
+                </div>
             </div>
         </header>
 
@@ -60,7 +67,10 @@
                         <div class="collections-panel">
                             <div class="panel-header">
                                 <h3>Collections</h3>
-                                <button class="btn-add" id="add-collection">+</button>
+                                <div class="panel-header-actions">
+                                    <button class="btn-import" id="btn-import" title="Import Collection">📥</button>
+                                    <button class="btn-add" id="add-collection" title="Add Collection">+</button>
+                                </div>
                             </div>
                             <div class="collections-tree" id="collections-tree">
                                 <div class="empty-state">No collections yet. Click + to create one.</div>

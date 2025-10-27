@@ -5,6 +5,7 @@ export interface Collection {
   parentId?: string;
   children?: Collection[];
   request?: ApiRequest;
+  variables?: Record<string, string>; // folder-scoped variables (for folders only)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,8 @@ export interface ApiRequest {
     type: 'none' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
     config: Record<string, string>;
   };
+  variables?: Record<string, string>; // request-local variables
+  collectionId?: string; // track which collection/folder this request belongs to
 }
 
 export interface ApiResponse {
@@ -57,6 +60,16 @@ export interface AppTheme {
   accentColor: string;
 }
 
+export interface Environment {
+  id: string;
+  name: string;
+  variables: Record<string, string>;
+}
+
+export interface Globals {
+  variables: Record<string, string>;
+}
+
 export interface AppState {
   collections: Collection[];
   openTabs: RequestTab[];
@@ -64,6 +77,9 @@ export interface AppState {
   activeTabId?: string;
   selectedCollectionId?: string;
   theme: AppTheme;
+  environments: Environment[];
+  activeEnvironmentId?: string;
+  globals: Globals;
 }
 
 // Load Testing Types

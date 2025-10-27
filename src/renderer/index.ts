@@ -12,6 +12,8 @@ import { JsonCompareTabManager } from './components/JsonCompareTab';
 import { AskAiTab } from './components/AskAiTab';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
+import { EnvironmentManager } from './components/environments/environment-manager';
+import { ImportManager } from './components/import/import-manager';
 
 declare global {
   interface Window {
@@ -31,6 +33,8 @@ class ApiCourierRenderer {
   private jsonCompareTab: JsonCompareTabManager;
   private askAiTab: AskAiTab;
   private themeManager: ThemeManager;
+  private environmentManager: EnvironmentManager;
+  private importManager: ImportManager;
 
   constructor() {
     this.themeManager = new ThemeManager();
@@ -38,11 +42,13 @@ class ApiCourierRenderer {
     this.tabsManager = new TabsManager();
     this.collectionsManager = new CollectionsManager();
     this.requestManager = new RequestManager();
-    
+    this.environmentManager = new EnvironmentManager();
+    this.importManager = new ImportManager(this.handleImportComplete.bind(this));
+
     // Get container elements for managers that require them
     const responseContainer = document.getElementById('response-area') || document.body;
     const askAiContainer = document.getElementById('ask-ai-tab') || document.body;
-    
+
     this.responseManager = new ResponseManager(responseContainer);
     this.historyManager = new HistoryManager();
     this.loadTestManager = new LoadTestManager();
@@ -63,9 +69,13 @@ class ApiCourierRenderer {
     this.requestManager.initialize();
     this.responseManager.initialize();
     this.historyManager.initialize();
+    this.environmentManager.initialize();
     await this.loadTestManager.initialize();
     this.askAiTab.initialize();
     resizeManager.initialize();
+
+    // Set up import button
+    this.setupImportButton();
 
     // Load initial state after all managers are initialized
     await this.loadInitialState();
@@ -81,6 +91,8 @@ class ApiCourierRenderer {
       this.collectionsManager.setCollections(state.collections);
       this.tabsManager.setTabs(state.openTabs, state.activeTabId);
       this.historyManager.setHistory((state as any).history || []);
+      this.environmentManager.setEnvironments((state as any).environments || []);
+      this.environmentManager.setActiveEnvironment((state as any).activeEnvironmentId);
     } catch (error) {
       console.error('Failed to load initial state:', error);
     }
@@ -189,6 +201,20 @@ class ApiCourierRenderer {
     }, 30000);
   }
 
+  private setupImportButton(): void {
+    const importBtn = document.getElementById('btn-import');
+    if (importBtn) {
+      importBtn.addEventListener('click', () => {
+        this.importManager.showImportDialog();
+      });
+    }
+  }
+
+  private async handleImportComplete(): Promise<void> {
+    // Reload state after import to show new collections and environments
+    await this.loadInitialState();
+  }
+
   private async saveState(): Promise<void> {
     try {
       const state = {
@@ -197,6 +223,8 @@ class ApiCourierRenderer {
         history: this.historyManager.getHistory(),
         activeTabId: this.tabsManager.getActiveTabId(),
         theme: this.themeManager.getCurrentTheme(),
+        environments: this.environmentManager.getEnvironments(),
+        activeEnvironmentId: this.environmentManager.getActiveEnvironmentId(),
       };
       await window.apiCourier.store.set(state);
     } catch (error) {

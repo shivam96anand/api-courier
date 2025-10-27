@@ -1,7 +1,9 @@
 import { ApiRequest } from '../../../shared/types';
+import { addVariableTooltips, detectVariables, buildFolderVars } from './variable-helper';
 
 export class RequestFormHandler {
   private onRequestUpdate: (updates: Partial<ApiRequest>) => void;
+  private currentCollectionId?: string;
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
@@ -20,7 +22,100 @@ export class RequestFormHandler {
     if (urlInput) {
       urlInput.addEventListener('input', () => {
         this.onRequestUpdate({ url: urlInput.value });
+        this.updateVariableIndicator(urlInput);
       });
+
+      // Initialize variable tooltips
+      this.initializeVariableTooltips(urlInput);
+    }
+
+    // Listen for auth inputs being rendered and add tooltips
+    document.addEventListener('auth-inputs-rendered', () => {
+      this.initializeAuthTooltips();
+    });
+  }
+
+  /**
+   * Refresh variable tooltips (call this when environment changes or request loads)
+   */
+  public async refreshVariableTooltips(collectionId?: string): Promise<void> {
+    this.currentCollectionId = collectionId;
+    const urlInput = document.getElementById('request-url') as HTMLInputElement;
+    if (urlInput) {
+      await this.initializeVariableTooltips(urlInput, collectionId);
+    }
+  }
+
+  /**
+   * Updates the visual indicator that a field contains variables
+   */
+  private updateVariableIndicator(inputElement: HTMLInputElement): void {
+    const variables = detectVariables(inputElement.value);
+    if (variables.length > 0) {
+      inputElement.classList.add('has-variables');
+    } else {
+      inputElement.classList.remove('has-variables');
+    }
+  }
+
+  /**
+   * Initializes variable tooltips for an input field
+   */
+  private async initializeVariableTooltips(inputElement: HTMLInputElement, collectionId?: string): Promise<void> {
+    try {
+      // Get current app state for environment and globals
+      const state = await window.apiCourier.store.get();
+      const activeEnvironment = state.activeEnvironmentId
+        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
+        : undefined;
+
+      const globals = state.globals || { variables: {} };
+
+      // Build folder variables from ancestor chain
+      const folderVars = buildFolderVars(collectionId, state.collections);
+
+      console.log('[RequestFormHandler] Building tooltips with collectionId:', collectionId);
+      console.log('[RequestFormHandler] Folder variables:', folderVars);
+
+      // Add tooltip functionality
+      addVariableTooltips(inputElement, activeEnvironment, globals, folderVars);
+
+      // Update indicator on load
+      this.updateVariableIndicator(inputElement);
+    } catch (error) {
+      console.error('Failed to initialize variable tooltips:', error);
+    }
+  }
+
+  /**
+   * Initializes variable tooltips for all auth config inputs
+   */
+  private async initializeAuthTooltips(): Promise<void> {
+    try {
+      const authConfig = document.getElementById('auth-config');
+      if (!authConfig) return;
+
+      // Get current app state for environment and globals
+      const state = await window.apiCourier.store.get();
+      const activeEnvironment = state.activeEnvironmentId
+        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
+        : undefined;
+
+      const globals = state.globals || { variables: {} };
+
+      // Build folder variables using stored collectionId
+      const folderVars = buildFolderVars(this.currentCollectionId, state.collections);
+
+      console.log('[RequestFormHandler] Initializing auth tooltips with collectionId:', this.currentCollectionId);
+
+      // Add tooltips to all input elements in auth config
+      const inputs = authConfig.querySelectorAll('input[type="text"], input[type="password"]');
+      inputs.forEach((input) => {
+        addVariableTooltips(input as HTMLInputElement, activeEnvironment, globals, folderVars);
+        this.updateVariableIndicator(input as HTMLInputElement);
+      });
+    } catch (error) {
+      console.error('Failed to initialize auth tooltips:', error);
     }
   }
 
