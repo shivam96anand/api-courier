@@ -1,6 +1,8 @@
+import type { KeyValuePair } from '../../../../shared/types';
+
 export class HeadersManager {
   private container: HTMLElement;
-  private onUpdateCallback: ((headers: Record<string, string>) => void) | null = null;
+  private onUpdateCallback: ((headers: KeyValuePair[]) => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -64,7 +66,7 @@ export class HeadersManager {
     const headersEditor = this.container.querySelector('#headers-editor');
     if (!headersEditor) return;
 
-    const headers: Record<string, string> = {};
+    const headers: KeyValuePair[] = [];
     const rows = headersEditor.querySelectorAll('.kv-row');
 
     rows.forEach(row => {
@@ -72,8 +74,12 @@ export class HeadersManager {
       const keyInput = row.querySelector('.key-input') as HTMLInputElement;
       const valueInput = row.querySelector('.value-input') as HTMLInputElement;
 
-      if (checkbox && checkbox.checked && keyInput && valueInput && keyInput.value.trim()) {
-        headers[keyInput.value.trim()] = valueInput.value.trim();
+      if (keyInput && valueInput && keyInput.value.trim()) {
+        headers.push({
+          key: keyInput.value.trim(),
+          value: valueInput.value.trim(),
+          enabled: checkbox ? checkbox.checked : true
+        });
       }
     });
 
@@ -91,17 +97,31 @@ export class HeadersManager {
     }
   }
 
-  public loadHeaders(headers: Record<string, string>): void {
+  public loadHeaders(headers: KeyValuePair[] | Record<string, string> | undefined): void {
     const headersEditor = this.container.querySelector('#headers-editor');
     if (!headersEditor) return;
 
     headersEditor.innerHTML = '';
 
-    Object.entries(headers).forEach(([key, value]) => {
+    // Convert old Record format to array format for backward compatibility
+    let headersArray: KeyValuePair[];
+    if (Array.isArray(headers)) {
+      headersArray = headers;
+    } else if (headers) {
+      headersArray = Object.entries(headers).map(([key, value]) => ({
+        key,
+        value,
+        enabled: true
+      }));
+    } else {
+      headersArray = [];
+    }
+
+    headersArray.forEach(({ key, value, enabled }) => {
       const row = document.createElement('div');
-      row.className = 'kv-row';
+      row.className = enabled ? 'kv-row' : 'kv-row disabled';
       row.innerHTML = `
-        <input type="checkbox" class="kv-checkbox" checked>
+        <input type="checkbox" class="kv-checkbox" ${enabled ? 'checked' : ''}>
         <input type="text" placeholder="Key" class="key-input" value="${key}">
         <input type="text" placeholder="Value" class="value-input" value="${value}">
         <button class="remove-btn">×</button>
@@ -122,7 +142,7 @@ export class HeadersManager {
     }
   }
 
-  public onUpdate(callback: (headers: Record<string, string>) => void): void {
+  public onUpdate(callback: (headers: KeyValuePair[]) => void): void {
     this.onUpdateCallback = callback;
   }
 

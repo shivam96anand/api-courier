@@ -2,20 +2,37 @@
  * Request building utilities
  */
 
-import { ApiRequest } from '../../shared/types';
+import { ApiRequest, KeyValuePair } from '../../shared/types';
 import { URL } from 'url';
 
 export class RequestBuilder {
   public static buildUrlWithParams(
     baseUrl: string,
-    params?: Record<string, string>
+    params?: KeyValuePair[] | Record<string, string>
   ): string {
-    if (!params || Object.keys(params).length === 0) {
+    if (!params) {
+      return baseUrl;
+    }
+
+    // Convert to Record format, filtering by enabled flag
+    let paramsRecord: Record<string, string>;
+    if (Array.isArray(params)) {
+      paramsRecord = {};
+      params.forEach(({ key, value, enabled }) => {
+        if (enabled && key.trim() && value.trim()) {
+          paramsRecord[key.trim()] = value.trim();
+        }
+      });
+    } else {
+      paramsRecord = params;
+    }
+
+    if (Object.keys(paramsRecord).length === 0) {
       return baseUrl;
     }
 
     const urlObj = new URL(baseUrl);
-    Object.entries(params).forEach(([key, value]) => {
+    Object.entries(paramsRecord).forEach(([key, value]) => {
       if (key.trim() && value.trim()) {
         urlObj.searchParams.set(key.trim(), value.trim());
       }
@@ -27,12 +44,22 @@ export class RequestBuilder {
   public static buildHeaders(request: ApiRequest): Record<string, string> {
     const cleanHeaders: Record<string, string> = {};
 
-    // Add user-specified headers
-    Object.entries(request.headers || {}).forEach(([key, value]) => {
-      if (key.trim() && value.trim()) {
-        cleanHeaders[key.trim()] = value.trim();
+    // Add user-specified headers, handling both formats
+    if (request.headers) {
+      if (Array.isArray(request.headers)) {
+        request.headers.forEach(({ key, value, enabled }) => {
+          if (enabled && key.trim() && value.trim()) {
+            cleanHeaders[key.trim()] = value.trim();
+          }
+        });
+      } else {
+        Object.entries(request.headers).forEach(([key, value]) => {
+          if (key.trim() && value.trim()) {
+            cleanHeaders[key.trim()] = value.trim();
+          }
+        });
       }
-    });
+    }
 
     // Add OAuth Authorization header if applicable
     if (

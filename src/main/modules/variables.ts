@@ -6,6 +6,8 @@
  * Supports: nested variables, default values {{var:default}}, URL encoding
  */
 
+import { KeyValuePair } from '../../shared/types';
+
 export interface ResolveOptions {
   requestVars?: Record<string, string>;
   folderVars?: Record<string, string>; // Merged from all ancestor folders (nearest first)
@@ -124,6 +126,36 @@ export function resolveObject(
 }
 
 /**
+ * Resolves variables in a KeyValuePair array
+ */
+export function resolveKeyValueArray(
+  arr: KeyValuePair[],
+  opts: ResolveOptions = {}
+): KeyValuePair[] {
+  return arr.map(({ key, value, enabled }) => ({
+    key: resolveTemplate(key, opts),
+    value: resolveTemplate(value, opts),
+    enabled
+  }));
+}
+
+/**
+ * Resolves variables in params/headers (handles both formats)
+ */
+export function resolveParamsOrHeaders(
+  input: KeyValuePair[] | Record<string, string> | undefined,
+  opts: ResolveOptions = {}
+): KeyValuePair[] | Record<string, string> {
+  if (!input) return {};
+  
+  if (Array.isArray(input)) {
+    return resolveKeyValueArray(input, opts);
+  } else {
+    return resolveObject(input, opts);
+  }
+}
+
+/**
  * Scans a string for unresolved variable placeholders
  * Returns array of variable names that couldn't be resolved
  */
@@ -156,8 +188,8 @@ export function composeFinalRequest(
   folderVars?: Record<string, string>
 ): {
   url: string;
-  params: Record<string, string>;
-  headers: Record<string, string>;
+  params: KeyValuePair[] | Record<string, string>;
+  headers: KeyValuePair[] | Record<string, string>;
   body?: { type: string; content: string };
   auth?: any;
 } {
@@ -173,13 +205,13 @@ export function composeFinalRequest(
   const resolvedUrl = resolveTemplate(request.url, opts);
 
   // Resolve params (with URL encoding for values that will go into query string)
-  const resolvedParams = resolveObject(request.params || {}, {
+  const resolvedParams = resolveParamsOrHeaders(request.params, {
     ...opts,
     urlEncodeValues: true,
   });
 
   // Resolve headers
-  const resolvedHeaders = resolveObject(request.headers || {}, opts);
+  const resolvedHeaders = resolveParamsOrHeaders(request.headers, opts);
 
   // Resolve body content
   let resolvedBody = request.body;

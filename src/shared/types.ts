@@ -10,13 +10,19 @@ export interface Collection {
   updatedAt: Date;
 }
 
+export interface KeyValuePair {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
 export interface ApiRequest {
   id: string;
   name: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
   url: string;
-  params?: Record<string, string>;
-  headers: Record<string, string>;
+  params?: KeyValuePair[] | Record<string, string>; // Support both formats for backward compatibility
+  headers: KeyValuePair[] | Record<string, string>; // Support both formats for backward compatibility
   body?: {
     type: 'none' | 'json' | 'raw' | 'form-data' | 'form-urlencoded';
     content: string;

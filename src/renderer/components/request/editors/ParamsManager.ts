@@ -1,6 +1,8 @@
+import type { KeyValuePair } from '../../../../shared/types';
+
 export class ParamsManager {
   private container: HTMLElement;
-  private onUpdateCallback: ((params: Record<string, string>) => void) | null = null;
+  private onUpdateCallback: ((params: KeyValuePair[]) => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -64,7 +66,7 @@ export class ParamsManager {
     const paramsEditor = this.container.querySelector('#params-editor');
     if (!paramsEditor) return;
 
-    const params: Record<string, string> = {};
+    const params: KeyValuePair[] = [];
     const rows = paramsEditor.querySelectorAll('.kv-row');
 
     rows.forEach(row => {
@@ -72,8 +74,12 @@ export class ParamsManager {
       const keyInput = row.querySelector('.key-input') as HTMLInputElement;
       const valueInput = row.querySelector('.value-input') as HTMLInputElement;
 
-      if (checkbox && checkbox.checked && keyInput && valueInput && keyInput.value.trim()) {
-        params[keyInput.value.trim()] = valueInput.value.trim();
+      if (keyInput && valueInput && keyInput.value.trim()) {
+        params.push({
+          key: keyInput.value.trim(),
+          value: valueInput.value.trim(),
+          enabled: checkbox ? checkbox.checked : true
+        });
       }
     });
 
@@ -91,17 +97,31 @@ export class ParamsManager {
     }
   }
 
-  public loadParams(params: Record<string, string>): void {
+  public loadParams(params: KeyValuePair[] | Record<string, string> | undefined): void {
     const paramsEditor = this.container.querySelector('#params-editor');
     if (!paramsEditor) return;
 
     paramsEditor.innerHTML = '';
 
-    Object.entries(params).forEach(([key, value]) => {
+    // Convert old Record format to array format for backward compatibility
+    let paramsArray: KeyValuePair[];
+    if (Array.isArray(params)) {
+      paramsArray = params;
+    } else if (params) {
+      paramsArray = Object.entries(params).map(([key, value]) => ({
+        key,
+        value,
+        enabled: true
+      }));
+    } else {
+      paramsArray = [];
+    }
+
+    paramsArray.forEach(({ key, value, enabled }) => {
       const row = document.createElement('div');
-      row.className = 'kv-row';
+      row.className = enabled ? 'kv-row' : 'kv-row disabled';
       row.innerHTML = `
-        <input type="checkbox" class="kv-checkbox" checked>
+        <input type="checkbox" class="kv-checkbox" ${enabled ? 'checked' : ''}>
         <input type="text" placeholder="Key" class="key-input" value="${key}">
         <input type="text" placeholder="Value" class="value-input" value="${value}">
         <button class="remove-btn">×</button>
@@ -122,7 +142,7 @@ export class ParamsManager {
     }
   }
 
-  public onUpdate(callback: (params: Record<string, string>) => void): void {
+  public onUpdate(callback: (params: KeyValuePair[]) => void): void {
     this.onUpdateCallback = callback;
   }
 }
