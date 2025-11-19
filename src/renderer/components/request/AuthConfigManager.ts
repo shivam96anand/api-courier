@@ -9,6 +9,7 @@ export class AuthConfigManager {
   private oauth2Manager: OAuth2Manager;
   private uiHelpers: UIHelpers;
   private onAuthUpdate: (auth: { type: string; config: Record<string, string> }) => void;
+  private authConfigInputListener?: (event: Event) => void;
 
   constructor(
     onAuthUpdate: (auth: { type: string; config: Record<string, string> }) => void,
@@ -48,6 +49,12 @@ export class AuthConfigManager {
     const authConfig = document.getElementById('auth-config');
     if (!authConfig) return;
 
+    // Always detach old listeners before re-rendering inputs
+    if (this.authConfigInputListener) {
+      authConfig.removeEventListener('input', this.authConfigInputListener);
+      this.authConfigInputListener = undefined;
+    }
+
     authConfig.innerHTML = '';
 
     const configs: Record<string, string[]> = {
@@ -80,9 +87,10 @@ export class AuthConfigManager {
       });
 
       // Add input listener for non-OAuth types
-      authConfig.addEventListener('input', () => {
+      this.authConfigInputListener = () => {
         this.updateFromDOM(authType);
-      });
+      };
+      authConfig.addEventListener('input', this.authConfigInputListener);
     }
 
     // Dispatch event to notify that auth inputs have been rendered
