@@ -39,6 +39,7 @@ export class CollectionsCore {
       (type, parentId) => this.showCreateDialog(type, parentId),
       (event, collectionId) => this.showContextMenu(event, collectionId),
       (draggedId, targetFolderId) => this.handleMoveCollection(draggedId, targetFolderId),
+      (draggedId, targetId, position) => this.handleReorderCollection(draggedId, targetId, position),
       (id) => this.operations.findCollectionById(id)
     );
 
@@ -210,6 +211,11 @@ export class CollectionsCore {
 
   private async handleMoveCollection(draggedId: string, targetFolderId: string): Promise<void> {
     await this.operations.moveCollection(draggedId, targetFolderId);
+    this.renderCollections();
+  }
+
+  private async handleReorderCollection(draggedId: string, targetId: string, position: 'before' | 'after'): Promise<void> {
+    await this.operations.reorderCollection(draggedId, targetId, position);
     this.renderCollections();
   }
 

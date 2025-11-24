@@ -35,9 +35,102 @@ export class CollectionsOperations {
     try {
       await window.apiCourier.collection.update(draggedId, { parentId: targetFolderId });
       draggedCollection.parentId = targetFolderId;
+
+      // Reorder items in the target folder
+      await this.reorderItemsInParent(targetFolderId);
     } catch (error) {
       console.error('Failed to move collection:', error);
       this.onShowError('Failed to move collection');
+    }
+  }
+
+  async reorderCollection(draggedId: string, targetId: string, position: 'before' | 'after'): Promise<void> {
+    const draggedCollection = this.findCollectionById(draggedId);
+    const targetCollection = this.findCollectionById(targetId);
+
+    if (!draggedCollection || !targetCollection) {
+      return;
+    }
+
+    // Prevent moving into itself
+    if (draggedId === targetId) {
+      return;
+    }
+
+    // Prevent moving folder into its descendants
+    if (draggedCollection.type === 'folder' && this.isDescendant(targetId, draggedId)) {
+      this.onShowError('Cannot move folder into itself or its descendants');
+      return;
+    }
+
+    try {
+      // Get siblings at the target level
+      const siblings = this.collections
+        .filter(c => c.parentId === targetCollection.parentId)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      // Find target index
+      const targetIndex = siblings.findIndex(c => c.id === targetId);
+      if (targetIndex === -1) return;
+
+      // Calculate new position
+      const newIndex = position === 'before' ? targetIndex : targetIndex + 1;
+
+      // If dragged item is being moved within same parent, adjust for removal
+      const draggedIndex = siblings.findIndex(c => c.id === draggedId);
+      const isDraggedInSameParent = draggedCollection.parentId === targetCollection.parentId;
+      const adjustedNewIndex = isDraggedInSameParent && draggedIndex !== -1 && draggedIndex < newIndex
+        ? newIndex - 1
+        : newIndex;
+
+      // Update parent if needed
+      if (draggedCollection.parentId !== targetCollection.parentId) {
+        await window.apiCourier.collection.update(draggedId, {
+          parentId: targetCollection.parentId
+        });
+        draggedCollection.parentId = targetCollection.parentId;
+      }
+
+      // Remove dragged item from its current position in siblings array
+      const filteredSiblings = siblings.filter(c => c.id !== draggedId);
+
+      // Insert dragged item at new position
+      filteredSiblings.splice(adjustedNewIndex, 0, draggedCollection);
+
+      // Update order for all siblings
+      for (let i = 0; i < filteredSiblings.length; i++) {
+        const collection = filteredSiblings[i];
+        const newOrder = i * 1000; // Use increments of 1000 for easier future insertions
+
+        if (collection.order !== newOrder) {
+          await window.apiCourier.collection.update(collection.id, { order: newOrder });
+          collection.order = newOrder;
+        }
+      }
+
+      // Dispatch collections changed event
+      const event = new CustomEvent('collections-changed', {
+        detail: { collections: this.collections }
+      });
+      document.dispatchEvent(event);
+    } catch (error) {
+      console.error('Failed to reorder collection:', error);
+      this.onShowError('Failed to reorder collection');
+    }
+  }
+
+  private async reorderItemsInParent(parentId?: string): Promise<void> {
+    // Get all items at this level and reorder them
+    const items = this.collections
+      .filter(c => c.parentId === parentId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    for (let i = 0; i < items.length; i++) {
+      const newOrder = i * 1000;
+      if (items[i].order !== newOrder) {
+        await window.apiCourier.collection.update(items[i].id, { order: newOrder });
+        items[i].order = newOrder;
+      }
     }
   }
 

@@ -88,6 +88,40 @@
     background-color: rgba(var(--primary-color-rgb), 0.2);
     border: 2px dashed var(--primary-color);
   }
+
+  &.drag-over-top {
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background-color: var(--primary-color);
+      border-radius: 2px;
+      box-shadow: 0 0 4px rgba(var(--primary-color-rgb), 0.6);
+      z-index: 10;
+    }
+  }
+
+  &.drag-over-bottom {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background-color: var(--primary-color);
+      border-radius: 2px;
+      box-shadow: 0 0 4px rgba(var(--primary-color-rgb), 0.6);
+      z-index: 10;
+    }
+  }
 }
 
 .collection-content {

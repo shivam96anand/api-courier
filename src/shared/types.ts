@@ -3,6 +3,7 @@ export interface Collection {
   name: string;
   type: 'folder' | 'request';
   parentId?: string;
+  order?: number; // Order within parent level (0-based)
   children?: Collection[];
   request?: ApiRequest;
   variables?: Record<string, string>; // folder-scoped variables (for folders only)

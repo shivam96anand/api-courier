@@ -8,6 +8,7 @@ export class CollectionsUIHandler {
   private onShowCreateDialog: (type: 'folder' | 'request', parentId?: string) => void;
   private onShowContextMenu: (event: MouseEvent, collectionId: string) => void;
   private onMoveCollection: (draggedId: string, targetFolderId: string) => void;
+  private onReorderCollection: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
   private findCollectionById: (id: string) => Collection | undefined;
 
   constructor(
@@ -17,6 +18,7 @@ export class CollectionsUIHandler {
     onShowCreateDialog: (type: 'folder' | 'request', parentId?: string) => void,
     onShowContextMenu: (event: MouseEvent, collectionId: string) => void,
     onMoveCollection: (draggedId: string, targetFolderId: string) => void,
+    onReorderCollection: (draggedId: string, targetId: string, position: 'before' | 'after') => void,
     findCollectionById: (id: string) => Collection | undefined
   ) {
     this.onToggleFolder = onToggleFolder;
@@ -25,6 +27,7 @@ export class CollectionsUIHandler {
     this.onShowCreateDialog = onShowCreateDialog;
     this.onShowContextMenu = onShowContextMenu;
     this.onMoveCollection = onMoveCollection;
+    this.onReorderCollection = onReorderCollection;
     this.findCollectionById = findCollectionById;
   }
 
@@ -140,6 +143,10 @@ export class CollectionsUIHandler {
       if (collectionElement) {
         collectionElement.classList.remove('dragging');
       }
+      // Clean up all drop indicators
+      document.querySelectorAll('.collection-item').forEach(el => {
+        el.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+      });
       treeState.draggedItem = undefined;
     });
 
@@ -147,10 +154,44 @@ export class CollectionsUIHandler {
       e.preventDefault();
       const target = e.target as HTMLElement;
       const collectionElement = target.closest('.collection-item') as HTMLElement;
-      if (collectionElement) {
-        const collection = this.findCollectionById(collectionElement.dataset.collectionId || '');
-        if (collection && collection.type === 'folder') {
-          collectionElement.classList.add('drag-over');
+
+      if (!collectionElement || !treeState.draggedItem) return;
+
+      const targetId = collectionElement.dataset.collectionId;
+      if (!targetId || targetId === treeState.draggedItem) return;
+
+      // Remove all previous drag indicators
+      document.querySelectorAll('.collection-item').forEach(el => {
+        el.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+      });
+
+      const collection = this.findCollectionById(targetId);
+      if (!collection) return;
+
+      // Get mouse position relative to element
+      const rect = collectionElement.getBoundingClientRect();
+      const mouseY = e.clientY - rect.top;
+      const elementHeight = rect.height;
+
+      // Determine drop zone: top 25%, middle 50%, bottom 25%
+      const topThreshold = elementHeight * 0.25;
+      const bottomThreshold = elementHeight * 0.75;
+
+      if (collection.type === 'folder') {
+        // For folders: allow drop into (middle) or before/after (edges)
+        if (mouseY < topThreshold) {
+          collectionElement.classList.add('drag-over-top');
+        } else if (mouseY > bottomThreshold) {
+          collectionElement.classList.add('drag-over-bottom');
+        } else {
+          collectionElement.classList.add('drag-over'); // Drop INTO folder
+        }
+      } else {
+        // For requests: only allow before/after
+        if (mouseY < elementHeight / 2) {
+          collectionElement.classList.add('drag-over-top');
+        } else {
+          collectionElement.classList.add('drag-over-bottom');
         }
       }
     });
@@ -158,8 +199,10 @@ export class CollectionsUIHandler {
     collectionsTree.addEventListener('dragleave', (e) => {
       const target = e.target as HTMLElement;
       const collectionElement = target.closest('.collection-item') as HTMLElement;
-      if (collectionElement) {
-        collectionElement.classList.remove('drag-over');
+
+      // Only remove classes if we're actually leaving this element
+      if (collectionElement && !collectionElement.contains(e.relatedTarget as Node)) {
+        collectionElement.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
       }
     });
 
@@ -167,14 +210,37 @@ export class CollectionsUIHandler {
       e.preventDefault();
       const target = e.target as HTMLElement;
       const collectionElement = target.closest('.collection-item') as HTMLElement;
-      if (collectionElement) {
-        collectionElement.classList.remove('drag-over');
-        const targetId = collectionElement.dataset.collectionId;
-        const draggedId = treeState.draggedItem;
-        if (targetId && draggedId && targetId !== draggedId) {
-          this.onMoveCollection(draggedId, targetId);
-        }
+
+      if (!collectionElement || !treeState.draggedItem) return;
+
+      const targetId = collectionElement.dataset.collectionId;
+      const draggedId = treeState.draggedItem;
+
+      if (!targetId || !draggedId || targetId === draggedId) {
+        // Clean up
+        collectionElement.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+        return;
       }
+
+      const collection = this.findCollectionById(targetId);
+      if (!collection) return;
+
+      // Determine what action to take based on which class was applied
+      if (collectionElement.classList.contains('drag-over') && collection.type === 'folder') {
+        // Drop INTO folder
+        this.onMoveCollection(draggedId, targetId);
+      } else if (collectionElement.classList.contains('drag-over-top')) {
+        // Drop BEFORE target
+        this.onReorderCollection(draggedId, targetId, 'before');
+      } else if (collectionElement.classList.contains('drag-over-bottom')) {
+        // Drop AFTER target
+        this.onReorderCollection(draggedId, targetId, 'after');
+      }
+
+      // Clean up all indicators
+      document.querySelectorAll('.collection-item').forEach(el => {
+        el.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+      });
     });
   }
 

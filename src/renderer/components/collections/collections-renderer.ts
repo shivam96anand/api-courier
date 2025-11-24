@@ -20,7 +20,8 @@ export class CollectionsRenderer {
 
     let collectionsToShow = filteredCollections || collections;
 
-    const rootCollections = collectionsToShow.filter(c => !c.parentId);
+    const rootCollections = collectionsToShow.filter(c => !c.parentId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     if (rootCollections.length === 0) {
       if (treeState.searchTerm) {
@@ -212,7 +213,8 @@ export class CollectionsRenderer {
       const isSearching = treeState.searchTerm.length > 0;
 
       if (isExpanded || isSearching) {
-        const children = allCollections.filter(c => c.parentId === collection.id);
+        const children = allCollections.filter(c => c.parentId === collection.id)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
         let childrenToShow = children;
         if (isSearching && filteredCollections) {

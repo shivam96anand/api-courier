@@ -29,9 +29,19 @@ class IpcManager {
     });
 
     ipcMain.handle(IPC_CHANNELS.COLLECTION_CREATE, (_, collection: Omit<Collection, 'id' | 'createdAt' | 'updatedAt'>): Collection => {
+      const state = storeManager.getState();
+
+      // Calculate order: find max order among siblings and add 1000
+      const siblings = state.collections.filter(c => c.parentId === collection.parentId);
+      const maxOrder = siblings.length > 0
+        ? Math.max(...siblings.map(c => c.order ?? 0))
+        : -1000;
+      const newOrder = maxOrder + 1000;
+
       const newCollection: Collection = {
         ...collection,
         id: randomUUID(),
+        order: collection.order ?? newOrder, // Use provided order or calculate new one
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -55,7 +65,6 @@ class IpcManager {
         };
       }
 
-      const state = storeManager.getState();
       const updatedCollections = [...state.collections, newCollection];
       storeManager.setState({ collections: updatedCollections });
 
