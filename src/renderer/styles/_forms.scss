@@ -626,6 +626,21 @@
       border-color: var(--accent-color);
     }
   }
+
+  .content-type-select {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 150px;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
 }
 
 .body-editor-heading {

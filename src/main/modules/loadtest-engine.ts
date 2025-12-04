@@ -194,6 +194,8 @@ class LoadTestEngine extends EventEmitter {
         body: target.body ? {
           type: target.body.type,
           content: target.body.content,
+          format: target.body.format,
+          contentType: target.body.contentType,
         } : undefined,
         auth: target.auth ? {
           type: target.auth.type === 'apikey' ? 'api-key' :

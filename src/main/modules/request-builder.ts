@@ -82,18 +82,9 @@ export class RequestBuilder {
       return {};
     }
 
-    let bodyData: string | Buffer | undefined;
-    let contentType: string | undefined;
-
-    if (request.body.type === 'json') {
-      bodyData = request.body.content;
-      contentType = 'application/json';
-    } else if (request.body.type === 'raw') {
-      bodyData = request.body.content;
-    } else if (request.body.type === 'form-urlencoded') {
-      bodyData = request.body.content;
-      contentType = 'application/x-www-form-urlencoded';
-    }
+    const body = request.body;
+    const bodyData: string | Buffer | undefined = body.content;
+    const contentType = this.resolveContentType(body);
 
     return { bodyData, contentType };
   }
@@ -124,5 +115,37 @@ export class RequestBuilder {
     }
 
     return result;
+  }
+
+  private static resolveContentType(body: ApiRequest['body']): string | undefined {
+    if (!body) return undefined;
+
+    if (body.contentType) {
+      return body.contentType;
+    }
+
+    switch (body.format) {
+      case 'json':
+        return 'application/json';
+      case 'xml':
+        return 'application/xml';
+      case 'yaml':
+        return 'application/x-yaml';
+      case 'text':
+        return 'text/plain';
+      case 'form-urlencoded':
+        return 'application/x-www-form-urlencoded';
+      default:
+        break;
+    }
+
+    switch (body.type) {
+      case 'json':
+        return 'application/json';
+      case 'form-urlencoded':
+        return 'application/x-www-form-urlencoded';
+      default:
+        return undefined;
+    }
   }
 }

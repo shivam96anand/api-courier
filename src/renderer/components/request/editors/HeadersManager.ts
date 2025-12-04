@@ -181,4 +181,24 @@ export class HeadersManager {
 
     this.updateHeadersFromDOM();
   }
+
+  public removeHeader(key: string): void {
+    const headersEditor = this.container.querySelector('#headers-editor');
+    if (!headersEditor) return;
+
+    const rows = Array.from(headersEditor.querySelectorAll('.kv-row'));
+    const targetKey = key.toLowerCase();
+    rows.forEach(row => {
+      const keyInput = row.querySelector('.key-input') as HTMLInputElement;
+      if (keyInput && keyInput.value.toLowerCase() === targetKey) {
+        row.remove();
+      }
+    });
+
+    if (headersEditor.children.length === 0) {
+      this.addHeaderRow();
+    }
+
+    this.updateHeadersFromDOM();
+  }
 }

@@ -68,8 +68,8 @@ export class RequestEditorsManager {
 
     // Find container elements from DOM
     const editorsContainer = document.getElementById('request-editors') || document.body;
-    const paramsContainer = document.getElementById('params-container') || document.body;
-    const headersContainer = document.getElementById('headers-container') || document.body;
+    const paramsContainer = document.getElementById('params-section') || document.body;
+    const headersContainer = document.getElementById('headers-section') || document.body;
 
     this.factory = new RequestEditorFactory(editorsContainer, config.factoryConfig);
     this.state = new RequestEditorState(config.stateConfig);
@@ -150,16 +150,18 @@ export class RequestEditorsManager {
     this.state.setActiveEditor(type);
   }
 
-  public setContent(body: { type: string; content: any }): void {
+  public setContent(body: { type: string; content: any; format?: string; contentType?: string }): void {
     if (this.bodyEditor) {
       this.bodyEditor.setBody({
         type: body.type as any,
-        content: body.content
+        content: body.content,
+        format: body.format as any,
+        contentType: body.contentType
       });
     }
   }
 
-  public getContent(): { type: string; content: any } | null {
+  public getContent(): { type: string; content: any; format?: string; contentType?: string } | null {
     if (this.bodyEditor) {
       return this.bodyEditor.getBody();
     }
@@ -186,7 +188,11 @@ export class RequestEditorsManager {
     // Initialize the enhanced body editor (keeping existing implementation)
     this.bodyEditor = new RequestBodyEditor(bodySection, {
       onBodyChange: (body) => {
+        this.syncContentTypeHeader(body.contentType);
         this.onRequestUpdate({ body });
+      },
+      onContentTypeChange: (contentType) => {
+        this.syncContentTypeHeader(contentType || undefined);
       },
       onStatusUpdate: (type, message) => {
         if (type === 'error') {
@@ -280,7 +286,7 @@ export class RequestEditorsManager {
     this.headersManager.loadHeaders(headers);
   }
 
-  loadBody(body: { type: string; content: string }): void {
+  loadBody(body: { type: string; content: string; format?: string; contentType?: string }): void {
     this.setContent(body);
   }
 
@@ -328,5 +334,15 @@ export class RequestEditorsManager {
 
   updateTokenInfo(config: Record<string, string>): void {
     this.uiHelpers.updateTokenInfo(config);
+  }
+
+  private syncContentTypeHeader(contentType?: string | null): void {
+    if (!this.headersManager) return;
+
+    if (contentType) {
+      this.headersManager.updateHeader('Content-Type', contentType);
+    } else {
+      this.headersManager.removeHeader('Content-Type');
+    }
   }
 }

@@ -27,6 +27,8 @@ export interface ApiRequest {
   body?: {
     type: 'none' | 'json' | 'raw' | 'form-data' | 'form-urlencoded';
     content: string;
+    format?: 'json' | 'xml' | 'yaml' | 'text' | 'form-urlencoded';
+    contentType?: string;
   };
   auth?: {
     type: 'none' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
@@ -101,6 +103,8 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 
 export interface RequestBody {
   type: 'none' | 'json' | 'raw' | 'form-data' | 'form-urlencoded';
   content: string;
+  format?: 'json' | 'xml' | 'yaml' | 'text' | 'form-urlencoded';
+  contentType?: string;
 }
 
 export interface LoadTestTargetFromCollection {
