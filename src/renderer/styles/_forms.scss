@@ -426,6 +426,7 @@
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
+  position: relative;
 }
 
 .method-select {
@@ -506,6 +507,7 @@
   margin-bottom: 8px;
   align-items: center;
   transition: opacity 0.2s ease, filter 0.2s ease;
+  position: relative;
 
   .kv-checkbox {
     flex: 0 0 auto;
@@ -841,6 +843,7 @@
   flex-direction: column;
   gap: 6px;
   margin-bottom: 16px;
+  position: relative;
 
   label {
     font-size: 12px;
@@ -1380,27 +1383,28 @@ textarea {
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
   white-space: nowrap;
   overflow: hidden;
   padding: inherit;
   border: 1px solid transparent;
-  color: transparent;
+  color: var(--text-primary);
   z-index: 1;
 
   span {
-    color: transparent;
+    color: var(--text-primary);
   }
 
   .variable-highlight {
     color: var(--primary-color);
-    font-weight: 600;
-    background-color: rgba(var(--primary-color-rgb), 0.15);
-    border-radius: 3px;
-    padding: 0 2px;
+    font-weight: inherit;
+    background: none;
+    padding: 0;
 
     &.undefined {
-      color: var(--error-color);
-      background-color: rgba(239, 68, 68, 0.15);
+      color: var(--primary-color);
+      text-decoration: underline dotted var(--error-color);
     }
   }
 }
@@ -1458,6 +1462,13 @@ textarea {
     z-index: 2;
     background: transparent;
   }
+}
+
+// Hide native text when overlay is active to prevent double-render, keep caret visible
+.has-variable-overlay {
+  color: transparent !important;
+  caret-color: var(--text-primary);
+  background: transparent;
 }
 
 // Indicator that field contains variables

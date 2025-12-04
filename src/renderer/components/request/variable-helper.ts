@@ -148,6 +148,7 @@ export function addVariableHighlighting(
     if (existing) {
       existing.remove();
     }
+    inputElement.classList.remove('has-variable-overlay');
     return;
   }
 
@@ -168,6 +169,15 @@ export function addVariableHighlighting(
       container.style.height = `${rect.height}px`;
     };
     updatePosition();
+
+    // Match input typography so overlay text is identical size/weight
+    const computed = window.getComputedStyle(inputElement);
+    container.style.fontSize = computed.fontSize;
+    container.style.fontFamily = computed.fontFamily;
+    container.style.fontWeight = computed.fontWeight;
+    container.style.lineHeight = computed.lineHeight;
+    container.style.letterSpacing = computed.letterSpacing;
+    container.style.padding = computed.padding;
 
     // Update position on window resize
     window.addEventListener('resize', updatePosition);
@@ -207,6 +217,9 @@ export function addVariableHighlighting(
     textSpan.textContent = text.substring(lastIndex);
     container.appendChild(textSpan);
   }
+
+  // Mark input so CSS can hide the native text while overlay is active
+  inputElement.classList.add('has-variable-overlay');
 }
 
 /**
@@ -218,6 +231,22 @@ export function addVariableTooltips(
   globals: { variables: Record<string, string> },
   folderVars?: Record<string, string>
 ): void {
+  type TooltipHandlers = {
+    mouseenter: () => void;
+    mousemove: (e: MouseEvent) => void;
+    mouseleave: () => void;
+    blur: () => void;
+  };
+
+  // Remove existing handlers to prevent duplicates when reinitializing
+  const existingHandlers = (inputElement as any).__variableTooltipHandlers as TooltipHandlers | undefined;
+  if (existingHandlers) {
+    inputElement.removeEventListener('mouseenter', existingHandlers.mouseenter);
+    inputElement.removeEventListener('mousemove', existingHandlers.mousemove);
+    inputElement.removeEventListener('mouseleave', existingHandlers.mouseleave);
+    inputElement.removeEventListener('blur', existingHandlers.blur);
+  }
+
   let currentTooltip: HTMLDivElement | null = null;
   let isMouseOver = false;
 
@@ -277,8 +306,20 @@ export function addVariableTooltips(
     hideTooltip();
   };
 
+  const handleBlur = () => {
+    hideTooltip();
+  };
+
   inputElement.addEventListener('mouseenter', handleMouseEnter);
   inputElement.addEventListener('mousemove', handleMouseMove);
   inputElement.addEventListener('mouseleave', handleMouseLeave);
-  inputElement.addEventListener('blur', hideTooltip);
+  inputElement.addEventListener('blur', handleBlur);
+
+  // Store handlers for cleanup on reinitialization
+  (inputElement as any).__variableTooltipHandlers = {
+    mouseenter: handleMouseEnter,
+    mousemove: handleMouseMove,
+    mouseleave: handleMouseLeave,
+    blur: handleBlur
+  };
 }

@@ -1,9 +1,12 @@
-import { ApiRequest } from '../../../shared/types';
-import { addVariableTooltips, detectVariables, buildFolderVars } from './variable-helper';
+import { ApiRequest, Environment, Globals } from '../../../shared/types';
+import { addVariableTooltips, detectVariables, buildFolderVars, addVariableHighlighting } from './variable-helper';
 
 export class RequestFormHandler {
   private onRequestUpdate: (updates: Partial<ApiRequest>) => void;
   private currentCollectionId?: string;
+  private activeEnvironment?: Environment;
+  private globals: Globals = { variables: {} };
+  private folderVars: Record<string, string> = {};
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
@@ -23,6 +26,9 @@ export class RequestFormHandler {
       urlInput.addEventListener('input', () => {
         this.onRequestUpdate({ url: urlInput.value });
         this.updateVariableIndicator(urlInput);
+        if (!urlInput.dataset.variableHighlightListenerAttached) {
+          this.refreshInputHighlight(urlInput);
+        }
       });
 
       // Initialize variable tooltips
@@ -74,11 +80,13 @@ export class RequestFormHandler {
       // Build folder variables from ancestor chain
       const folderVars = buildFolderVars(collectionId, state.collections);
 
-      // Add tooltip functionality
-      addVariableTooltips(inputElement, activeEnvironment, globals, folderVars);
+      // Cache context for future updates
+      this.activeEnvironment = activeEnvironment;
+      this.globals = globals;
+      this.folderVars = folderVars;
 
-      // Update indicator on load
-      this.updateVariableIndicator(inputElement);
+      // Add tooltip functionality and highlight variables
+      this.enhanceVariableInput(inputElement);
     } catch (error) {
       console.error('Failed to initialize variable tooltips:', error);
     }
@@ -103,11 +111,15 @@ export class RequestFormHandler {
       // Build folder variables using stored collectionId
       const folderVars = buildFolderVars(this.currentCollectionId, state.collections);
 
-      // Add tooltips to all input elements in auth config
+      // Cache context for future updates
+      this.activeEnvironment = activeEnvironment;
+      this.globals = globals;
+      this.folderVars = folderVars;
+
+      // Add tooltips and highlighting to all auth inputs
       const inputs = authConfig.querySelectorAll('input[type="text"], input[type="password"]');
       inputs.forEach((input) => {
-        addVariableTooltips(input as HTMLInputElement, activeEnvironment, globals, folderVars);
-        this.updateVariableIndicator(input as HTMLInputElement);
+        this.enhanceVariableInput(input as HTMLInputElement);
       });
     } catch (error) {
       console.error('Failed to initialize auth tooltips:', error);
@@ -288,5 +300,35 @@ export class RequestFormHandler {
         document.body.removeChild(errorDiv);
       }
     }, 5000);
+  }
+
+  /**
+   * Add variable highlighting and tooltips to a text input, reusing cached context
+   */
+  private enhanceVariableInput(inputElement: HTMLInputElement): void {
+    addVariableTooltips(inputElement, this.activeEnvironment, this.globals, this.folderVars);
+
+    // Do not overlay/hide text on password fields to keep secrets masked
+    if (inputElement.type === 'password') {
+      return;
+    }
+
+    this.refreshInputHighlight(inputElement);
+
+    // Keep highlighting updated as user types
+    if (!inputElement.dataset.variableHighlightListenerAttached) {
+      inputElement.addEventListener('input', () => {
+        this.refreshInputHighlight(inputElement);
+      });
+      inputElement.dataset.variableHighlightListenerAttached = 'true';
+    }
+  }
+
+  /**
+   * Refresh highlighting state for an input
+   */
+  private refreshInputHighlight(inputElement: HTMLInputElement): void {
+    addVariableHighlighting(inputElement, this.activeEnvironment, this.globals);
+    this.updateVariableIndicator(inputElement);
   }
 }
