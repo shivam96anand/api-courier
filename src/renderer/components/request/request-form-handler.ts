@@ -7,6 +7,9 @@ export class RequestFormHandler {
   private activeEnvironment?: Environment;
   private globals: Globals = { variables: {} };
   private folderVars: Record<string, string> = {};
+  private storeCache: any = null;
+  private storeCacheTime: number = 0;
+  private readonly CACHE_TTL = 500; // Cache for 500ms
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
@@ -65,12 +68,26 @@ export class RequestFormHandler {
   }
 
   /**
+   * Get store data with caching to reduce IPC calls during rapid tab switching
+   */
+  private async getCachedStore(): Promise<any> {
+    const now = Date.now();
+    if (this.storeCache && (now - this.storeCacheTime) < this.CACHE_TTL) {
+      return this.storeCache;
+    }
+
+    this.storeCache = await window.apiCourier.store.get();
+    this.storeCacheTime = now;
+    return this.storeCache;
+  }
+
+  /**
    * Initializes variable tooltips for an input field
    */
   private async initializeVariableTooltips(inputElement: HTMLInputElement, collectionId?: string): Promise<void> {
     try {
-      // Get current app state for environment and globals
-      const state = await window.apiCourier.store.get();
+      // Get current app state for environment and globals (with caching)
+      const state = await this.getCachedStore();
       const activeEnvironment = state.activeEnvironmentId
         ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
         : undefined;
@@ -100,8 +117,8 @@ export class RequestFormHandler {
       const authConfig = document.getElementById('auth-config');
       if (!authConfig) return;
 
-      // Get current app state for environment and globals
-      const state = await window.apiCourier.store.get();
+      // Get current app state for environment and globals (with caching)
+      const state = await this.getCachedStore();
       const activeEnvironment = state.activeEnvironmentId
         ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
         : undefined;

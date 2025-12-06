@@ -8,6 +8,9 @@ export class RequestManager {
   private formHandler: RequestFormHandler;
   private editorsManager: RequestEditorsManager;
   private dataManager: RequestDataManager;
+  private storeCache: any = null;
+  private storeCacheTime: number = 0;
+  private readonly CACHE_TTL = 500; // Cache for 500ms
 
   constructor() {
     this.formHandler = new RequestFormHandler(
@@ -52,6 +55,19 @@ export class RequestManager {
         activeTab ? activeTab.activeDetailsTab : undefined
       );
     });
+
+    // Invalidate cache when environments or collections change
+    document.addEventListener('environment-changed', () => {
+      this.invalidateStoreCache();
+    });
+
+    document.addEventListener('collection-updated', () => {
+      this.invalidateStoreCache();
+    });
+
+    document.addEventListener('globals-updated', () => {
+      this.invalidateStoreCache();
+    });
   }
 
   private async loadRequest(request: ApiRequest | null, collectionId?: string, activeDetailsTab?: string): Promise<void> {
@@ -63,13 +79,10 @@ export class RequestManager {
       return;
     }
 
+    // Load UI immediately for smooth transition
     this.formHandler.showRequestForm();
     this.formHandler.loadBasicRequestData(request);
-    this.formHandler.refreshVariableTooltips(collectionId); // Refresh tooltips with collectionId
     this.formHandler.restoreActiveDetailsTab(activeDetailsTab); // Restore the active details tab
-
-    // Set variable context for params and headers editors
-    await this.refreshVariableContext(collectionId);
 
     this.editorsManager.loadParams(request.params || {});
     this.editorsManager.loadHeaders(request.headers);
@@ -81,6 +94,10 @@ export class RequestManager {
     if (request.auth) {
       this.editorsManager.loadAuth(request.auth, collectionId);
     }
+
+    // Refresh variable context asynchronously without blocking
+    this.refreshVariableContext(collectionId);
+    this.formHandler.refreshVariableTooltips(collectionId);
   }
 
   /**
@@ -88,7 +105,7 @@ export class RequestManager {
    */
   private async refreshVariableContext(collectionId?: string): Promise<void> {
     try {
-      const state = await window.apiCourier.store.get();
+      const state = await this.getCachedStore();
       const activeEnvironment = state.activeEnvironmentId
         ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
         : undefined;
@@ -100,6 +117,28 @@ export class RequestManager {
     } catch (error) {
       console.error('Failed to refresh variable context:', error);
     }
+  }
+
+  /**
+   * Get store data with caching to reduce IPC calls during rapid tab switching
+   */
+  private async getCachedStore(): Promise<any> {
+    const now = Date.now();
+    if (this.storeCache && (now - this.storeCacheTime) < this.CACHE_TTL) {
+      return this.storeCache;
+    }
+
+    this.storeCache = await window.apiCourier.store.get();
+    this.storeCacheTime = now;
+    return this.storeCache;
+  }
+
+  /**
+   * Invalidate store cache when data changes
+   */
+  private invalidateStoreCache(): void {
+    this.storeCache = null;
+    this.storeCacheTime = 0;
   }
 
   private clearForm(): void {

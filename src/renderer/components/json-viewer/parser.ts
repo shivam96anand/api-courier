@@ -5,14 +5,24 @@ export class JsonParser {
     const nodes: JsonNode[] = [];
     let lineNumber = 1;
 
+    // First pass: count total nodes to determine expansion strategy
+    const totalNodes = this.countNodes(jsonData);
+    const autoExpandDepth = this.calculateAutoExpandDepth(totalNodes);
+
     const parseNode = (key: string, value: any, level: number, parent?: JsonNode): JsonNode => {
       const type = JsonParser.getValueType(value);
+
+      // Calculate child count for smart expansion
+      const childCount = (type === 'object' || type === 'array') && value !== null
+        ? (type === 'object' ? Object.keys(value).length : value.length)
+        : 0;
+
       const node: JsonNode = {
         key,
         value,
         type,
         level,
-        isExpanded: level < 2,
+        isExpanded: this.shouldAutoExpand(level, childCount, totalNodes, autoExpandDepth),
         parent,
         lineNumber: lineNumber++
       };
@@ -152,5 +162,56 @@ export class JsonParser {
     if (nodes.length > 0) {
       collapseNode(nodes[0]);
     }
+  }
+
+  /**
+   * Count total nodes in JSON data for expansion strategy
+   */
+  private static countNodes(data: any, maxCount = 500): number {
+    let count = 0;
+
+    const traverse = (value: any): void => {
+      if (count >= maxCount) return;
+
+      count++;
+
+      if (value && typeof value === 'object') {
+        Object.values(value).forEach(child => traverse(child));
+      }
+    };
+
+    traverse(data);
+    return count;
+  }
+
+  /**
+   * Calculate optimal auto-expand depth based on response size
+   */
+  private static calculateAutoExpandDepth(totalNodes: number): number {
+    if (totalNodes <= 10) return 10;      // Tiny responses: expand everything
+    if (totalNodes <= 30) return 5;       // Small responses: expand 5 levels
+    if (totalNodes <= 100) return 3;      // Medium responses: expand 3 levels
+    if (totalNodes <= 300) return 2;      // Large responses: expand 2 levels
+    return 1;                             // Huge responses: expand only root
+  }
+
+  /**
+   * Determine if a node should be auto-expanded
+   */
+  private static shouldAutoExpand(
+    level: number,
+    childCount: number,
+    totalNodes: number,
+    autoExpandDepth: number
+  ): boolean {
+    // Always expand based on calculated depth
+    if (level < autoExpandDepth) return true;
+
+    // For small responses with few children, expand one more level
+    if (totalNodes <= 50 && childCount <= 5 && level < autoExpandDepth + 1) {
+      return true;
+    }
+
+    return false;
   }
 }
