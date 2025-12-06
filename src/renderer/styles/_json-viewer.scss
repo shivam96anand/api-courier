@@ -59,7 +59,7 @@
 
       .json-nodes-container {
         position: relative;
-        padding: 4px 0 60px 0; /* Add sufficient bottom padding to prevent cut-off */
+        padding: 4px 0 100px 0; /* Add sufficient bottom padding to prevent cut-off */
         will-change: scroll-position;
         contain: layout;
         min-height: 100%;

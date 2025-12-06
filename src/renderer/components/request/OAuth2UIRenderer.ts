@@ -220,6 +220,8 @@ export class OAuth2UIRenderer {
           const input = authConfig.querySelector(`[data-field="${field}"]`) as HTMLInputElement;
           if (input) {
             input.value = value;
+            // Trigger input event to refresh variable highlighting
+            input.dispatchEvent(new Event('input', { bubbles: true }));
           }
         });
       }
