@@ -82,26 +82,26 @@ export class NodeRenderer {
     searchMatches: any[],
     currentSearchIndex: number
   ): void {
-    if (visibleNodes.length > 100) {
-      this.renderNodesInChunks(container, visibleNodes, searchQuery, searchMatches, currentSearchIndex);
-    } else {
-      const fragment = document.createDocumentFragment();
+    // Always render synchronously to avoid scroll position issues
+    // For very large datasets (>5000 nodes), we could consider chunked rendering
+    // but 602 nodes is not large enough to need it
+    const fragment = document.createDocumentFragment();
 
-      visibleNodes.forEach(nodeData => {
-        if (nodeData.isClosingBracket) {
-          const closingElement = this.createClosingBracketElement(nodeData.node!);
-          fragment.appendChild(closingElement);
-        } else {
-          const nodeElement = this.createNodeElement(nodeData.node!, searchQuery, searchMatches, currentSearchIndex);
-          fragment.appendChild(nodeElement);
-        }
-      });
+    visibleNodes.forEach(nodeData => {
+      if (nodeData.isClosingBracket) {
+        const closingElement = this.createClosingBracketElement(nodeData.node!);
+        fragment.appendChild(closingElement);
+      } else {
+        const nodeElement = this.createNodeElement(nodeData.node!, searchQuery, searchMatches, currentSearchIndex);
+        fragment.appendChild(nodeElement);
+      }
+    });
 
-      container.innerHTML = '';
-      container.appendChild(fragment);
-    }
+    container.innerHTML = '';
+    container.appendChild(fragment);
   }
 
+  // Keep this for potential future use with very large datasets
   private static renderNodesInChunks(
     container: HTMLElement,
     visibleNodes: Array<{node?: JsonNode, isClosingBracket: boolean}>,

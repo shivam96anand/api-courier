@@ -127,7 +127,6 @@ export class JsonViewer {
   private renderNodesOptimized(): void {
     const container = this.container.querySelector('.json-nodes-container') as HTMLElement;
     const visibleNodes = JsonParser.getVisibleNodesWithClosingBrackets(this.nodes);
-    const searchInfo = this.searchEngine.getSearchInfo();
     const searchMatches = this.searchEngine.getMatches();
     const currentIndex = this.searchEngine.getCurrentIndex();
     const searchQuery = this.searchEngine.getSearchQuery();
@@ -155,10 +154,65 @@ export class JsonViewer {
   }
 
   private toggleNode(node: JsonNode): void {
+    const content = this.container.querySelector('.json-content') as HTMLElement;
+    const nodeElement = this.container.querySelector(`[data-node-id="${node.lineNumber}"]`) as HTMLElement;
+    
+    if (!content || !nodeElement) {
+      node.isExpanded = !node.isExpanded;
+      this.renderNodesOptimized();
+      requestAnimationFrame(() => {
+        this.lineNumbersManager.generateLineNumbers(this.container);
+      });
+      return;
+    }
+    
+    // Disable smooth scrolling during the operation
+    const originalScrollBehavior = content.style.scrollBehavior;
+    content.style.scrollBehavior = 'auto';
+    
+    // Get the node's visual position relative to the scroll container
+    const nodeRect = nodeElement.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const visualOffsetFromContainerTop = nodeRect.top - contentRect.top;
+    
+    // Save current scroll position
+    const savedScrollTop = content.scrollTop;
+    
+    // Toggle and render
     node.isExpanded = !node.isExpanded;
     this.renderNodesOptimized();
+    
+    // Force a reflow to ensure DOM is updated
+    void content.offsetHeight;
+    
+    // Restore scroll position first to prevent jump
+    content.scrollTop = savedScrollTop;
+    
+    // Now find the node and adjust scroll to keep it in place
+    const updatedNodeElement = this.container.querySelector(`[data-node-id="${node.lineNumber}"]`) as HTMLElement;
+    
+    if (updatedNodeElement) {
+      // Get updated position
+      const newNodeRect = updatedNodeElement.getBoundingClientRect();
+      const newContentRect = content.getBoundingClientRect();
+      const currentOffset = newNodeRect.top - newContentRect.top;
+      
+      // Calculate and apply scroll adjustment
+      const scrollAdjustment = currentOffset - visualOffsetFromContainerTop;
+      const newScrollTop = content.scrollTop + scrollAdjustment;
+      const maxScroll = Math.max(0, content.scrollHeight - content.clientHeight);
+      content.scrollTop = Math.max(0, Math.min(newScrollTop, maxScroll));
+    } else {
+      // Node not found - keep scroll at saved position or clamp
+      const maxScroll = Math.max(0, content.scrollHeight - content.clientHeight);
+      content.scrollTop = Math.min(savedScrollTop, maxScroll);
+    }
+    
+    // Restore smooth scrolling and update line numbers in next frame
     requestAnimationFrame(() => {
+      content.style.scrollBehavior = originalScrollBehavior;
       this.lineNumbersManager.generateLineNumbers(this.container);
+      this.lineNumbersManager.syncLineNumbersScroll(this.container);
     });
   }
 
@@ -166,7 +220,13 @@ export class JsonViewer {
     JsonParser.expandAll(this.nodes);
     this.renderNodesOptimized();
     requestAnimationFrame(() => {
+      // Reset scroll to top when expanding all
+      const content = this.container.querySelector('.json-content') as HTMLElement;
+      if (content) {
+        content.scrollTop = 0;
+      }
       this.lineNumbersManager.generateLineNumbers(this.container);
+      this.lineNumbersManager.syncLineNumbersScroll(this.container);
     });
   }
 
@@ -174,7 +234,13 @@ export class JsonViewer {
     JsonParser.collapseAll(this.nodes);
     this.renderNodesOptimized();
     requestAnimationFrame(() => {
+      // Reset scroll to top when collapsing all
+      const content = this.container.querySelector('.json-content') as HTMLElement;
+      if (content) {
+        content.scrollTop = 0;
+      }
       this.lineNumbersManager.generateLineNumbers(this.container);
+      this.lineNumbersManager.syncLineNumbersScroll(this.container);
     });
   }
 
