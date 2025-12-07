@@ -34,8 +34,8 @@ export class RequestFormHandler {
         }
       });
 
-      // Initialize variable tooltips
-      this.initializeVariableTooltips(urlInput);
+      // Variable tooltips will be initialized by refreshVariableTooltips()
+      // which is called from request-manager when a request is loaded
     }
 
     // Listen for auth inputs being rendered and add tooltips
@@ -49,9 +49,37 @@ export class RequestFormHandler {
    */
   public async refreshVariableTooltips(collectionId?: string): Promise<void> {
     this.currentCollectionId = collectionId;
+
+    // CRITICAL: Always load context, even if URL input doesn't exist
+    // This ensures this.folderVars, this.activeEnvironment, this.globals are set
+    // for auth inputs and other fields
+    await this.loadVariableContext(collectionId);
+
     const urlInput = document.getElementById('request-url') as HTMLInputElement;
     if (urlInput) {
-      await this.initializeVariableTooltips(urlInput, collectionId);
+      this.enhanceVariableInput(urlInput);
+    }
+  }
+
+  /**
+   * Loads variable context (environment, globals, folder vars) into cache
+   */
+  private async loadVariableContext(collectionId?: string): Promise<void> {
+    try {
+      const state = await this.getCachedStore();
+      const activeEnvironment = state.activeEnvironmentId
+        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
+        : undefined;
+
+      const globals = state.globals || { variables: {} };
+      const folderVars = buildFolderVars(collectionId, state.collections);
+
+      // Cache context for all inputs to use
+      this.activeEnvironment = activeEnvironment;
+      this.globals = globals;
+      this.folderVars = folderVars;
+    } catch (error) {
+      console.error('Failed to load variable context:', error);
     }
   }
 
@@ -82,62 +110,35 @@ export class RequestFormHandler {
   }
 
   /**
-   * Initializes variable tooltips for an input field
-   */
-  private async initializeVariableTooltips(inputElement: HTMLInputElement, collectionId?: string): Promise<void> {
-    try {
-      // Get current app state for environment and globals (with caching)
-      const state = await this.getCachedStore();
-      const activeEnvironment = state.activeEnvironmentId
-        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
-        : undefined;
-
-      const globals = state.globals || { variables: {} };
-
-      // Build folder variables from ancestor chain
-      const folderVars = buildFolderVars(collectionId, state.collections);
-
-      // Cache context for future updates
-      this.activeEnvironment = activeEnvironment;
-      this.globals = globals;
-      this.folderVars = folderVars;
-
-      // Add tooltip functionality and highlight variables
-      this.enhanceVariableInput(inputElement);
-    } catch (error) {
-      console.error('Failed to initialize variable tooltips:', error);
-    }
-  }
-
-  /**
    * Initializes variable tooltips for all auth config inputs
    */
-  private async initializeAuthTooltips(): Promise<void> {
+  private initializeAuthTooltips(): void {
     try {
       const authConfig = document.getElementById('auth-config');
       if (!authConfig) return;
 
-      // Get current app state for environment and globals (with caching)
-      const state = await this.getCachedStore();
-      const activeEnvironment = state.activeEnvironmentId
-        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
-        : undefined;
-
-      const globals = state.globals || { variables: {} };
-
-      // Build folder variables using stored collectionId
-      const folderVars = buildFolderVars(this.currentCollectionId, state.collections);
-
-      // Cache context for future updates
-      this.activeEnvironment = activeEnvironment;
-      this.globals = globals;
-      this.folderVars = folderVars;
-
-      // Add tooltips and highlighting to all auth inputs
+      // CRITICAL: Attach input listeners FIRST (synchronously) to avoid race condition
+      // with loadConfigToDOM() setTimeout that loads values
       const inputs = authConfig.querySelectorAll('input[type="text"], input[type="password"]');
+
       inputs.forEach((input) => {
-        this.enhanceVariableInput(input as HTMLInputElement);
+        const inputElement = input as HTMLInputElement;
+        // Attach input listener immediately if not already attached
+        if (!inputElement.dataset.variableHighlightListenerAttached) {
+          inputElement.addEventListener('input', () => {
+            this.refreshInputHighlight(inputElement);
+          });
+          inputElement.dataset.variableHighlightListenerAttached = 'true';
+        }
       });
+
+      // IMPORTANT: Use already-loaded context instead of reloading from cache
+      // The context has already been loaded by refreshVariableTooltips() with the correct collectionId
+      // Reloading from cache can give stale data or wrong folder variables
+
+      // Don't try to highlight now - inputs are empty at this point
+      // The setTimeout in loadConfigToDOM will populate values and dispatch input events
+      // which will trigger refreshInputHighlight with the correct context
     } catch (error) {
       console.error('Failed to initialize auth tooltips:', error);
     }

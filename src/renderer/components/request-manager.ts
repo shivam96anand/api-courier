@@ -84,6 +84,12 @@ export class RequestManager {
     this.formHandler.loadBasicRequestData(request);
     this.formHandler.restoreActiveDetailsTab(activeDetailsTab); // Restore the active details tab
 
+    // Set collectionId context BEFORE loading auth to ensure variable highlighting works correctly
+    await Promise.all([
+      this.formHandler.refreshVariableTooltips(collectionId),
+      this.refreshVariableContext(collectionId)
+    ]);
+
     this.editorsManager.loadParams(request.params || {});
     this.editorsManager.loadHeaders(request.headers);
 
@@ -94,10 +100,6 @@ export class RequestManager {
     if (request.auth) {
       this.editorsManager.loadAuth(request.auth, collectionId);
     }
-
-    // Refresh variable context asynchronously without blocking
-    this.refreshVariableContext(collectionId);
-    this.formHandler.refreshVariableTooltips(collectionId);
   }
 
   /**
