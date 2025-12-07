@@ -159,6 +159,7 @@
       color: var(--text-secondary);
       font-style: italic;
       margin-left: 2px;
+      user-select: none;
     }
 
     .search-highlight {

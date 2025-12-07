@@ -49,16 +49,19 @@ export class JsonViewer {
 
     nodesContainer.addEventListener('click', (e) => this.handleNodeClick(e));
 
+    // Handle copy events to include full nested JSON data
+    nodesContainer.addEventListener('copy', (e) => this.handleCopy(e));
+
     // Debounce scroll events for better performance
     let scrollTimeout: number | null = null;
     content.addEventListener('scroll', () => {
       if (scrollTimeout) {
         clearTimeout(scrollTimeout);
       }
-      
+
       // Immediate sync for visual consistency
       this.lineNumbersManager.syncLineNumbersScroll(this.container);
-      
+
       // Debounced cleanup for performance
       scrollTimeout = window.setTimeout(() => {
         scrollTimeout = null;
@@ -151,6 +154,97 @@ export class JsonViewer {
     if (target.classList.contains('expand-icon') || target.classList.contains('bracket')) {
       this.toggleNode(node);
     }
+  }
+
+  private handleCopy(e: ClipboardEvent): void {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    // Get all selected node elements
+    const range = selection.getRangeAt(0);
+    const selectedNodes = this.getSelectedNodes(range);
+
+    if (selectedNodes.length === 0) return;
+
+    // Prevent default copy behavior
+    e.preventDefault();
+
+    // Reconstruct full JSON from selected nodes (including all nested data)
+    const jsonToCopy = this.reconstructJsonFromNodes(selectedNodes);
+
+    // Format and set clipboard data
+    const formattedJson = JSON.stringify(jsonToCopy, null, 2);
+    e.clipboardData?.setData('text/plain', formattedJson);
+  }
+
+  private getSelectedNodes(range: Range): JsonNode[] {
+    const selectedNodes: JsonNode[] = [];
+    const container = this.container.querySelector('.json-nodes-container');
+    if (!container) return selectedNodes;
+
+    // Get all node elements in the container
+    const allNodeElements = container.querySelectorAll('.json-node[data-node-id]');
+
+    allNodeElements.forEach((element) => {
+      // Check if this element intersects with the selection
+      if (range.intersectsNode(element)) {
+        const nodeId = (element as HTMLElement).dataset.nodeId;
+        if (nodeId) {
+          const lineNumber = parseInt(nodeId);
+          const node = JsonParser.findNodeByLineNumber(this.nodes, lineNumber);
+          if (node && !selectedNodes.includes(node)) {
+            selectedNodes.push(node);
+          }
+        }
+      }
+    });
+
+    // Filter out nodes whose ancestors are also selected
+    // This prevents duplication when selecting an expanded object
+    return selectedNodes.filter(node => {
+      // Check if any ancestor of this node is in the selection
+      let parent = node.parent;
+      while (parent) {
+        if (selectedNodes.includes(parent)) {
+          return false; // Exclude this node because its parent is selected
+        }
+        parent = parent.parent;
+      }
+      return true; // Include this node
+    });
+  }
+
+  private reconstructJsonFromNodes(nodes: JsonNode[]): any {
+    if (nodes.length === 0) return null;
+
+    // If only one node is selected, return its full value
+    if (nodes.length === 1) {
+      return nodes[0].value;
+    }
+
+    // If multiple nodes are selected, reconstruct as array or object
+    // Check if all nodes share the same parent
+    const parent = nodes[0].parent;
+    const allSameParent = nodes.every(node => node.parent === parent);
+
+    if (allSameParent && parent) {
+      if (parent.type === 'array') {
+        // Return array of selected items
+        return nodes.map(node => node.value);
+      } else if (parent.type === 'object') {
+        // Return object with selected properties
+        const result: any = {};
+        nodes.forEach(node => {
+          if (node.key) {
+            result[node.key] = node.value;
+          }
+        });
+        return result;
+      }
+    }
+
+    // Fallback: return array of all selected values
+    return nodes.map(node => node.value);
   }
 
   private toggleNode(node: JsonNode): void {
