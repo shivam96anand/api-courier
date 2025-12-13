@@ -87,6 +87,10 @@ export class MonacoJsonEditor {
       autoIndent: 'full',
       bracketPairColorization: {
         enabled: true
+      },
+      padding: {
+        top: 12,
+        bottom: 12
       }
     });
 
@@ -135,6 +139,12 @@ export class MonacoJsonEditor {
 
   public focus(): void {
     this.editor?.focus();
+  }
+
+  public scrollToTop(): void {
+    if (this.editor) {
+      this.editor.setScrollPosition({ scrollTop: 0 });
+    }
   }
 
   public format(): void {

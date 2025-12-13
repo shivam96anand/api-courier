@@ -120,6 +120,9 @@ export class RequestBodyEditor {
       }
     }
 
+    // Watch for body section becoming visible to reset scroll position
+    this.setupVisibilityWatcher();
+
     // Action buttons
     this.container.querySelector('#format-body-btn')?.addEventListener('click', () => this.formatJson());
     this.container.querySelector('#body-content-type')?.addEventListener('change', (e) => {
@@ -130,6 +133,29 @@ export class RequestBodyEditor {
     // Listen for theme changes and refresh highlighting
     document.addEventListener('theme-changed', () => {
       this.updateHighlighting();
+    });
+  }
+
+  private setupVisibilityWatcher(): void {
+    // Watch for when the body section becomes active to reset scroll position
+    const observer = new MutationObserver(() => {
+      if (this.container.classList.contains('active')) {
+        // Reset Monaco editor scroll position if active
+        if (this.monacoEditor) {
+          this.monacoEditor.scrollToTop();
+        }
+
+        // Also reset textarea scroll position for consistency
+        const textarea = this.container.querySelector('#request-body') as HTMLTextAreaElement;
+        if (textarea && textarea.style.display !== 'none') {
+          textarea.scrollTop = 0;
+        }
+      }
+    });
+
+    observer.observe(this.container, {
+      attributes: true,
+      attributeFilter: ['class']
     });
   }
 
