@@ -81,7 +81,7 @@ export class RequestBodyEditor {
           </div>
         </div>
         <div class="body-editor-wrapper">
-          <div id="monaco-json-editor" class="monaco-json-editor-container" style="display: none; height: 400px;"></div>
+          <div id="monaco-json-editor" class="monaco-json-editor-container" style="display: none;"></div>
           <div class="syntax-highlight-overlay" id="syntax-highlight-overlay"></div>
           <textarea
             id="request-body"

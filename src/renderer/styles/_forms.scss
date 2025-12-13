@@ -494,8 +494,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 0;
-  height: 100%;
 }
 
 .request-line {
@@ -531,8 +529,6 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  height: 100%;
 
   .tabs {
     display: flex;
@@ -561,12 +557,9 @@
 
 .section {
   display: none;
-  flex: 1;
   flex-direction: column;
   gap: 12px;
-  min-height: 0;
   align-items: stretch;
-  height: 100%;
 
   &.active {
     display: flex;
@@ -651,12 +644,11 @@
   margin-top: 6px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.06), transparent);
-  overflow: hidden;
+  background-color: var(--bg-primary);
+  overflow: auto;
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
-  height: clamp(260px, 57vh, 660px);
+  height: 490px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
   width: 100%;
 }
@@ -666,12 +658,15 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   background-color: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-color);
   font-size: 12px;
   border-radius: 8px 8px 0 0;
-  min-height: 38px;
+  min-height: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .body-editor-actions {
@@ -765,24 +760,25 @@
 .body-editor-wrapper {
   position: relative;
   display: flex;
+  flex-direction: column;
   flex: 1;
-  min-height: 0;
-  background-color: var(--bg-primary);
   width: 100%;
   height: 100%;
+  background-color: var(--bg-primary);
 }
 
 .monaco-json-editor-container {
   width: 100%;
   height: 100%;
   flex: 1;
-  min-height: 0;
   border-radius: 0 0 8px 8px;
   overflow: hidden;
+  background-color: var(--bg-primary);
 }
 
 .body-editor {
   width: 100%;
+  height: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   border: none;
@@ -797,8 +793,6 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   border-radius: 0 0 8px 8px;
   flex: 1;
-  min-height: 0;
-  height: 100%;
   position: relative;
   z-index: 2;
 
@@ -836,13 +830,15 @@
   font-size: 12px;
   line-height: 1.5;
   white-space: pre;
-  overflow: auto;
+  overflow: hidden;
   pointer-events: none;
   z-index: 1;
   color: var(--text-primary);
   word-wrap: break-word;
   word-break: break-word;
   display: none;
+  height: 100%;
+  box-sizing: border-box;
 
   // JSON syntax colors - Theme-aware
   .json-key {
