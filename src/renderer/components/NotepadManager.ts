@@ -210,7 +210,7 @@ export class NotepadManager {
     this.editor = monaco.editor.create(this.editorHost, {
       value: '',
       language: 'plaintext',
-      theme: 'api-courier-dark',
+      theme: 'api-courier-notepad',
       automaticLayout: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -260,7 +260,7 @@ export class NotepadManager {
 
   private updateMonacoTheme(): void {
     const foreground = 'ffffff';
-    monaco.editor.defineTheme('api-courier-dark', {
+    monaco.editor.defineTheme('api-courier-notepad', {
       base: 'vs-dark',
       inherit: true,
       rules: [
@@ -275,7 +275,7 @@ export class NotepadManager {
       },
     });
 
-    monaco.editor.setTheme('api-courier-dark');
+    monaco.editor.setTheme('api-courier-notepad');
   }
 
   private renderState(state: ReturnType<NotepadStore['getState']>): void {

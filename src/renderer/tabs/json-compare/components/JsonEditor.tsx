@@ -41,7 +41,7 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
     const updateMonacoTheme = () => {
       const themeColor = getCurrentThemeColor();
 
-      monaco.editor.defineTheme('api-courier-dark', {
+      monaco.editor.defineTheme('api-courier-json', {
         base: 'vs-dark',
         inherit: true,
         rules: [
@@ -60,10 +60,8 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
         }
       });
 
-      // Apply theme to editor if it exists
-      if (editorRef.current) {
-        monaco.editor.setTheme('api-courier-dark');
-      }
+      // Apply theme globally (affects all Monaco editors)
+      monaco.editor.setTheme('api-courier-json');
     };
 
     // Initialize Monaco editor
@@ -76,7 +74,7 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
       const editor = monaco.editor.create(containerRef.current, {
         value,
         language: 'json',
-        theme: 'api-courier-dark',
+        theme: 'api-courier-json',
         automaticLayout: true,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,

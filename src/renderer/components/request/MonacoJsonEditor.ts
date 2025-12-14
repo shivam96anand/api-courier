@@ -36,7 +36,7 @@ export class MonacoJsonEditor {
   private updateMonacoTheme(): void {
     const themeColor = this.getCurrentThemeColor();
 
-    monaco.editor.defineTheme('api-courier-dark', {
+    monaco.editor.defineTheme('api-courier-json', {
       base: 'vs-dark',
       inherit: true,
       rules: [
@@ -55,9 +55,8 @@ export class MonacoJsonEditor {
       }
     });
 
-    if (this.editor) {
-      monaco.editor.setTheme('api-courier-dark');
-    }
+    // Apply theme globally (affects all Monaco editors)
+    monaco.editor.setTheme('api-courier-json');
   }
 
   private initialize(value: string): void {
@@ -68,7 +67,7 @@ export class MonacoJsonEditor {
     this.editor = monaco.editor.create(this.container, {
       value,
       language: 'json',
-      theme: 'api-courier-dark',
+      theme: 'api-courier-json',
       automaticLayout: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,

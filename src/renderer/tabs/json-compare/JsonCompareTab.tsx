@@ -95,6 +95,26 @@ const JsonCompareTab: React.FC = () => {
           <div className="title-stack">
             <h3 className="header-title">JSON Compare</h3>
           </div>
+
+          <div className="mini-metric-grid">
+            <div className="mini-metric-card accent-primary">
+              <span className="metric-label">Total</span>
+              <span className="metric-value">{diffCount}</span>
+            </div>
+            <div className="mini-metric-card accent-changed">
+              <span className="metric-label">Changed</span>
+              <span className="metric-value">{stats?.changed ?? 0}</span>
+            </div>
+            <div className="mini-metric-card accent-removed">
+              <span className="metric-label">Removed</span>
+              <span className="metric-value">{stats?.removed ?? 0}</span>
+            </div>
+            <div className="mini-metric-card accent-added">
+              <span className="metric-label">Added</span>
+              <span className="metric-value">{stats?.added ?? 0}</span>
+            </div>
+          </div>
+
           <div className="header-actions">
             <button className="compare-action-btn" onClick={handleSwap} title="Swap sides">
               <span className="icon">⇆</span> Swap
@@ -108,25 +128,6 @@ const JsonCompareTab: React.FC = () => {
             <button className="compare-action-btn" onClick={handleCopyRight} title="Copy right JSON">
               <span className="icon">⧉</span> Copy right
             </button>
-          </div>
-        </div>
-
-        <div className="mini-metric-grid">
-          <div className="mini-metric-card accent-primary">
-            <span className="metric-label">Total</span>
-            <span className="metric-value">{diffCount}</span>
-          </div>
-          <div className="mini-metric-card accent-changed">
-            <span className="metric-label">Changed</span>
-            <span className="metric-value">{stats?.changed ?? 0}</span>
-          </div>
-          <div className="mini-metric-card accent-removed">
-            <span className="metric-label">Removed</span>
-            <span className="metric-value">{stats?.removed ?? 0}</span>
-          </div>
-          <div className="mini-metric-card accent-added">
-            <span className="metric-label">Added</span>
-            <span className="metric-value">{stats?.added ?? 0}</span>
           </div>
         </div>
       </div>
