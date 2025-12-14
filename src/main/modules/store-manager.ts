@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { AppState, AppTheme, Globals, CollectionsUIState } from '../../shared/types';
+import { AppState, AppTheme, Globals, CollectionsUIState, NotepadState } from '../../shared/types';
 
 const defaultTheme: AppTheme = {
   name: 'blue',
@@ -17,6 +17,12 @@ const defaultCollectionsUIState: CollectionsUIState = {
   expandedFolderIds: [],
 };
 
+const defaultNotepadState: NotepadState = {
+  tabs: [],
+  activeTabId: undefined,
+  untitledCounter: 1,
+};
+
 const defaultState: AppState = {
   collections: [],
   openTabs: [],
@@ -25,6 +31,7 @@ const defaultState: AppState = {
   environments: [],
   globals: defaultGlobals,
   collectionsUIState: defaultCollectionsUIState,
+  notepad: defaultNotepadState,
 };
 
 class StoreManager {
@@ -54,6 +61,7 @@ class StoreManager {
           activeEnvironmentId: loadedData.activeEnvironmentId,
           globals: loadedData.globals || defaultGlobals,
           collectionsUIState: loadedData.collectionsUIState || defaultCollectionsUIState,
+          notepad: loadedData.notepad || defaultNotepadState,
         };
       } catch (error) {
         console.error('Failed to read database file, using default state:', error);

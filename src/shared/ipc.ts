@@ -43,6 +43,12 @@ export const IPC_CHANNELS = {
   AI_MESSAGE_STREAM: 'ai:message-stream',
   AI_CHECK_ENGINE: 'ai:check-engine',
   AI_UPDATE_SESSION: 'ai:update-session',
+
+  // Notepad channels
+  NOTEPAD_SAVE_FILE: 'notepad:save-file',
+  NOTEPAD_OPEN_FILE: 'notepad:open-file',
+  NOTEPAD_READ_FILE: 'notepad:read-file',
+  NOTEPAD_REVEAL: 'notepad:reveal',
 } as const;
 
 export type IpcChannelKey = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

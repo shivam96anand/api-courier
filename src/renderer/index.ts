@@ -10,6 +10,7 @@ import { LoadTestManager } from './components/loadtest-manager';
 import { JsonViewerTab } from './components/JsonViewerTab';
 import { JsonCompareTabManager } from './components/JsonCompareTab';
 import { AskAiTab } from './components/AskAiTab';
+import { NotepadManager } from './components/NotepadManager';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
 import { EnvironmentManager } from './components/environments/environment-manager';
@@ -33,6 +34,7 @@ class ApiCourierRenderer {
   private jsonViewerTab: JsonViewerTab;
   private jsonCompareTab: JsonCompareTabManager;
   private askAiTab: AskAiTab;
+  private notepadManager: NotepadManager;
   private themeManager: ThemeManager;
   private environmentManager: EnvironmentManager;
   private importManager: ImportManager;
@@ -56,6 +58,7 @@ class ApiCourierRenderer {
     this.jsonViewerTab = new JsonViewerTab();
     this.jsonCompareTab = new JsonCompareTabManager();
     this.askAiTab = new AskAiTab(askAiContainer);
+    this.notepadManager = new NotepadManager(document.getElementById('notepad-tab'));
   }
 
   async initialize(): Promise<void> {
@@ -73,6 +76,7 @@ class ApiCourierRenderer {
     this.environmentManager.initialize();
     await this.loadTestManager.initialize();
     this.askAiTab.initialize();
+    await this.notepadManager.initialize();
     resizeManager.initialize();
 
     // Set up import button

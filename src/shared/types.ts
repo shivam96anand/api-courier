@@ -85,6 +85,22 @@ export interface CollectionsUIState {
   expandedFolderIds: string[];
 }
 
+export interface NotepadTab {
+  id: string;
+  title: string;
+  content: string;
+  filePath?: string;
+  isDirty: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NotepadState {
+  tabs: NotepadTab[];
+  activeTabId?: string;
+  untitledCounter: number;
+}
+
 export interface AppState {
   collections: Collection[];
   openTabs: RequestTab[];
@@ -96,6 +112,7 @@ export interface AppState {
   activeEnvironmentId?: string;
   globals: Globals;
   collectionsUIState?: CollectionsUIState;
+  notepad?: NotepadState;
 }
 
 // Load Testing Types

@@ -46,6 +46,12 @@ const IPC_CHANNELS = {
   AI_MESSAGE_STREAM: 'ai:message-stream',
   AI_CHECK_ENGINE: 'ai:check-engine',
   AI_UPDATE_SESSION: 'ai:update-session',
+
+  // Notepad channels
+  NOTEPAD_SAVE_FILE: 'notepad:save-file',
+  NOTEPAD_OPEN_FILE: 'notepad:open-file',
+  NOTEPAD_READ_FILE: 'notepad:read-file',
+  NOTEPAD_REVEAL: 'notepad:reveal',
 } as const;
 
 // Define types inline to avoid import issues
@@ -82,12 +88,29 @@ interface AppTheme {
   accentColor: string;
 }
 
+interface NotepadTab {
+  id: string;
+  title: string;
+  content: string;
+  filePath?: string;
+  isDirty: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface NotepadState {
+  tabs: NotepadTab[];
+  activeTabId?: string;
+  untitledCounter: number;
+}
+
 interface AppState {
   collections: Collection[];
   openTabs: any[];
   activeTabId?: string;
   selectedCollectionId?: string;
   theme: AppTheme;
+  notepad?: NotepadState;
 }
 
 // Load Testing Types
@@ -308,6 +331,17 @@ const apiCourierAPI = {
 
   system: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url),
+  },
+
+  notepad: {
+    saveFile: (args: { filePath?: string; content: string; defaultName?: string }): Promise<{ filePath?: string; canceled?: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_SAVE_FILE, args),
+    openFile: (): Promise<{ filePath?: string; content?: string; canceled?: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_OPEN_FILE),
+    readFile: (filePath: string): Promise<{ content?: string; canceled?: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_READ_FILE, filePath),
+    revealInFolder: (filePath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_REVEAL, filePath),
   },
 
   ai: {
