@@ -57,26 +57,27 @@ export class RequestBodyEditor {
   private setupDOM(): void {
     this.container.innerHTML = `
       <div class="body-type-row">
+        <div class="body-type-info">
+          <div class="title">Payload</div>
+        </div>
         <div class="body-type-selector">
-          <label><input type="radio" name="body-type" value="none" checked> None</label>
-          <label><input type="radio" name="body-type" value="raw"> Raw</label>
-          <label><input type="radio" name="body-type" value="form-urlencoded"> Form URL Encoded</label>
+          <label for="body-type-select" class="sr-only">Body type</label>
+          <select id="body-type-select" class="body-type-select" aria-label="Body type">
+            <option value="none" selected>None</option>
+            <option value="json">JSON</option>
+            <option value="xml">XML</option>
+            <option value="yaml">YAML</option>
+            <option value="text">Plain Text</option>
+            <option value="form-urlencoded">Form URL Encoded</option>
+          </select>
         </div>
       </div>
       <div class="body-editor-container" id="body-editor-container" style="display: none;">
         <div class="body-editor-header">
-          <div class="body-editor-heading">
+          <div class="body-editor-heading sr-only">
             <div class="title">Request Body</div>
           </div>
           <div class="body-editor-actions">
-            <select id="body-content-type" class="content-type-select" aria-label="Body content type">
-              <option value="json">JSON</option>
-              <option value="xml">XML</option>
-              <option value="yaml">YAML</option>
-              <option value="text">Plain Text</option>
-              <option value="form-urlencoded">Form URL Encoded</option>
-            </select>
-            <button id="format-body-btn" class="btn btn-secondary" style="display: none;">Format</button>
             <div class="body-status" id="body-status"></div>
           </div>
         </div>
@@ -95,14 +96,14 @@ export class RequestBodyEditor {
   }
 
   private setupEventListeners(): void {
-    // Body type radio buttons
-    const bodyTypeInputs = this.container.querySelectorAll('input[name="body-type"]');
-    bodyTypeInputs.forEach(input => {
-      input.addEventListener('change', (e) => {
-        const target = e.target as HTMLInputElement;
-        this.handleBodyTypeChange(target.value);
+    // Body type selector
+    const bodyTypeSelect = this.container.querySelector('#body-type-select') as HTMLSelectElement;
+    if (bodyTypeSelect) {
+      bodyTypeSelect.addEventListener('change', (e) => {
+        const target = e.target as HTMLSelectElement;
+        this.handleBodySelectionChange(target.value as BodyFormat | 'none');
       });
-    });
+    }
 
     // Body editor textarea
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
@@ -124,7 +125,6 @@ export class RequestBodyEditor {
     this.setupVisibilityWatcher();
 
     // Action buttons
-    this.container.querySelector('#format-body-btn')?.addEventListener('click', () => this.formatJson());
     this.container.querySelector('#body-content-type')?.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
       this.handleFormatChange(target.value as BodyFormat);
@@ -177,7 +177,10 @@ export class RequestBodyEditor {
 
     // Hide textarea and overlay, show Monaco container
     if (textarea) textarea.style.display = 'none';
-    if (overlay) overlay.style.display = 'none';
+    if (overlay) {
+      overlay.style.display = 'none';
+      overlay.innerHTML = '';
+    }
     monacoContainer.style.display = 'block';
 
     // Create Monaco editor
@@ -233,44 +236,21 @@ export class RequestBodyEditor {
   }
 
   private handleBodyTypeChange(bodyType: string): void {
-    const normalizedType = bodyType as BodyType;
+    // Deprecated path; keep for safety if called externally
+    this.handleBodySelectionChange(bodyType as BodyFormat | 'none');
+  }
+
+  private handleBodySelectionChange(selection: BodyFormat | 'none'): void {
     const bodyEditorContainer = this.container.querySelector('#body-editor-container') as HTMLElement;
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
-    const formatBtn = this.container.querySelector('#format-body-btn') as HTMLElement;
-    const contentTypeSelect = this.container.querySelector('#body-content-type') as HTMLSelectElement;
-
-    if (normalizedType === 'raw' && this.currentFormat === 'json') {
-      this.currentBodyType = 'json';
-    } else {
-      this.currentBodyType = normalizedType;
-    }
-
-    if (contentTypeSelect) {
-      const formOption = contentTypeSelect.querySelector('option[value="form-urlencoded"]') as HTMLOptionElement | null;
-      if (formOption) {
-        formOption.disabled = normalizedType !== 'form-urlencoded';
-      }
-
-      if (normalizedType === 'none') {
-        contentTypeSelect.style.display = 'none';
-      } else {
-        contentTypeSelect.style.display = 'inline-block';
-        const selectValue = normalizedType === 'form-urlencoded' ? 'form-urlencoded' : this.currentFormat;
-        contentTypeSelect.value = selectValue;
-        contentTypeSelect.disabled = normalizedType === 'form-urlencoded';
-      }
-    }
-
-    if (normalizedType === 'form-urlencoded') {
-      this.currentFormat = 'form-urlencoded';
-    } else if (normalizedType === 'raw' && this.currentFormat === 'form-urlencoded') {
-      this.currentFormat = 'json';
-    }
+    const normalizedType = selection === 'none' ? 'none' : selection;
 
     if (normalizedType === 'none') {
       bodyEditorContainer.style.display = 'none';
       // Clean up Monaco editor if active
       this.switchToTextareaEditor();
+      this.currentBodyType = 'none';
+      this.currentFormat = 'json';
       this.events.onBodyChange({
         type: this.currentBodyType,
         content: '',
@@ -281,11 +261,18 @@ export class RequestBodyEditor {
     } else {
       bodyEditorContainer.style.display = 'block';
 
-      // Show/hide JSON-specific actions
-      if (formatBtn) {
-        formatBtn.style.display = this.currentFormat === 'json' ? 'inline-block' : 'none';
+      if (selection === 'form-urlencoded') {
+        this.currentBodyType = 'form-urlencoded';
+        this.currentFormat = 'form-urlencoded';
+      } else if (selection === 'json') {
+        this.currentBodyType = 'json';
+        this.currentFormat = 'json';
+      } else {
+        this.currentBodyType = 'raw';
+        this.currentFormat = selection;
       }
 
+      // Show/hide JSON-specific actions
       // Switch editor based on format
       if (this.currentFormat === 'json') {
         // Use Monaco editor for JSON
@@ -437,15 +424,15 @@ export class RequestBodyEditor {
   public setBody(body: { type: BodyType; content: string; format?: BodyFormat; contentType?: string }): void {
     const normalizedType = body.type === 'json' ? 'raw' : body.type;
     const inferredFormat = this.inferFormat(body);
-    const bodyTypeInput = this.container.querySelector(`input[name="body-type"][value="${normalizedType}"]`) as HTMLInputElement;
+    const bodyTypeSelect = this.container.querySelector('#body-type-select') as HTMLSelectElement;
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
-    const contentTypeSelect = this.container.querySelector('#body-content-type') as HTMLSelectElement;
 
     this.currentFormat = inferredFormat;
 
-    if (bodyTypeInput) {
-      bodyTypeInput.checked = true;
-      this.handleBodyTypeChange(normalizedType);
+    if (bodyTypeSelect) {
+      const selectionValue = normalizedType === 'none' ? 'none' : inferredFormat;
+      bodyTypeSelect.value = selectionValue;
+      this.handleBodySelectionChange(selectionValue as BodyFormat | 'none');
     }
 
     // Set the value in the appropriate editor
@@ -460,20 +447,17 @@ export class RequestBodyEditor {
       this.updateHighlighting();
     }
 
-    if (contentTypeSelect) {
-      contentTypeSelect.value = this.currentFormat;
-    }
   }
 
   public getBody(): { type: BodyType; content: string; format?: BodyFormat; contentType?: string } {
-    const bodyTypeInput = this.container.querySelector('input[name="body-type"]:checked') as HTMLInputElement;
+    const bodyTypeSelect = this.container.querySelector('#body-type-select') as HTMLSelectElement;
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
 
     // Get content from Monaco editor if active, otherwise from textarea
     const content = this.monacoEditor ? this.monacoEditor.getValue() : (bodyEditor?.value || '');
 
     return {
-      type: this.currentFormat === 'json' ? 'json' : ((bodyTypeInput?.value as BodyType) || 'none'),
+      type: this.currentBodyType,
       content,
       format: this.currentFormat,
       contentType: this.getCurrentContentType() || undefined
@@ -487,10 +471,10 @@ export class RequestBodyEditor {
       this.monacoEditor = null;
     }
 
-    const noneTypeInput = this.container.querySelector('input[name="body-type"][value="none"]') as HTMLInputElement;
-    if (noneTypeInput) {
-      noneTypeInput.checked = true;
-      this.handleBodyTypeChange('none');
+    const bodyTypeSelect = this.container.querySelector('#body-type-select') as HTMLSelectElement;
+    if (bodyTypeSelect) {
+      bodyTypeSelect.value = 'none';
+      this.handleBodySelectionChange('none');
     }
   }
 
@@ -511,11 +495,6 @@ export class RequestBodyEditor {
     }
 
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
-    const formatBtn = this.container.querySelector('#format-body-btn') as HTMLElement;
-
-    if (formatBtn) {
-      formatBtn.style.display = format === 'json' ? 'inline-block' : 'none';
-    }
 
     if (bodyEditor) {
       if (format === 'json') {
@@ -585,6 +564,16 @@ export class RequestBodyEditor {
    * Update syntax highlighting overlay with JSON syntax and variable highlighting
    */
   private updateHighlighting(): void {
+    // Skip overlay when Monaco editor is active to avoid ghost text on theme changes
+    if (this.monacoEditor) {
+      const overlayHidden = this.container.querySelector('#syntax-highlight-overlay') as HTMLDivElement;
+      if (overlayHidden) {
+        overlayHidden.style.display = 'none';
+        overlayHidden.innerHTML = '';
+      }
+      return;
+    }
+
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
     const overlay = this.container.querySelector('#syntax-highlight-overlay') as HTMLDivElement;
 
