@@ -38,7 +38,6 @@ export class CollectionsCore {
       (folderId) => this.toggleFolder(folderId),
       (collectionId) => this.selectCollection(collectionId),
       (event) => this.showCreateMenu(event),
-      (type, parentId) => this.showCreateDialog(type, parentId),
       (event, collectionId) => this.showContextMenu(event, collectionId),
       (draggedId, targetFolderId) => this.handleMoveCollection(draggedId, targetFolderId),
       (draggedId, targetId, position) => this.handleReorderCollection(draggedId, targetId, position),

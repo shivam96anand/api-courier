@@ -5,7 +5,6 @@ export class CollectionsUIHandler {
   private onToggleFolder: (folderId: string) => void;
   private onSelectCollection: (collectionId: string) => void;
   private onShowCreateMenu: (event: MouseEvent) => void;
-  private onShowCreateDialog: (type: 'folder' | 'request', parentId?: string) => void;
   private onShowContextMenu: (event: MouseEvent, collectionId: string) => void;
   private onMoveCollection: (draggedId: string, targetFolderId: string) => void;
   private onReorderCollection: (draggedId: string, targetId: string, position: 'before' | 'after') => void;
@@ -15,7 +14,6 @@ export class CollectionsUIHandler {
     onToggleFolder: (folderId: string) => void,
     onSelectCollection: (collectionId: string) => void,
     onShowCreateMenu: (event: MouseEvent) => void,
-    onShowCreateDialog: (type: 'folder' | 'request', parentId?: string) => void,
     onShowContextMenu: (event: MouseEvent, collectionId: string) => void,
     onMoveCollection: (draggedId: string, targetFolderId: string) => void,
     onReorderCollection: (draggedId: string, targetId: string, position: 'before' | 'after') => void,
@@ -24,7 +22,6 @@ export class CollectionsUIHandler {
     this.onToggleFolder = onToggleFolder;
     this.onSelectCollection = onSelectCollection;
     this.onShowCreateMenu = onShowCreateMenu;
-    this.onShowCreateDialog = onShowCreateDialog;
     this.onShowContextMenu = onShowContextMenu;
     this.onMoveCollection = onMoveCollection;
     this.onReorderCollection = onReorderCollection;
@@ -77,32 +74,6 @@ export class CollectionsUIHandler {
           }
 
           this.onSelectCollection(collectionId);
-        }
-      }
-
-      // Check if target or parent is an add folder button
-      const addFolderBtn = target.classList.contains('collection-add-folder')
-        ? target
-        : target.closest('.collection-add-folder');
-      if (addFolderBtn) {
-        const parentId = (addFolderBtn as HTMLElement).dataset.parentId;
-        if (parentId) {
-          e.stopPropagation();
-          this.onShowCreateDialog('folder', parentId);
-          return;
-        }
-      }
-
-      // Check if target or parent is an add request button
-      const addRequestBtn = target.classList.contains('collection-add-request')
-        ? target
-        : target.closest('.collection-add-request');
-      if (addRequestBtn) {
-        const parentId = (addRequestBtn as HTMLElement).dataset.parentId;
-        if (parentId) {
-          e.stopPropagation();
-          this.onShowCreateDialog('request', parentId);
-          return;
         }
       }
     });

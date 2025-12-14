@@ -175,33 +175,6 @@ export class CollectionsRenderer {
       }
     }
 
-    if (collection.type === 'folder') {
-      const actions = document.createElement('div');
-      actions.className = 'collection-actions';
-
-      const addFolder = document.createElement('button');
-      addFolder.className = 'action-btn collection-add-folder';
-      addFolder.dataset.parentId = collection.id;
-      addFolder.title = 'Add folder';
-      const addFolderIcon = createIconElement('add-folder', {
-        style: { width: '12px', height: '12px', display: 'inline-block' }
-      });
-      addFolder.appendChild(addFolderIcon);
-
-      const addRequest = document.createElement('button');
-      addRequest.className = 'action-btn collection-add-request';
-      addRequest.dataset.parentId = collection.id;
-      addRequest.title = 'Add request';
-      const addRequestIcon = createIconElement('add-file', {
-        style: { width: '12px', height: '12px', display: 'inline-block' }
-      });
-      addRequest.appendChild(addRequestIcon);
-
-      actions.appendChild(addFolder);
-      actions.appendChild(addRequest);
-      contentWrapper.appendChild(actions);
-    }
-
     element.appendChild(contentWrapper);
 
     const container = document.createElement('div');
