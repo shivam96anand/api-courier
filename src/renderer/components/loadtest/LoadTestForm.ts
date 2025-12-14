@@ -65,31 +65,32 @@ export class LoadTestForm {
 
     container.innerHTML = `
       <div class="load-test-form">
-        <div class="form-section">
-          <h3>Test Configuration</h3>
-          <div class="form-grid">
-            <div class="form-field">
-              <label for="rpm-input">Requests per Minute</label>
-              <input type="number" id="rpm-input" min="1" max="10000" value="60" class="form-input">
-              <small class="form-help">Maximum 10,000 RPM</small>
-            </div>
-
-            <div class="form-field">
-              <label for="duration-input">Duration</label>
-              <div class="duration-input-group">
-                <input type="number" id="duration-value" min="1" value="5" class="form-input duration-value">
-                <select id="duration-unit" class="form-input duration-unit">
-                  <option value="seconds">Seconds</option>
-                  <option value="minutes" selected>Minutes</option>
-                </select>
+        <div class="form-main-grid">
+          <div class="form-section compact">
+            <h3>Test Configuration</h3>
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="rpm-input">Requests per Minute</label>
+                <input type="number" id="rpm-input" min="1" max="10000" value="60" class="form-input">
+                <small class="form-help">Maximum 10,000 RPM</small>
               </div>
-              <small class="form-help">1 second to 24 hours maximum</small>
+
+              <div class="form-field">
+                <label for="duration-input">Duration</label>
+                <div class="duration-input-group">
+                  <input type="number" id="duration-value" min="1" value="5" class="form-input duration-value">
+                  <select id="duration-unit" class="form-input duration-unit">
+                    <option value="seconds">Seconds</option>
+                    <option value="minutes" selected>Minutes</option>
+                  </select>
+                </div>
+                <small class="form-help">1 second to 24 hours maximum</small>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="form-section">
-          <h3>Target Request</h3>
+          <div class="form-section compact">
+            <h3>Target Request</h3>
           <div class="target-selector">
             <div class="radio-group">
               <label class="radio-label">
@@ -112,11 +113,12 @@ export class LoadTestForm {
               <!-- Target editor will be rendered here -->
             </div>
           </div>
+          </div>
         </div>
 
         <div class="form-section">
           <h3>Advanced Options</h3>
-          <div class="form-grid">
+          <div class="form-grid two-column">
             <div class="form-field">
               <label class="checkbox-label">
                 <input type="checkbox" id="follow-redirects" checked>
