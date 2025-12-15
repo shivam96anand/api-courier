@@ -75,12 +75,9 @@
 
                     <div class="api-layout">
                         <div class="collections-panel">
-                            <div class="panel-header">
-                                <h3>Collections</h3>
-                                <div class="panel-header-actions">
-                                    <button class="btn-import" id="btn-import" title="Import Collection">📥</button>
-                                    <button class="btn-add" id="add-collection" title="Add Collection">+</button>
-                                </div>
+                            <div class="collections-toolbar">
+                                <button class="btn-import" id="btn-import" title="Import Collection">📥</button>
+                                <button class="btn-add" id="add-collection" title="Add Collection">+</button>
                             </div>
                             <div class="collections-tree" id="collections-tree">
                                 <div class="empty-state">No collections yet. Click + to create one.</div>
@@ -89,9 +86,6 @@
                         </div>
 
                         <div class="request-panel">
-                            <div class="panel-header">
-                                <h3>Request</h3>
-                            </div>
                             <div class="request-form">
                                 <div class="request-line">
                                     <select id="request-method" class="method-select">
@@ -160,15 +154,18 @@
                         </div>
 
                         <div class="response-panel">
-                            <div class="panel-header">
-                                <h3>Response</h3>
-                                <div class="response-meta" id="response-meta"></div>
-                            </div>
                             <div class="response-content">
                                 <div class="response-tabs">
                                     <button class="tab active" data-section="body">Body</button>
                                     <button class="tab" data-section="headers">Headers</button>
-                                    <span class="response-timestamp" id="response-timestamp"></span>
+                                    <div class="response-meta" id="response-meta">
+                                        <span class="status-secondary">---</span>
+                                        <span class="meta-separator">•</span>
+                                        <span>---</span>
+                                        <span class="meta-separator">•</span>
+                                        <span>---</span>
+                                    </div>
+                                    <span class="response-timestamp" id="response-timestamp">--:--:-- --</span>
                                 </div>
                                 <div class="response-actions" id="response-actions" style="display: none;">
                                     <button class="response-action-btn" id="enlarge-btn" title="Open in fullscreen mode">Enlarge</button>

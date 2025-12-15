@@ -38,10 +38,24 @@ export class ResponseTabs {
       this.tabsContainer!.appendChild(tabElement);
     });
 
+    // Add response metadata element
+    const metaElement = document.createElement('div');
+    metaElement.className = 'response-meta';
+    metaElement.id = 'response-meta';
+    metaElement.innerHTML = `
+      <span class="status-secondary">---</span>
+      <span class="meta-separator">•</span>
+      <span>---</span>
+      <span class="meta-separator">•</span>
+      <span>---</span>
+    `;
+    this.tabsContainer.appendChild(metaElement);
+
     // Add timestamp element on the right
     const timestampElement = document.createElement('span');
     timestampElement.className = 'response-timestamp';
     timestampElement.id = 'response-timestamp';
+    timestampElement.textContent = '--:--:-- --';
     this.tabsContainer.appendChild(timestampElement);
   }
 
@@ -117,9 +131,21 @@ export class ResponseTabs {
 
   public clear(): void {
     this.selectTab('body');
+
+    const metaElement = document.getElementById('response-meta');
+    if (metaElement) {
+      metaElement.innerHTML = `
+        <span class="status-secondary">---</span>
+        <span class="meta-separator">•</span>
+        <span>---</span>
+        <span class="meta-separator">•</span>
+        <span>---</span>
+      `;
+    }
+
     const timestampElement = document.getElementById('response-timestamp');
     if (timestampElement) {
-      timestampElement.textContent = '';
+      timestampElement.textContent = '--:--:-- --';
     }
   }
 

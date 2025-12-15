@@ -25,15 +25,33 @@ export class CollectionsSearch {
     const collectionsTree = document.getElementById('collections-tree');
     if (!collectionsTree) return;
 
+    // Get the toolbar and its buttons
+    const toolbar = document.querySelector('.collections-toolbar');
+    const importBtn = document.getElementById('btn-import');
+    const addBtn = document.getElementById('add-collection');
+
     const searchContainer = document.createElement('div');
     searchContainer.className = 'search-container';
     searchContainer.innerHTML = `
       <input type="text" id="collections-search" class="search-input" placeholder="Search collections">
       <span class="search-icon">🔍</span>
+      <div class="search-actions"></div>
       <button class="help-btn" id="collections-help" title="Keyboard shortcuts">?</button>
     `;
 
     collectionsTree.parentNode?.insertBefore(searchContainer, collectionsTree);
+
+    // Move the toolbar buttons into the search container
+    const searchActions = searchContainer.querySelector('.search-actions');
+    if (searchActions && importBtn && addBtn) {
+      searchActions.appendChild(importBtn);
+      searchActions.appendChild(addBtn);
+    }
+
+    // Hide the now-empty toolbar
+    if (toolbar) {
+      (toolbar as HTMLElement).style.display = 'none';
+    }
 
     const searchInput = document.getElementById('collections-search') as HTMLInputElement;
     if (searchInput) {
