@@ -179,10 +179,7 @@ export class RequestManager {
     // Refresh highlighting asynchronously (non-blocking)
     // Use requestAnimationFrame to apply highlighting after paint
     requestAnimationFrame(() => {
-      // Double requestAnimationFrame ensures auth inputs are fully rendered
-      requestAnimationFrame(() => {
-        this.formHandler.refreshAllInputHighlighting();
-      });
+      this.formHandler.refreshAllInputHighlighting();
     });
   }
 

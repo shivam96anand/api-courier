@@ -153,22 +153,17 @@ export class AuthConfigManager {
         // Prevent field listeners from overwriting saved tokens during load
         this.oauth2Manager.setLoadingState(true);
         // Delegate OAuth2 loading to OAuth2Manager
-        // CRITICAL FIX: Use multiple requestAnimationFrame to ensure DOM is fully rendered
-        // and all elements (including token info panel) are ready
+        // Use single requestAnimationFrame to ensure DOM is ready
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              this.oauth2Manager.loadConfig(auth.config);
-              // Clear loading flag after config is loaded
-              this.isLoading = false;
-              this.oauth2Manager.setLoadingState(false);
-              console.log('[AuthConfigManager] OAuth2 load complete, isLoading=false');
-            });
-          });
+          this.oauth2Manager.loadConfig(auth.config);
+          // Clear loading flag after config is loaded
+          this.isLoading = false;
+          this.oauth2Manager.setLoadingState(false);
+          console.log('[AuthConfigManager] OAuth2 load complete, isLoading=false');
         });
       } else {
         // Load non-OAuth2 auth config
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           const authConfig = document.getElementById('auth-config');
           if (authConfig) {
             Object.entries(auth.config).forEach(([field, value]) => {
@@ -180,26 +175,11 @@ export class AuthConfigManager {
               }
             });
 
-            // CRITICAL FIX: Use multiple requestAnimationFrame to ensure DOM is fully painted
-            // and variable context is loaded before re-triggering highlighting
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  Object.entries(auth.config).forEach(([field, value]) => {
-                    const input = authConfig.querySelector(`[data-field="${field}"]`) as HTMLInputElement;
-                    if (input && value) {
-                      // Re-trigger input event to ensure highlighting is applied with correct context
-                      input.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                  });
-                  // Clear loading flag after config is loaded
-                  this.isLoading = false;
-                  console.log('[AuthConfigManager] Non-OAuth2 load complete, isLoading=false');
-                });
-              });
-            });
+            // Clear loading flag after config is loaded
+            this.isLoading = false;
+            console.log('[AuthConfigManager] Non-OAuth2 load complete, isLoading=false');
           }
-        }, 0);
+        });
       }
     }
   }

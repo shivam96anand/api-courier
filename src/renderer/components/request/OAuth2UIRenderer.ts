@@ -212,34 +212,16 @@ export class OAuth2UIRenderer {
    * Loads OAuth configuration into the UI
    */
   loadConfigToDOM(config: Record<string, string>): void {
-    setTimeout(() => {
-      const authConfig = document.getElementById('auth-config');
-      if (authConfig) {
-        Object.entries(config).forEach(([field, value]) => {
-          const input = authConfig.querySelector(`[data-field="${field}"]`) as HTMLInputElement;
-          if (input) {
-            input.value = value;
-            // Trigger input event to refresh variable highlighting
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-        });
-
-        // CRITICAL FIX: Use multiple requestAnimationFrame to ensure DOM is fully painted
-        // and variable context is loaded before re-triggering highlighting
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              Object.entries(config).forEach(([field, value]) => {
-                const input = authConfig.querySelector(`[data-field="${field}"]`) as HTMLInputElement;
-                if (input && value) {
-                  // Re-trigger input event to ensure highlighting is applied with correct context
-                  input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-              });
-            });
-          });
-        });
-      }
-    }, 0);
+    const authConfig = document.getElementById('auth-config');
+    if (authConfig) {
+      Object.entries(config).forEach(([field, value]) => {
+        const input = authConfig.querySelector(`[data-field="${field}"]`) as HTMLInputElement;
+        if (input) {
+          input.value = value;
+          // Trigger input event to refresh variable highlighting
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+    }
   }
 }
