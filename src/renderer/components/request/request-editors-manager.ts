@@ -313,6 +313,10 @@ export class RequestEditorsManager {
     this.paramsManager.clear();
     this.headersManager.clear();
     this.authConfigManager.clear();
+
+    // Clear OAuth UI elements when switching tabs to prevent data leaking
+    this.uiHelpers.toggleOAuthStatus(false);
+    this.uiHelpers.clearTokenInfo();
   }
 
   /**

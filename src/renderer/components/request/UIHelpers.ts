@@ -158,7 +158,20 @@ export class UIHelpers {
 
     const statusText = oauthStatus.querySelector('.status-text');
     if (statusText) {
-      statusText.textContent = message;
+      // Enhance network error messages with helpful hints
+      let displayMessage = message;
+      if (type === 'error') {
+        if (message.includes('ENOTFOUND') || message.includes('getaddrinfo') || message.includes('DNS')) {
+          displayMessage = 'Network error: Unable to reach server. Please check your VPN connection and network settings.';
+        } else if (message.includes('ECONNREFUSED')) {
+          displayMessage = 'Connection refused: Server is not responding. Please verify the URL and check your network connection.';
+        } else if (message.includes('ETIMEDOUT') || message.includes('timeout')) {
+          displayMessage = 'Connection timeout: Server took too long to respond. Please check your network connection.';
+        } else if (message.includes('certificate') || message.includes('SSL') || message.includes('TLS')) {
+          displayMessage = 'SSL/TLS error: ' + message;
+        }
+      }
+      statusText.textContent = displayMessage;
     }
 
     // Remove all status classes
@@ -170,10 +183,27 @@ export class UIHelpers {
     // Show the status box
     oauthStatus.style.display = 'block';
 
-    // For errors, keep it visible
+    // Clear any existing timeout
+    const existingTimeout = (oauthStatus as any)._hideTimeout;
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      (oauthStatus as any)._hideTimeout = null;
+    }
+
+    // Auto-hide after appropriate delay
     if (type === 'error') {
       console.error('[OAuth] Error displayed to user:', message);
+      // Keep errors visible for 8 seconds so users can read them
+      (oauthStatus as any)._hideTimeout = setTimeout(() => {
+        oauthStatus.style.display = 'none';
+      }, 8000);
+    } else if (type === 'success') {
+      // Hide success messages after 3 seconds
+      (oauthStatus as any)._hideTimeout = setTimeout(() => {
+        oauthStatus.style.display = 'none';
+      }, 3000);
     }
+    // Loading messages don't auto-hide
   }
 
   /**
@@ -188,12 +218,40 @@ export class UIHelpers {
   }
 
   /**
+   * Clears and hides the OAuth token info panel
+   */
+  clearTokenInfo(): void {
+    const tokenInfo = document.getElementById('oauth-token-info');
+    if (tokenInfo) {
+      tokenInfo.style.display = 'none';
+    }
+
+    // Also hide the clear button
+    this.showClearButton(false);
+  }
+
+  /**
    * Shows or hides the OAuth status panel
    * @param show - Whether to show the status panel
    */
   toggleOAuthStatus(show: boolean): void {
     const oauthStatus = document.getElementById('oauth-status');
     if (oauthStatus) {
+      // Clear any pending auto-hide timeout when manually hiding
+      if (!show) {
+        const existingTimeout = (oauthStatus as any)._hideTimeout;
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+          (oauthStatus as any)._hideTimeout = null;
+        }
+
+        // Clear the status text and classes when hiding to prevent leaking between tabs
+        const statusText = oauthStatus.querySelector('.status-text');
+        if (statusText) {
+          statusText.textContent = '';
+        }
+        oauthStatus.classList.remove('status-loading', 'status-success', 'status-error');
+      }
       oauthStatus.style.display = show ? 'block' : 'none';
     }
   }

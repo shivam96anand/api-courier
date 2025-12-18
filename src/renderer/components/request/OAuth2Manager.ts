@@ -129,17 +129,10 @@ export class OAuth2Manager {
         // Update the request with the token
         this.onConfigUpdate(updatedConfig);
 
-        // Update token info display
+        // Update token info display and hide loading status
+        // No success message needed - Token Information panel shows everything
         this.uiHelpers.updateTokenInfo(updatedConfig);
-        this.uiHelpers.updateOAuthStatus('Token obtained successfully', 'success');
-
-        // Hide the OAuth status box after a short delay
-        setTimeout(() => {
-          const oauthStatus = document.getElementById('oauth-status');
-          if (oauthStatus) {
-            oauthStatus.style.display = 'none';
-          }
-        }, 2000);
+        this.uiHelpers.toggleOAuthStatus(false);
       } else {
         console.error('[OAuth2Manager] OAuth flow failed:', result.error);
         this.uiHelpers.updateOAuthStatus(`Error: ${result.error}`, 'error');
@@ -183,20 +176,14 @@ export class OAuth2Manager {
     this.currentConfig = { ...config };
     this.uiRenderer.loadConfigToDOM(config);
 
+    // Clear any existing status message from previous requests before showing new status
+    // This prevents error messages from previous failed attempts from persisting
+    this.uiHelpers.toggleOAuthStatus(false);
+
     // Show OAuth status and refresh button if token exists
     if (config.accessToken) {
-      const expiresAt = config.expiresAt ? new Date(config.expiresAt) : null;
-      if (expiresAt) {
-        const now = new Date();
-        const minutesLeft = Math.floor((expiresAt.getTime() - now.getTime()) / 60000);
-        if (minutesLeft > 0) {
-          this.uiHelpers.updateOAuthStatus(`Token valid. Expires in ${minutesLeft} minutes`, 'success');
-        } else {
-          this.uiHelpers.updateOAuthStatus('Token expired', 'error');
-        }
-      } else {
-        this.uiHelpers.updateOAuthStatus('Token obtained', 'success');
-      }
+      // No status messages needed - Token Information panel displays all token details
+      // including expiry status (VALID or EXPIRED badge)
       this.uiHelpers.showClearButton(true);
       // Update token info display
       this.uiHelpers.updateTokenInfo(config);
