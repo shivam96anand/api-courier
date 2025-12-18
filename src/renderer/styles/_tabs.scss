@@ -4,29 +4,29 @@
 .request-tabs {
   background: var(--bg-primary);
   border-bottom: 2px solid var(--border-color);
-  padding: 8px 12px;
+  padding: 5px 8px;
   overflow-x: auto;
 }
 
 .tab-list {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .request-tab {
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 10px 16px;
-  border-radius: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: 200px;
+  gap: 5px;
+  max-width: 150px;
   position: relative;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -75,12 +75,12 @@
 
   .tab-close {
     display: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 11px;
     line-height: 1;
     text-align: center;
     transition: all 0.2s ease;
