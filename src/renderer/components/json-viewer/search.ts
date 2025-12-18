@@ -40,8 +40,10 @@ export class JsonSearch {
       }
 
       if (node.type !== 'object' && node.type !== 'array') {
-        const valueStr = JsonFormatter.formatValue(node.value, node.type);
-        const valueLower = valueStr.toLowerCase();
+        // For matching purposes, we need to search on the raw value
+        // For strings, we search on the unquoted value since that's what highlightSearchTerm receives
+        const rawValue = node.type === 'string' ? String(node.value) : JsonFormatter.formatValue(node.value, node.type);
+        const valueLower = rawValue.toLowerCase();
         let startIndex = 0;
         let index = valueLower.indexOf(queryLower, startIndex);
 
@@ -49,7 +51,7 @@ export class JsonSearch {
           this.searchMatches.push({
             node,
             lineNumber: node.lineNumber,
-            text: valueStr,
+            text: rawValue,
             startIndex: index,
             endIndex: index + queryLower.length,
             isKey: false

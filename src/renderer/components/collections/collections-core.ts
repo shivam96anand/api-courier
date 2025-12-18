@@ -113,10 +113,24 @@ export class CollectionsCore {
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
-        const searchInput = document.getElementById('collections-search') as HTMLInputElement;
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select();
+
+        // Check if we're on the API tab with a response visible
+        const apiTab = document.getElementById('api-tab');
+        const isApiTabActive = apiTab?.classList.contains('active');
+        const hasResponse = document.querySelector('#response-body .json-viewer') ||
+                           document.querySelector('#response-body pre');
+
+        if (isApiTabActive && hasResponse) {
+          // Trigger response search
+          const searchEvent = new CustomEvent('trigger-response-search');
+          document.dispatchEvent(searchEvent);
+        } else {
+          // Focus collections search
+          const searchInput = document.getElementById('collections-search') as HTMLInputElement;
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
         }
       }
 

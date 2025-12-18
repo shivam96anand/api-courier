@@ -217,10 +217,53 @@ export class JsonViewerUtilities {
     });
 
     if (targetElement) {
-      (targetElement as any).scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
+      // Find the .json-content scrollable container
+      const jsonViewer = container.closest('.json-viewer');
+      const jsonContent = jsonViewer?.querySelector('.json-content') as HTMLElement;
+
+      if (jsonContent) {
+        // Store parent scroll positions to prevent them from scrolling
+        const responsePanel = document.querySelector('.response-panel') as HTMLElement;
+        const responsePanelScrollTop = responsePanel?.scrollTop || 0;
+
+        // Calculate the position to scroll to within the json-content container only
+        const targetRect = targetElement.getBoundingClientRect();
+        const containerRect = jsonContent.getBoundingClientRect();
+        const currentScrollTop = jsonContent.scrollTop;
+
+        // Calculate the target's position relative to the container's current scroll position
+        const targetOffsetFromTop = (targetRect.top - containerRect.top) + currentScrollTop;
+
+        // Center the target in the json-content viewport
+        const scrollTop = targetOffsetFromTop - (jsonContent.clientHeight / 2) + (targetElement.clientHeight / 2);
+
+        jsonContent.scrollTo({
+          top: Math.max(0, scrollTop),
+          behavior: 'smooth'
+        });
+
+        // Restore parent scroll positions after a brief delay to prevent parent scroll
+        if (responsePanel) {
+          requestAnimationFrame(() => {
+            responsePanel.scrollTop = responsePanelScrollTop;
+          });
+        }
+      } else {
+        // Fallback: Find the json-content from the container itself
+        const fallbackContent = container.querySelector('.json-content') as HTMLElement;
+        if (fallbackContent) {
+          const targetRect = targetElement.getBoundingClientRect();
+          const containerRect = fallbackContent.getBoundingClientRect();
+          const currentScrollTop = fallbackContent.scrollTop;
+          const targetOffsetFromTop = (targetRect.top - containerRect.top) + currentScrollTop;
+          const scrollTop = targetOffsetFromTop - (fallbackContent.clientHeight / 2) + (targetElement.clientHeight / 2);
+          
+          fallbackContent.scrollTo({
+            top: Math.max(0, scrollTop),
+            behavior: 'smooth'
+          });
+        }
+      }
     }
   }
 

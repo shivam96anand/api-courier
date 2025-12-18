@@ -65,7 +65,7 @@ export class ResponseManager {
     this.tabs.onTabChange((tab) => this.handleTabChange(tab));
     this.search.onSearchChange((query) => this.handleSearchChange(query));
     this.search.onNavigate((direction) => this.handleSearchNavigate(direction));
-    
+
     this.actions.onCopy(() => this.copyJsonResponse());
     this.actions.onFullscreen(() => this.toggleFullscreen());
     this.actions.onSearch(() => this.toggleFloatingSearch());
@@ -77,6 +77,7 @@ export class ResponseManager {
 
     this.listenToResponses();
     this.listenToTabChanges();
+    this.listenForSearchTrigger();
   }
 
   initialize(): void {
@@ -101,8 +102,7 @@ export class ResponseManager {
   }
 
   private handleSearchNavigate(direction: number): void {
-    // Navigation is handled by the viewer's search functionality
-    // This could be enhanced to provide feedback
+    this.viewer.navigateSearch(direction);
     this.updateFloatingSearchResults();
   }
 
@@ -145,6 +145,14 @@ export class ResponseManager {
       } else {
         this.currentRequestId = 'default';
         this.clearResponse();
+      }
+    });
+  }
+
+  private listenForSearchTrigger(): void {
+    document.addEventListener('trigger-response-search', () => {
+      if (this.state.currentResponse) {
+        this.search.show();
       }
     });
   }
@@ -347,8 +355,9 @@ export class ResponseManager {
   }
 
   private updateFloatingSearchResults(): void {
-    // This could be enhanced to get actual search results from the viewer
-    this.search.updateResults(0, 0, -1);
+    const searchInfo = this.viewer.getSearchInfo();
+    const currentIndex = searchInfo.current > 0 ? searchInfo.current - 1 : -1;
+    this.search.updateResults(searchInfo.current, searchInfo.total, currentIndex);
   }
 
   private collapseAll(): void {

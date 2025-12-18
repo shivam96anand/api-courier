@@ -224,6 +224,19 @@ export class ResponseViewer {
     }
   }
 
+  public navigateSearch(direction: number): void {
+    if (this.jsonViewer && this.currentFormatter === 'json') {
+      this.jsonViewer.navigateSearch(direction);
+    }
+  }
+
+  public getSearchInfo(): { total: number, current: number } {
+    if (this.jsonViewer && this.currentFormatter === 'json') {
+      return this.jsonViewer.getSearchInfo();
+    }
+    return { total: 0, current: 0 };
+  }
+
   private searchInPlainText(query: string): void {
     // Basic text search implementation
     const bodyElement = document.getElementById('response-body');
@@ -263,13 +276,16 @@ export class ResponseViewer {
   }
 
   public scrollToTop(): void {
+    // Scroll the response-section (body) to top
     const responseBody = document.getElementById('response-body');
-    const jsonContent = responseBody?.querySelector('.json-content');
+    if (responseBody) {
+      responseBody.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
+    // Also scroll the JSON content itself to the top
+    const jsonContent = responseBody?.querySelector('.json-content');
     if (jsonContent) {
       jsonContent.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (responseBody) {
-      responseBody.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 

@@ -65,28 +65,108 @@
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 8px;
+  padding: 8px 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   backdrop-filter: blur(8px);
   animation: slideInFromTop 0.3s ease;
+
+  .floating-search-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 
   .floating-search-input {
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
-    padding: 6px 8px;
+    padding: 6px 10px;
     font-size: 12px;
-    width: 150px;
+    width: 180px;
     outline: none;
+    transition: all 0.2s ease;
 
     &:focus {
       border-color: var(--primary-color);
       box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
+
+    &::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+  }
+
+  .floating-search-results {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    min-width: 35px;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .search-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: var(--bg-hover);
+      border-color: var(--primary-color);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .search-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-left: 4px;
+
+    &:hover {
+      background-color: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #ef4444;
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 }
