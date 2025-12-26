@@ -46,7 +46,6 @@ export class JsonInputPanel {
               <div id="monaco-input-container" class="monaco-input-container"></div>
               <div class="input-status-badge" id="input-status-badge"></div>
             </div>
-            <div class="input-error-message" id="input-error-message"></div>
             <div class="input-actions-bottom">
               <button id="format-btn" class="btn btn-secondary">Format JSON</button>
               <button id="minify-btn" class="btn btn-secondary">Minify</button>
@@ -120,18 +119,22 @@ export class JsonInputPanel {
 
   private updateValidationUI(): void {
     const statusBadge = this.container.querySelector('#input-status-badge') as HTMLElement;
-    const errorMessage = this.container.querySelector('#input-error-message') as HTMLElement;
+    const parseBtn = this.container.querySelector('#parse-btn') as HTMLButtonElement;
 
-    if (!statusBadge || !errorMessage) return;
+    if (!statusBadge) return;
 
     if (this.isValid) {
       statusBadge.textContent = '';
       statusBadge.className = 'input-status-badge';
-      errorMessage.textContent = '';
+      if (parseBtn) {
+        parseBtn.disabled = false;
+      }
     } else {
       statusBadge.textContent = 'Invalid JSON';
       statusBadge.className = 'input-status-badge invalid';
-      errorMessage.textContent = this.errorMessage;
+      if (parseBtn) {
+        parseBtn.disabled = true;
+      }
     }
   }
 

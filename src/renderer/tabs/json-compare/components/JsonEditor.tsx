@@ -289,9 +289,6 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
             )}
           </span>
         </div>
-        {!isValid && errorMsg && (
-          <div className="error-message">{errorMsg}</div>
-        )}
         <div ref={containerRef} className="monaco-container" />
       </div>
     );
