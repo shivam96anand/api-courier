@@ -86,3 +86,44 @@
 .diff-inline-changed {
   background-color: rgba(255, 160, 0, 0.2) !important;
 }
+
+/* Monaco editor error markers */
+.monaco-container .squiggly-error {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 3'%3E%3Cpath d='M0 3 Q 1.5 0, 3 3 T 6 3' stroke='%23f85149' fill='none' stroke-width='0.7'/%3E%3C/svg%3E")
+    repeat-x bottom left;
+  background-size: 6px 3px;
+  padding-bottom: 3px;
+}
+
+.monaco-container .squiggly-warning {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 3'%3E%3Cpath d='M0 3 Q 1.5 0, 3 3 T 6 3' stroke='%23ffa500' fill='none' stroke-width='0.7'/%3E%3C/svg%3E")
+    repeat-x bottom left;
+  background-size: 6px 3px;
+  padding-bottom: 3px;
+}
+
+/* Error glyph margin indicator */
+.monaco-container .cgmr.codicon-error {
+  color: var(--error-color) !important;
+}
+
+.monaco-container .cgmr.codicon-warning {
+  color: #ffa500 !important;
+}
+
+/* Custom error decorations */
+.monaco-container .json-error-decoration {
+  background-color: rgba(248, 81, 73, 0.15);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+}
+
+.monaco-container .json-error-inline {
+  background-color: rgba(248, 81, 73, 0.25) !important;
+}
+
+.monaco-container .json-error-glyph {
+  background: var(--error-color);
+  width: 3px !important;
+  margin-left: 3px;
+  border-radius: 2px;
+}

@@ -26,6 +26,7 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
     const decorationsRef = useRef<string[]>([]);
     const decorationMapRef = useRef<Map<string, DiffDecoration>>(new Map());
+    const errorDecorationsRef = useRef<string[]>([]);
     const [isValid, setIsValid] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string>('');
 
@@ -128,9 +129,54 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
       }
     }, [value]);
 
+    // Clear error decorations
+    const clearErrorDecorations = () => {
+      if (!editorRef.current) return;
+      errorDecorationsRef.current = editorRef.current.deltaDecorations(errorDecorationsRef.current, []);
+    };
+
+    // Add error decoration at position
+    const addErrorDecoration = (text: string, errorMessage: string) => {
+      if (!editorRef.current) return;
+
+      // Parse error position from error message
+      const positionMatch = errorMessage.match(/position (\d+)/);
+      if (!positionMatch) {
+        clearErrorDecorations();
+        return;
+      }
+
+      const position = parseInt(positionMatch[1], 10);
+      const model = editorRef.current.getModel();
+      if (!model) return;
+
+      // Convert character position to line/column
+      const pos = model.getPositionAt(position);
+
+      // Highlight the error position
+      errorDecorationsRef.current = editorRef.current.deltaDecorations(errorDecorationsRef.current, [
+        {
+          range: new monaco.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column + 1),
+          options: {
+            className: 'json-error-decoration',
+            glyphMarginClassName: 'json-error-glyph',
+            inlineClassName: 'json-error-inline',
+            minimap: {
+              color: '#f85149',
+              position: monaco.editor.MinimapPosition.Inline
+            }
+          }
+        }
+      ]);
+
+      // Scroll to the error
+      editorRef.current.revealPositionInCenter(pos);
+    };
+
     // Validate JSON
     const validateJson = (text: string) => {
       if (!text.trim()) {
+        clearErrorDecorations();
         setIsValid(true);
         setErrorMsg('');
         onValidityChange(true);
@@ -139,13 +185,15 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
 
       try {
         JSON.parse(text);
+        clearErrorDecorations();
         setIsValid(true);
         setErrorMsg('');
         onValidityChange(true);
       } catch (err) {
         const error = err as Error;
-        setIsValid(false);
         const msg = error.message;
+        addErrorDecoration(text, msg);
+        setIsValid(false);
         setErrorMsg(msg);
         onValidityChange(false, msg);
       }

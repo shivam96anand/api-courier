@@ -5,11 +5,15 @@ export interface JsonInputPanelEvents {
 }
 
 import { iconHtml } from '../../utils/icons';
+import { MonacoInputEditor } from './MonacoInputEditor';
 
 export class JsonInputPanel {
   private container: HTMLElement;
   private events: JsonInputPanelEvents;
   private readonly storageKey = 'apiCourier.jsonViewer.lastInput';
+  private monacoEditor: MonacoInputEditor | null = null;
+  private isValid: boolean = true;
+  private errorMessage: string = '';
 
   constructor(container: HTMLElement, events: JsonInputPanelEvents) {
     this.container = container;
@@ -38,12 +42,11 @@ export class JsonInputPanel {
         </div>
         <div class="input-content">
           <div id="paste-section" class="input-section active">
-            <textarea
-              id="json-input"
-              class="json-input-textarea"
-              placeholder="Paste your JSON here..."
-              spellcheck="false"
-            ></textarea>
+            <div class="monaco-input-wrapper">
+              <div id="monaco-input-container" class="monaco-input-container"></div>
+              <div class="input-status-badge" id="input-status-badge"></div>
+            </div>
+            <div class="input-error-message" id="input-error-message"></div>
             <div class="input-actions-bottom">
               <button id="format-btn" class="btn btn-secondary">Format JSON</button>
               <button id="minify-btn" class="btn btn-secondary">Minify</button>
@@ -69,6 +72,23 @@ export class JsonInputPanel {
       </div>
       <div class="json-status" id="json-status"></div>
     `;
+
+    // Initialize Monaco editor
+    const monacoContainer = this.container.querySelector('#monaco-input-container') as HTMLElement;
+    if (monacoContainer) {
+      this.monacoEditor = new MonacoInputEditor({
+        container: monacoContainer,
+        value: '',
+        onChange: (value: string) => {
+          this.persistCurrentInput(value);
+        },
+        onValidityChange: (valid: boolean, error?: string) => {
+          this.isValid = valid;
+          this.errorMessage = error || '';
+          this.updateValidationUI();
+        }
+      });
+    }
   }
 
   private setupEventListeners(): void {
@@ -91,18 +111,28 @@ export class JsonInputPanel {
       });
     });
 
-    // JSON input textarea
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    jsonInput?.addEventListener('input', () => {
-      this.persistCurrentInput();
-      this.updateStatus();
-    });
-
     // Action buttons
     this.container.querySelector('#clear-input-btn')?.addEventListener('click', () => this.clearInput());
     this.container.querySelector('#format-btn')?.addEventListener('click', () => this.formatJson());
     this.container.querySelector('#minify-btn')?.addEventListener('click', () => this.minifyJson());
     this.container.querySelector('#parse-btn')?.addEventListener('click', () => this.parseAndView());
+  }
+
+  private updateValidationUI(): void {
+    const statusBadge = this.container.querySelector('#input-status-badge') as HTMLElement;
+    const errorMessage = this.container.querySelector('#input-error-message') as HTMLElement;
+
+    if (!statusBadge || !errorMessage) return;
+
+    if (this.isValid) {
+      statusBadge.textContent = '';
+      statusBadge.className = 'input-status-badge';
+      errorMessage.textContent = '';
+    } else {
+      statusBadge.textContent = 'Invalid JSON';
+      statusBadge.className = 'input-status-badge invalid';
+      errorMessage.textContent = this.errorMessage;
+    }
   }
 
   private setupFileUpload(): void {
@@ -161,9 +191,11 @@ export class JsonInputPanel {
       this.events.onStatusUpdate('info', 'Reading file...');
 
       const text = await file.text();
-      const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
 
-      jsonInput.value = text;
+      if (this.monacoEditor) {
+        this.monacoEditor.setValue(text);
+      }
+
       this.persistCurrentInput(text);
       this.events.onStatusUpdate('success', `File "${file.name}" loaded successfully`);
 
@@ -180,16 +212,20 @@ export class JsonInputPanel {
   }
 
   private clearInput(): void {
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    jsonInput.value = '';
+    if (this.monacoEditor) {
+      this.monacoEditor.clear();
+    }
     this.persistCurrentInput('');
-    this.updateStatus();
     this.events.onClearViewer();
   }
 
   private formatJson(): void {
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    const text = jsonInput.value.trim();
+    if (!this.monacoEditor) {
+      this.events.onStatusUpdate('error', 'Editor not initialized');
+      return;
+    }
+
+    const text = this.monacoEditor.getValue().trim();
 
     if (!text) {
       this.events.onStatusUpdate('warning', 'No JSON to format');
@@ -197,10 +233,7 @@ export class JsonInputPanel {
     }
 
     try {
-      const parsed = JSON.parse(text);
-      const formatted = JSON.stringify(parsed, null, 2);
-      jsonInput.value = formatted;
-      this.persistCurrentInput(formatted);
+      this.monacoEditor.format();
       this.events.onStatusUpdate('success', 'JSON formatted successfully');
     } catch (error) {
       this.events.onStatusUpdate('error', `Invalid JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -208,8 +241,12 @@ export class JsonInputPanel {
   }
 
   private minifyJson(): void {
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    const text = jsonInput.value.trim();
+    if (!this.monacoEditor) {
+      this.events.onStatusUpdate('error', 'Editor not initialized');
+      return;
+    }
+
+    const text = this.monacoEditor.getValue().trim();
 
     if (!text) {
       this.events.onStatusUpdate('warning', 'No JSON to minify');
@@ -217,10 +254,7 @@ export class JsonInputPanel {
     }
 
     try {
-      const parsed = JSON.parse(text);
-      const minified = JSON.stringify(parsed);
-      jsonInput.value = minified;
-      this.persistCurrentInput(minified);
+      this.monacoEditor.minify();
       this.events.onStatusUpdate('success', 'JSON minified successfully');
     } catch (error) {
       this.events.onStatusUpdate('error', `Invalid JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -228,8 +262,12 @@ export class JsonInputPanel {
   }
 
   private parseAndView(): void {
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    const text = jsonInput.value.trim();
+    if (!this.monacoEditor) {
+      this.events.onStatusUpdate('error', 'Editor not initialized');
+      return;
+    }
+
+    const text = this.monacoEditor.getValue().trim();
 
     if (!text) {
       this.events.onStatusUpdate('warning', 'No JSON to parse');
@@ -246,28 +284,8 @@ export class JsonInputPanel {
     }
   }
 
-  private updateStatus(): void {
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    const text = jsonInput.value.trim();
-
-    if (!text) {
-      this.events.onStatusUpdate('info', '');
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(text);
-      const size = JSON.stringify(parsed).length;
-      const sizeStr = size > 1024 ? `${(size / 1024).toFixed(1)}KB` : `${size}B`;
-      this.events.onStatusUpdate('info', `Valid JSON (${sizeStr})`);
-    } catch (error) {
-      this.events.onStatusUpdate('error', 'Invalid JSON syntax');
-    }
-  }
-
   public getJsonText(): string {
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    return jsonInput?.value?.trim() || '';
+    return this.monacoEditor?.getValue()?.trim() || '';
   }
 
   public restorePersistedInput(): void {
@@ -281,13 +299,11 @@ export class JsonInputPanel {
       return;
     }
 
-    const jsonInput = this.container.querySelector('#json-input') as HTMLTextAreaElement;
-    if (!jsonInput) {
+    if (!this.monacoEditor) {
       return;
     }
 
-    jsonInput.value = saved;
-    this.updateStatus();
+    this.monacoEditor.setValue(saved);
 
     try {
       const parsed = JSON.parse(saved);
@@ -298,8 +314,10 @@ export class JsonInputPanel {
   }
 
   public destroy(): void {
-    // Clean up any resources if needed
-    // Event listeners are automatically cleaned up when DOM is replaced
+    if (this.monacoEditor) {
+      this.monacoEditor.dispose();
+      this.monacoEditor = null;
+    }
   }
 
   private persistCurrentInput(value?: string): void {
@@ -308,8 +326,7 @@ export class JsonInputPanel {
       return;
     }
 
-    const text =
-      value !== undefined ? value : (this.container.querySelector('#json-input') as HTMLTextAreaElement)?.value || '';
+    const text = value !== undefined ? value : this.monacoEditor?.getValue() || '';
 
     if (!text.trim()) {
       storage.removeItem(this.storageKey);
