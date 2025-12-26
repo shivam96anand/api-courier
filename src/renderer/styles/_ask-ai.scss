@@ -129,7 +129,11 @@
   display: flex;
   height: 100%;
   gap: 16px;
-  background: var(--bg-primary);
+  padding: 16px;
+  background:
+    radial-gradient(900px 500px at 12% -10%, rgba(var(--primary-color-rgb), 0.22), rgba(0, 0, 0, 0)),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.2)),
+    var(--bg-primary);
   overflow: hidden;
 }
 
@@ -137,13 +141,18 @@
 .ask-ai-sidebar {
   width: 300px;
   min-width: 300px;
-  background: var(--bg-secondary);
-  border-radius: 16px;
-  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.2)),
+    var(--bg-secondary);
+  border-radius: 18px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .sidebar-header {
@@ -154,16 +163,18 @@
 
   h3 {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
     color: var(--text-primary);
   }
 
   .btn-new-session {
-    background: var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
     border: none;
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 8px 14px;
+    border-radius: 10px;
     cursor: pointer;
     color: white;
     font-size: 14px;
@@ -174,7 +185,7 @@
 
     &:hover {
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.3);
+      box-shadow: 0 8px 18px rgba(var(--primary-color-rgb), 0.35);
     }
 
     .ui-icon {
@@ -202,18 +213,18 @@
 .sessions-search {
   input {
     width: 100%;
-    padding: 12px 16px;
-    border: 1px solid var(--border-color);
+    padding: 11px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
-    background: var(--bg-primary);
+    background: rgba(0, 0, 0, 0.25);
     color: var(--text-primary);
     font-size: 14px;
     transition: all 0.2s ease;
 
     &:focus {
       outline: none;
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+      border-color: rgba(var(--primary-color-rgb), 0.5);
+      box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.18);
     }
 
     &::placeholder {
@@ -228,6 +239,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-right: 4px;
 }
 
 .empty-sessions {
@@ -246,21 +258,23 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.15);
   gap: 8px;
 
   &:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   &.active {
-    background: var(--primary-color);
+    background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.95), rgba(var(--primary-color-rgb), 0.65));
     color: white;
-    border-color: var(--primary-color);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 18px rgba(var(--primary-color-rgb), 0.35);
 
     .session-meta {
       color: rgba(255, 255, 255, 0.8);
@@ -302,7 +316,7 @@
 .session-actions {
   display: flex;
   gap: 4px;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.2s ease;
 }
 
@@ -319,7 +333,7 @@
   border: none;
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: 7px;
   cursor: pointer;
   color: var(--text-secondary);
   font-size: 14px;
@@ -370,9 +384,9 @@
 
 /* Engine Status Banner */
 .engine-status-banner {
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.1));
-  border: 1px solid rgba(255, 193, 7, 0.3);
-  border-radius: 16px;
+  background: linear-gradient(140deg, rgba(255, 193, 7, 0.12), rgba(0, 0, 0, 0.2));
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  border-radius: 18px;
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -432,10 +446,11 @@
 
 /* Context Panel */
 .context-panel {
-  background: var(--bg-secondary);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.18));
+  border-radius: 18px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
 /* New Request Context Styles */
@@ -696,14 +711,19 @@
 /* Chat Area */
 .chat-area {
   flex: 1;
-  background: var(--bg-secondary);
-  border-radius: 16px;
-  padding: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.25)),
+    var(--bg-secondary);
+  border-radius: 18px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   min-height: 300px;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .welcome-message {
@@ -723,8 +743,9 @@
   }
 
   h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 10px 0;
     color: var(--text-primary);
+    letter-spacing: 0.2px;
   }
 
   p {
@@ -750,9 +771,10 @@
     align-self: flex-end;
 
     .message-content {
-      background: var(--primary-color);
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
       color: white;
-      border-radius: 16px 16px 4px 16px;
+      border-radius: 16px 16px 6px 16px;
+      box-shadow: 0 10px 22px rgba(var(--primary-color-rgb), 0.35);
     }
   }
 
@@ -760,9 +782,10 @@
     align-self: flex-start;
 
     .message-content {
-      background: var(--bg-tertiary);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.2));
       color: var(--text-primary);
-      border-radius: 16px 16px 16px 4px;
+      border-radius: 16px 16px 16px 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
   }
 
@@ -780,9 +803,9 @@
 }
 
 .message-content {
-  padding: 8px 12px;
+  padding: 10px 14px;
   position: relative;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
 .system-badge {
@@ -851,11 +874,17 @@
   justify-content: flex-end;
   margin-top: 8px;
   gap: 8px;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
 }
 
 .copy-message {
-  background: none;
-  border: none;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 4px 8px;
   border-radius: 6px;
   cursor: pointer;
@@ -864,7 +893,7 @@
   transition: all 0.2s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.12);
     color: var(--text-primary);
   }
 }
@@ -970,11 +999,12 @@
 
 /* Quick Suggestions */
 .quick-suggestions {
-  background: var(--bg-secondary);
-  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.2));
+  border-radius: 14px;
   padding: 16px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
 
   .suggestions-header {
     font-size: 13px;
@@ -990,8 +1020,8 @@
   }
 
   .suggestion-btn {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
     padding: 8px 12px;
     border-radius: 8px;
@@ -1000,25 +1030,30 @@
     transition: all 0.2s ease;
 
     &:hover {
-      background: var(--primary-color);
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
       color: white;
-      border-color: var(--primary-color);
+      border-color: rgba(255, 255, 255, 0.2);
     }
   }
 }
 
 /* Input Area */
 .input-area {
-  background: var(--bg-secondary);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.2));
+  border-radius: 18px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
 }
 
 .input-container {
   display: flex;
   gap: 12px;
   align-items: flex-end;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 8px;
 }
 
 .file-upload-zone {
@@ -1027,8 +1062,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1040,8 +1075,8 @@
   }
 
   &:hover {
-    background: var(--bg-primary);
-    border-color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(var(--primary-color-rgb), 0.5);
   }
 
   &.dragover {
@@ -1053,10 +1088,10 @@
 
 #message-input {
   flex: 1;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-primary);
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
@@ -1068,8 +1103,7 @@
 
   &:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+    box-shadow: none;
   }
 
   &::placeholder {
@@ -1119,12 +1153,12 @@
 }
 
 .btn-send {
-  background: var(--primary-color);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   color: white;
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.3);
+    box-shadow: 0 8px 18px rgba(var(--primary-color-rgb), 0.35);
   }
 
   &:disabled {
