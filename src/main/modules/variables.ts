@@ -7,12 +7,14 @@
  */
 
 import { KeyValuePair } from '../../shared/types';
+import { resolveSystemVariable } from '../../shared/system-variables';
 
 export interface ResolveOptions {
   requestVars?: Record<string, string>;
   folderVars?: Record<string, string>; // Merged from all ancestor folders (nearest first)
   envVars?: Record<string, string>;
   globalVars?: Record<string, string>;
+  systemVars?: Record<string, string>;
   urlEncodeValues?: boolean;
   maxDepth?: number;
 }
@@ -64,6 +66,7 @@ export function resolveTemplate(input: string, opts: ResolveOptions = {}): strin
     folderVars = {},
     envVars = {},
     globalVars = {},
+    systemVars,
     urlEncodeValues = false,
     maxDepth = 5
   } = opts;
@@ -86,7 +89,19 @@ export function resolveTemplate(input: string, opts: ResolveOptions = {}): strin
         value = folderVars[varName];
       } else if (varName in globalVars) {
         value = globalVars[varName];
-      } else if (defaultValue !== undefined) {
+      } else if (systemVars && varName in systemVars) {
+        value = systemVars[varName];
+      } else {
+        const systemValue = resolveSystemVariable(varName);
+        if (systemValue !== undefined) {
+          value = systemValue;
+          if (systemVars) {
+            systemVars[varName] = systemValue;
+          }
+        }
+      }
+
+      if (value === undefined && defaultValue !== undefined) {
         value = defaultValue;
       } else {
         // Variable not found and no default - keep placeholder
@@ -170,7 +185,13 @@ export function scanUnresolvedVars(input: string, opts: ResolveOptions = {}): st
   const regex = new RegExp(VAR_RE);
   while ((match = regex.exec(resolved)) !== null) {
     const varName = match[1];
-    if (!(varName in requestVars) && !(varName in envVars) && !(varName in folderVars) && !(varName in globalVars)) {
+    if (
+      !(varName in requestVars) &&
+      !(varName in envVars) &&
+      !(varName in folderVars) &&
+      !(varName in globalVars) &&
+      resolveSystemVariable(varName) === undefined
+    ) {
       unresolved.push(varName);
     }
   }
@@ -198,6 +219,7 @@ export function composeFinalRequest(
     folderVars: folderVars || {},
     envVars: activeEnv?.variables || {},
     globalVars: globals?.variables || {},
+    systemVars: {},
     maxDepth: 5,
   };
 

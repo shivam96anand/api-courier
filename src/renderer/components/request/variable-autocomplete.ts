@@ -3,12 +3,13 @@
  * Shows suggestions from folder variables, environment variables, and global variables
  */
 
-import { Environment, Collection } from '../../../shared/types';
+import { Environment } from '../../../shared/types';
+import { getSystemVariableDefinitions } from '../../../shared/system-variables';
 
 interface AutocompleteOption {
   name: string;
   value: string;
-  source: 'Folder' | 'Environment' | 'Global';
+  source: 'Folder' | 'Environment' | 'Global' | 'System';
 }
 
 let globalAutocompleteBox: HTMLDivElement | null = null;
@@ -38,10 +39,12 @@ function getAllVariables(
   folderVars: Record<string, string>
 ): AutocompleteOption[] {
   const options: AutocompleteOption[] = [];
+  const seen = new Set<string>();
 
   // 1. Folder variables (highest priority)
   Object.entries(folderVars).forEach(([name, value]) => {
     options.push({ name, value, source: 'Folder' });
+    seen.add(name);
   });
 
   // 2. Environment variables
@@ -50,6 +53,7 @@ function getAllVariables(
       // Skip if already exists in folder vars
       if (!folderVars[name]) {
         options.push({ name, value, source: 'Environment' });
+        seen.add(name);
       }
     });
   }
@@ -59,7 +63,20 @@ function getAllVariables(
     // Skip if already exists in folder or environment vars
     if (!folderVars[name] && (!activeEnvironment || !activeEnvironment.variables[name])) {
       options.push({ name, value, source: 'Global' });
+      seen.add(name);
     }
+  });
+
+  // 4. System variables (lowest priority, dynamic)
+  getSystemVariableDefinitions().forEach((definition) => {
+    const sampleValue = definition.generator();
+    const names = [definition.name, ...(definition.aliases || [])];
+    names.forEach((name) => {
+      if (!seen.has(name)) {
+        options.push({ name, value: sampleValue, source: 'System' });
+        seen.add(name);
+      }
+    });
   });
 
   return options;

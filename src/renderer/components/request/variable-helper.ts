@@ -4,6 +4,7 @@
  */
 
 import { Environment, Collection } from '../../../shared/types';
+import { resolveSystemVariable } from '../../../shared/system-variables';
 import { createIconElement } from '../../utils/icons';
 
 /**
@@ -99,7 +100,7 @@ export function resolveVariable(
   folderVars?: Record<string, string>
 ): { value: string | undefined; source: string } {
   // Check active environment first
-  if (activeEnvironment && activeEnvironment.variables[variableName]) {
+  if (activeEnvironment && variableName in activeEnvironment.variables) {
     return {
       value: activeEnvironment.variables[variableName],
       source: `Environment: ${activeEnvironment.name}`,
@@ -107,7 +108,7 @@ export function resolveVariable(
   }
 
   // Check folder variables
-  if (folderVars && folderVars[variableName]) {
+  if (folderVars && variableName in folderVars) {
     return {
       value: folderVars[variableName],
       source: 'Folder variables',
@@ -115,10 +116,18 @@ export function resolveVariable(
   }
 
   // Check globals
-  if (globals.variables[variableName]) {
+  if (variableName in globals.variables) {
     return {
       value: globals.variables[variableName],
       source: 'Global variables',
+    };
+  }
+
+  const systemValue = resolveSystemVariable(variableName);
+  if (systemValue !== undefined) {
+    return {
+      value: systemValue,
+      source: 'System variable',
     };
   }
 

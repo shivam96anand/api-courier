@@ -1,4 +1,4 @@
-import { AppState } from '../../../shared/types';
+import { resolveSystemVariable } from '../../../shared/system-variables';
 
 /**
  * VariableResolver - Handles resolution of variables in strings
@@ -79,6 +79,11 @@ export class VariableResolver {
       }
       if (globalVars[trimmedVar] !== undefined) {
         return globalVars[trimmedVar];
+      }
+
+      const systemValue = resolveSystemVariable(trimmedVar);
+      if (systemValue !== undefined) {
+        return systemValue;
       }
 
       // If not found, return the original placeholder
