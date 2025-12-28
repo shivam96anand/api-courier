@@ -1,0 +1,249 @@
+// AI Sidebar Styles
+// Styles for AI sidebar, sessions list, and session items
+
+// Legacy Ask AI Layout (kept for compatibility)
+.ask-ai-layout {
+  display: flex;
+  height: 100%;
+  gap: 16px;
+  padding: 16px;
+  background:
+    radial-gradient(900px 500px at 12% -10%, rgba(var(--primary-color-rgb), 0.22), rgba(0, 0, 0, 0)),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.2)),
+    var(--bg-primary);
+  overflow: hidden;
+}
+
+// Sidebar
+.ask-ai-sidebar {
+  width: 300px;
+  min-width: 300px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.2)),
+    var(--bg-secondary);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+
+  .btn-new-session {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    border: none;
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: white;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(var(--primary-color-rgb), 0.35);
+    }
+
+    .ui-icon {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .btn-clear-sessions {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--bg-tertiary);
+      color: var(--accent-color);
+    }
+  }
+}
+
+.sessions-search {
+  input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: rgba(var(--primary-color-rgb), 0.5);
+      box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.18);
+    }
+
+    &::placeholder {
+      color: var(--text-secondary);
+    }
+  }
+}
+
+.sessions-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.empty-sessions {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+
+  p {
+    margin: 0 0 8px 0;
+  }
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.15);
+  gap: 8px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  &.active {
+    background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.95), rgba(var(--primary-color-rgb), 0.65));
+    color: white;
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 18px rgba(var(--primary-color-rgb), 0.35);
+
+    .session-meta {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .session-delete {
+      color: rgba(255, 255, 255, 0.8);
+
+      &:hover {
+        color: white;
+        background: rgba(255, 255, 255, 0.2);
+      }
+    }
+  }
+}
+
+.session-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: inherit;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.session-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.session-item:hover .session-actions {
+  opacity: 1;
+}
+
+.session-item.active .session-actions {
+  opacity: 1;
+}
+
+.session-rename, .session-delete {
+  background: none;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.session-rename:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.session-delete:hover {
+  background: var(--bg-error);
+  color: var(--text-error);
+}
+
+.session-title-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+
+  &:focus {
+    border-color: var(--primary-color);
+  }
+}

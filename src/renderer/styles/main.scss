@@ -73,8 +73,13 @@
 // Mock Server styles
 @import 'mock-server';
 
-// Ask AI styles
-@import 'ask-ai';
+// Ask AI styles (split into modular components)
+@import 'ai-coming-soon';
+@import 'ai-sidebar';
+@import 'ai-main-panel';
+@import 'ai-chat';
+@import 'ai-input';
+@import 'ai-settings';
 
 // Notepad styles
 @import 'notepad';

@@ -1,0 +1,132 @@
+// AI Settings Styles
+// Styles for settings popover and responsive adjustments
+
+// Settings Popover
+.settings-popover {
+  position: absolute;
+  bottom: 80px;
+  right: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  min-width: 300px;
+}
+
+.settings-content {
+  h4 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.setting-group {
+  margin-bottom: 16px;
+
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    &[readonly] {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+  }
+
+  input[type="range"] {
+    width: calc(100% - 60px);
+    margin-right: 8px;
+  }
+
+  .setting-value {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: inline-block;
+    min-width: 40px;
+  }
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+
+  .btn-close-settings {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--bg-primary);
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 1200px) {
+  .ask-ai-sidebar {
+    width: 250px;
+    min-width: 250px;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+}
+
+@media (max-width: 900px) {
+  .ask-ai-layout {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ask-ai-sidebar {
+    width: 100%;
+    min-width: unset;
+    order: 2;
+    max-height: 200px;
+  }
+
+  .ask-ai-main {
+    order: 1;
+  }
+
+  .message {
+    max-width: 95%;
+  }
+
+  .settings-popover {
+    right: 10px;
+    left: 10px;
+    min-width: unset;
+  }
+}
