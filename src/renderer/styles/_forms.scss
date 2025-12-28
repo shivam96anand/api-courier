@@ -657,11 +657,26 @@
 
   .tabs {
     display: flex;
-    gap: 2px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     background: transparent;
     padding: 0;
     margin-bottom: 10px;
     border-bottom: 1px solid var(--border-color);
+  }
+
+  .tabs-left {
+    display: flex;
+    gap: 2px;
+  }
+
+  .tabs-right {
+    display: flex;
+    align-items: center;
+    padding-bottom: 2px;
+    align-self: flex-start;
+    margin-top: -26px;
   }
 
   .tab {

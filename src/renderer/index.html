@@ -142,10 +142,15 @@
 
                                 <div class="request-details">
                                     <div class="tabs">
+                                        <div class="tabs-left">
                                         <button class="tab active" data-section="params">Params</button>
                                         <button class="tab" data-section="body">Body</button>
                                         <button class="tab" data-section="auth">Auth</button>
                                         <button class="tab" data-section="headers">Headers</button>
+                                        </div>
+                                        <div class="tabs-right">
+                                            <button id="copy-curl" class="copy-curl-btn" title="Copy curl">Copy curl</button>
+                                        </div>
                                     </div>
 
                                     <div id="params-section" class="section active">

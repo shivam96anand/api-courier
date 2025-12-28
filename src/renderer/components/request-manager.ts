@@ -40,6 +40,7 @@ export class RequestManager {
     this.formHandler.setupRequestForm();
     this.formHandler.setupRequestTabs();
     this.dataManager.setupSendButton();
+    this.dataManager.setupCopyCurlButton();
     this.dataManager.setupCancelButton();
     this.dataManager.setupCancelEventListener();
     this.dataManager.setupTabChangeListener();
