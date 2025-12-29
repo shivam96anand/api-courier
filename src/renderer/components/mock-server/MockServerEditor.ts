@@ -112,13 +112,20 @@ export class MockServerEditor {
   }
 
   private renderRouteRow(route: MockRoute): string {
+    const matchType = route.pathMatchType || 'exact';
+    const matchTypeIcon = this.getMatchTypeIcon(matchType);
+    const matchTypeTitle = this.getMatchTypeTitle(matchType);
+
     return `
       <tr class="mock-route-row ${route.enabled ? '' : 'disabled'}" data-route-id="${route.id}">
         <td>
           <input type="checkbox" class="route-enabled-toggle" ${route.enabled ? 'checked' : ''} data-route-id="${route.id}" />
         </td>
         <td><span class="method-badge method-${route.method.toLowerCase()}">${route.method}</span></td>
-        <td class="route-path">${this.escapeHtml(route.path)}</td>
+        <td class="route-path">
+          <span class="path-match-type-indicator" title="${matchTypeTitle}">${matchTypeIcon}</span>
+          ${this.escapeHtml(route.path)}
+        </td>
         <td>${route.statusCode}</td>
         <td>${route.responseType}</td>
         <td>${route.delayMs ? `${route.delayMs}ms` : '-'}</td>
@@ -129,6 +136,36 @@ export class MockServerEditor {
         </td>
       </tr>
     `;
+  }
+
+  private getMatchTypeIcon(matchType: string): string {
+    switch (matchType) {
+      case 'exact':
+        return '<span class="match-icon match-exact">=</span>';
+      case 'prefix':
+        return '<span class="match-icon match-prefix">▸</span>';
+      case 'wildcard':
+        return '<span class="match-icon match-wildcard">*</span>';
+      case 'regex':
+        return '<span class="match-icon match-regex">.*</span>';
+      default:
+        return '<span class="match-icon match-exact">=</span>';
+    }
+  }
+
+  private getMatchTypeTitle(matchType: string): string {
+    switch (matchType) {
+      case 'exact':
+        return 'Exact match';
+      case 'prefix':
+        return 'Prefix match';
+      case 'wildcard':
+        return 'Wildcard match (* for single segment, ** for multiple)';
+      case 'regex':
+        return 'Regular expression match';
+      default:
+        return 'Exact match';
+    }
   }
 
   private setupEventListeners(container: HTMLElement, server: MockServerDefinition): void {

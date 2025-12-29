@@ -278,6 +278,7 @@ interface ApiResponse {
 // Mock Server Types
 type MockResponseType = 'json' | 'text' | 'binary' | 'file';
 type MockHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+type MockPathMatchType = 'exact' | 'prefix' | 'wildcard' | 'regex';
 
 interface MockRouteHeader {
   key: string;
@@ -290,6 +291,7 @@ interface MockRoute {
   enabled: boolean;
   method: MockHttpMethod;
   path: string;
+  pathMatchType?: MockPathMatchType;
   statusCode: number;
   headers: MockRouteHeader[];
   delayMs?: number;

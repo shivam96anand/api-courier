@@ -284,6 +284,15 @@ export type MockResponseType = 'json' | 'text' | 'binary' | 'file';
 
 export type MockHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+/**
+ * Path matching strategies for mock routes:
+ * - 'exact': Path must match exactly (default)
+ * - 'prefix': Path must start with the specified prefix
+ * - 'wildcard': Supports * for single segment and ** for multiple segments
+ * - 'regex': Path is treated as a regular expression pattern
+ */
+export type MockPathMatchType = 'exact' | 'prefix' | 'wildcard' | 'regex';
+
 export interface MockRouteHeader {
   key: string;
   value: string;
@@ -294,7 +303,8 @@ export interface MockRoute {
   id: string;
   enabled: boolean;
   method: MockHttpMethod;
-  path: string; // exact match, e.g., "/products"
+  path: string; // path pattern based on pathMatchType
+  pathMatchType?: MockPathMatchType; // defaults to 'exact' if not specified
   statusCode: number;
   headers: MockRouteHeader[];
   delayMs?: number;

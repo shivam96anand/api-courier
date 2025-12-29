@@ -9,6 +9,15 @@ import { MockServerEditor } from './mock-server/MockServerEditor';
 export type MockResponseType = 'json' | 'text' | 'binary' | 'file';
 export type MockHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+/**
+ * Path matching strategies for mock routes:
+ * - 'exact': Path must match exactly (default)
+ * - 'prefix': Path must start with the specified prefix (e.g., /api/* matches /api/users, /api/products)
+ * - 'wildcard': Supports * for single segment and ** for multiple segments
+ * - 'regex': Path is treated as a regular expression pattern
+ */
+export type MockPathMatchType = 'exact' | 'prefix' | 'wildcard' | 'regex';
+
 export interface MockRouteHeader {
   key: string;
   value: string;
@@ -20,6 +29,7 @@ export interface MockRoute {
   enabled: boolean;
   method: MockHttpMethod;
   path: string;
+  pathMatchType?: MockPathMatchType;
   statusCode: number;
   headers: MockRouteHeader[];
   delayMs?: number;

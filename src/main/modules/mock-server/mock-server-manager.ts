@@ -16,7 +16,7 @@ import {
   MockRouteToggleParams,
   MockServerStatusChangedEvent,
 } from '../../../shared/types';
-import { RunningServerInfo, redactHeaders, delay } from './mock-server-utils';
+import { RunningServerInfo, redactHeaders, delay, matchPath, getMatchSpecificity } from './mock-server-utils';
 import { mockServerResponseHandler } from './mock-server-response-handler';
 import { getMockServersState, saveMockServersState } from './mock-server-store';
 import { mockRouteManager } from './mock-route-manager';
@@ -243,10 +243,21 @@ class MockServerManager {
       headers: redactHeaders(req.headers as Record<string, string>),
     });
 
-    // Find matching route (first enabled route with exact path and method match)
-    const matchedRoute = serverDef.routes.find(
-      (route) => route.enabled && route.method === method && route.path === urlPath
-    );
+    // Find matching routes with their specificity scores
+    const matchingRoutes = serverDef.routes
+      .filter((route) => {
+        if (!route.enabled || route.method !== method) return false;
+        const matchType = route.pathMatchType || 'exact';
+        return matchPath(route.path, urlPath, matchType);
+      })
+      .map((route) => ({
+        route,
+        specificity: getMatchSpecificity(route.path, route.pathMatchType || 'exact'),
+      }))
+      .sort((a, b) => b.specificity - a.specificity);
+
+    // Use the most specific match
+    const matchedRoute = matchingRoutes[0]?.route;
 
     if (!matchedRoute) {
       mockServerResponseHandler.sendJsonResponse(res, 404, {
@@ -256,6 +267,8 @@ class MockServerManager {
       });
       return;
     }
+
+    console.log(`[MockServer] Matched route: ${matchedRoute.path} (${matchedRoute.pathMatchType || 'exact'})`);
 
     // Apply delay if configured
     if (matchedRoute.delayMs && matchedRoute.delayMs > 0) {

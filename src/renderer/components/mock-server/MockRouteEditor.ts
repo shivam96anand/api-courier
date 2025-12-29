@@ -7,6 +7,7 @@ import {
   MockHttpMethod,
   MockResponseType,
   MockRouteHeader,
+  MockPathMatchType,
 } from '../MockServerTabManager';
 
 type RouteSaveFn = (route: Partial<Omit<MockRoute, 'id'>>) => void;
@@ -20,6 +21,7 @@ export class MockRouteEditor {
     const isNew = route === null;
     const method = route?.method ?? 'GET';
     const path = route?.path ?? '/';
+    const pathMatchType = route?.pathMatchType ?? 'exact';
     const statusCode = route?.statusCode ?? 200;
     const delayMs = route?.delayMs ?? 0;
     const responseType = route?.responseType ?? 'json';
@@ -44,10 +46,21 @@ export class MockRouteEditor {
               </select>
             </div>
             <div class="mock-route-field flex-grow">
-              <label>Path (exact match)</label>
-              <input type="text" id="route-path" class="mock-input" value="${this.escapeAttr(path)}" placeholder="/api/users" />
+              <label>Path</label>
+              <input type="text" id="route-path" class="mock-input" value="${this.escapeAttr(path)}" placeholder="${this.getPathPlaceholder(pathMatchType)}" />
             </div>
           </div>
+          
+          <div class="mock-route-field path-match-type-field">
+            <label>Path Match Type</label>
+            <div class="path-match-type-options">
+              ${this.renderPathMatchTypeOptions(pathMatchType)}
+            </div>
+            <div class="path-match-type-hint" id="path-match-hint">
+              ${this.getPathMatchHint(pathMatchType)}
+            </div>
+          </div>
+
           <div class="mock-route-row">
             <div class="mock-route-field">
               <label>Status Code</label>
@@ -124,6 +137,27 @@ export class MockRouteEditor {
   private setupEventListeners(container: HTMLElement, enabled: boolean): void {
     let currentEnabled = enabled;
     let currentHeaders: MockRouteHeader[] = this.collectHeaders(container);
+
+    // Path match type change
+    container.querySelectorAll('input[name="pathMatchType"]').forEach((radio) => {
+      radio.addEventListener('change', (e) => {
+        const matchType = (e.target as HTMLInputElement).value as MockPathMatchType;
+        // Update visual selection
+        container.querySelectorAll('.path-match-option').forEach((opt) => {
+          opt.classList.toggle('selected', opt.getAttribute('data-value') === matchType);
+        });
+        // Update hint text
+        const hintEl = container.querySelector('#path-match-hint');
+        if (hintEl) {
+          hintEl.innerHTML = this.getPathMatchHint(matchType);
+        }
+        // Update path placeholder
+        const pathInput = container.querySelector('#route-path') as HTMLInputElement;
+        if (pathInput) {
+          pathInput.placeholder = this.getPathPlaceholder(matchType);
+        }
+      });
+    });
 
     // Response type change
     const responseTypeSelect = container.querySelector('#route-response-type') as HTMLSelectElement;
@@ -258,6 +292,7 @@ export class MockRouteEditor {
   private collectRouteData(container: HTMLElement, enabled: boolean): Partial<Omit<MockRoute, 'id'>> {
     const method = (container.querySelector('#route-method') as HTMLSelectElement)?.value as MockHttpMethod;
     const path = (container.querySelector('#route-path') as HTMLInputElement)?.value || '/';
+    const pathMatchType = (container.querySelector('input[name="pathMatchType"]:checked') as HTMLInputElement)?.value as MockPathMatchType || 'exact';
     const statusCode = parseInt((container.querySelector('#route-status') as HTMLInputElement)?.value || '200', 10);
     const delayMs = parseInt((container.querySelector('#route-delay') as HTMLInputElement)?.value || '0', 10);
     const responseType = (container.querySelector('#route-response-type') as HTMLSelectElement)?.value as MockResponseType;
@@ -269,6 +304,7 @@ export class MockRouteEditor {
       enabled,
       method,
       path,
+      pathMatchType,
       statusCode,
       headers,
       delayMs: delayMs || undefined,
@@ -280,8 +316,21 @@ export class MockRouteEditor {
 
   private validateRoute(route: Partial<Omit<MockRoute, 'id'>>): boolean {
     if (!route.path || !route.path.startsWith('/')) {
-      alert('Path must start with /');
-      return false;
+      // For regex, path might not start with /
+      if (route.pathMatchType !== 'regex') {
+        alert('Path must start with /');
+        return false;
+      }
+    }
+
+    // Validate regex pattern if regex match type
+    if (route.pathMatchType === 'regex' && route.path) {
+      try {
+        new RegExp(route.path);
+      } catch {
+        alert('Invalid regular expression pattern');
+        return false;
+      }
     }
 
     if (route.responseType === 'json' && route.body) {
@@ -321,6 +370,57 @@ export class MockRouteEditor {
         return 'Base64 encoded data...';
       default:
         return '';
+    }
+  }
+
+  private renderPathMatchTypeOptions(selected: MockPathMatchType): string {
+    const options: { value: MockPathMatchType; label: string; icon: string }[] = [
+      { value: 'exact', label: 'Exact', icon: '=' },
+      { value: 'prefix', label: 'Prefix', icon: '▸' },
+      { value: 'wildcard', label: 'Wildcard', icon: '*' },
+      { value: 'regex', label: 'Regex', icon: '.*' },
+    ];
+
+    return options
+      .map(
+        (opt) => `
+        <label class="path-match-option ${selected === opt.value ? 'selected' : ''}" data-value="${opt.value}">
+          <input type="radio" name="pathMatchType" value="${opt.value}" ${selected === opt.value ? 'checked' : ''} />
+          <span class="path-match-option-icon">${opt.icon}</span>
+          <span class="path-match-option-label">${opt.label}</span>
+        </label>
+      `
+      )
+      .join('');
+  }
+
+  private getPathMatchHint(matchType: MockPathMatchType): string {
+    switch (matchType) {
+      case 'exact':
+        return '<strong>Exact match:</strong> The request path must exactly match the specified path. <code>/api/users</code> only matches <code>/api/users</code>.';
+      case 'prefix':
+        return '<strong>Prefix match:</strong> Matches paths that start with the specified prefix. <code>/api/*</code> matches <code>/api/users</code>, <code>/api/products</code>, etc.';
+      case 'wildcard':
+        return '<strong>Wildcard match:</strong> Use <code>*</code> for single segment, <code>**</code> for multiple segments. <code>/api/*/details</code> matches <code>/api/users/details</code>.';
+      case 'regex':
+        return '<strong>Regex match:</strong> Full regular expression pattern. <code>^/api/(users|products)/\\d+$</code> matches <code>/api/users/123</code>.';
+      default:
+        return '';
+    }
+  }
+
+  private getPathPlaceholder(matchType: MockPathMatchType): string {
+    switch (matchType) {
+      case 'exact':
+        return '/api/users';
+      case 'prefix':
+        return '/api/*';
+      case 'wildcard':
+        return '/api/*/details';
+      case 'regex':
+        return '^/api/.*$';
+      default:
+        return '/api/users';
     }
   }
 
