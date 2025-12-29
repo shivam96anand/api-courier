@@ -1,20 +1,21 @@
 import { ApiRequest, Environment, Globals } from '../../../shared/types';
-import { createIconElement } from '../../utils/icons';
-import { detectVariables, buildFolderVars, addVariableHighlighting } from './variable-helper';
 import { setupAutocomplete } from './variable-autocomplete';
+import { VariableContextHandler } from './variable-context-handler';
+import { FormUIHandler } from './form-ui-handler';
 
+/**
+ * Main handler for the request form - coordinates between variable context,
+ * form setup, and UI state handlers.
+ */
 export class RequestFormHandler {
   private onRequestUpdate: (updates: Partial<ApiRequest>) => void;
-  private currentCollectionId?: string;
-  private activeEnvironment?: Environment;
-  private globals: Globals = { variables: {} };
-  private folderVars: Record<string, string> = {};
-  private storeCache: any = null;
-  private storeCacheTime: number = 0;
-  private readonly CACHE_TTL = 500; // Cache for 500ms
+  private variableHandler: VariableContextHandler;
+  private uiHandler: FormUIHandler;
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
+    this.variableHandler = new VariableContextHandler();
+    this.uiHandler = new FormUIHandler();
   }
 
   setupRequestForm(): void {
@@ -23,29 +24,25 @@ export class RequestFormHandler {
 
     if (methodSelect) {
       // Apply initial method color class
-      this.updateMethodSelectColor(methodSelect);
+      this.uiHandler.updateMethodSelectColor(methodSelect);
       
       methodSelect.addEventListener('change', () => {
         this.onRequestUpdate({ method: methodSelect.value as any });
-        this.updateMethodSelectColor(methodSelect);
+        this.uiHandler.updateMethodSelectColor(methodSelect);
       });
     }
 
     if (urlInput) {
       urlInput.addEventListener('input', () => {
         this.onRequestUpdate({ url: urlInput.value });
-        this.updateVariableIndicator(urlInput);
+        this.variableHandler.updateVariableIndicator(urlInput);
         if (!urlInput.dataset.variableHighlightListenerAttached) {
-          this.refreshInputHighlight(urlInput);
+          this.variableHandler.refreshInputHighlight(urlInput);
         }
       });
 
       // Setup autocomplete for URL input
-      setupAutocomplete(urlInput, () => ({
-        activeEnvironment: this.activeEnvironment,
-        globals: this.globals,
-        folderVars: this.folderVars
-      }));
+      setupAutocomplete(urlInput, () => this.variableHandler.getVariableContext());
 
       // Variable tooltips will be initialized by refreshVariableTooltips()
       // which is called from request-manager when a request is loaded
@@ -53,7 +50,7 @@ export class RequestFormHandler {
 
     // Listen for auth inputs being rendered and add tooltips
     document.addEventListener('auth-inputs-rendered', () => {
-      this.initializeAuthTooltips();
+      this.variableHandler.initializeAuthTooltips();
     });
   }
 
@@ -62,19 +59,13 @@ export class RequestFormHandler {
    * Note: This only sets the context. Call refreshAllInputHighlighting() after
    * all inputs are loaded to apply highlighting.
    */
-  public setVariableContext(context: { activeEnvironment?: any; globals: any; folderVars: Record<string, string> }): void {
-    this.activeEnvironment = context.activeEnvironment;
-    this.globals = context.globals;
-    this.folderVars = context.folderVars;
+  public setVariableContext(context: { activeEnvironment?: Environment; globals: Globals; folderVars: Record<string, string> }): void {
+    this.variableHandler.setVariableContext(context);
 
     // Ensure listeners are attached to URL input
     const urlInput = document.getElementById('request-url') as HTMLInputElement;
-    if (urlInput && !urlInput.dataset.variableHighlightListenerAttached) {
-      urlInput.addEventListener('input', () => {
-        this.updateVariableIndicator(urlInput);
-        this.refreshInputHighlight(urlInput);
-      });
-      urlInput.dataset.variableHighlightListenerAttached = 'true';
+    if (urlInput) {
+      this.variableHandler.setupUrlInputListener(urlInput);
     }
   }
 
@@ -83,146 +74,18 @@ export class RequestFormHandler {
    * Call this after values are loaded to ensure highlighting is applied
    */
   public refreshAllInputHighlighting(): void {
-    // Refresh URL input (tooltips are added automatically in refreshInputHighlight)
-    const urlInput = document.getElementById('request-url') as HTMLInputElement;
-    if (urlInput && urlInput.value) {
-      this.refreshInputHighlight(urlInput);
-    }
-
-    // Refresh auth inputs
-    this.refreshAuthInputHighlighting();
-  }
-
-  /**
-   * Refresh highlighting for all auth inputs (used when context is updated)
-   */
-  private refreshAuthInputHighlighting(): void {
-    const authConfig = document.getElementById('auth-config');
-    if (!authConfig) return;
-
-    const inputs = authConfig.querySelectorAll('input[type="text"], input[type="password"]');
-    inputs.forEach((input) => {
-      const inputElement = input as HTMLInputElement;
-
-      // Ensure listener is attached
-      if (!inputElement.dataset.variableHighlightListenerAttached) {
-        inputElement.addEventListener('input', () => {
-          this.refreshInputHighlight(inputElement);
-        });
-        inputElement.dataset.variableHighlightListenerAttached = 'true';
-      }
-
-      // Apply highlighting to current value
-      if (inputElement.value) {
-        this.refreshInputHighlight(inputElement);
-      }
-    });
+    this.variableHandler.refreshAllInputHighlighting();
   }
 
   /**
    * Refresh variable tooltips (call this when environment changes or request loads)
    */
   public async refreshVariableTooltips(collectionId?: string): Promise<void> {
-    this.currentCollectionId = collectionId;
-
-    // CRITICAL: Always load context, even if URL input doesn't exist
-    // This ensures this.folderVars, this.activeEnvironment, this.globals are set
-    // for auth inputs and other fields
-    await this.loadVariableContext(collectionId);
+    await this.variableHandler.refreshVariableTooltips(collectionId);
 
     const urlInput = document.getElementById('request-url') as HTMLInputElement;
     if (urlInput) {
-      this.enhanceVariableInput(urlInput);
-    }
-  }
-
-  /**
-   * Loads variable context (environment, globals, folder vars) into cache
-   */
-  private async loadVariableContext(collectionId?: string): Promise<void> {
-    try {
-      const state = await this.getCachedStore();
-      const activeEnvironment = state.activeEnvironmentId
-        ? state.environments.find((e: any) => e.id === state.activeEnvironmentId)
-        : undefined;
-
-      const globals = state.globals || { variables: {} };
-      const folderVars = buildFolderVars(collectionId, state.collections);
-
-      // Cache context for all inputs to use
-      this.activeEnvironment = activeEnvironment;
-      this.globals = globals;
-      this.folderVars = folderVars;
-    } catch (error) {
-      console.error('Failed to load variable context:', error);
-    }
-  }
-
-  /**
-   * Updates the visual indicator that a field contains variables
-   */
-  private updateVariableIndicator(inputElement: HTMLInputElement): void {
-    const variables = detectVariables(inputElement.value);
-    if (variables.length > 0) {
-      inputElement.classList.add('has-variables');
-    } else {
-      inputElement.classList.remove('has-variables');
-    }
-  }
-
-  /**
-   * Get store data with caching to reduce IPC calls during rapid tab switching
-   */
-  private async getCachedStore(): Promise<any> {
-    const now = Date.now();
-    if (this.storeCache && (now - this.storeCacheTime) < this.CACHE_TTL) {
-      return this.storeCache;
-    }
-
-    this.storeCache = await window.apiCourier.store.get();
-    this.storeCacheTime = now;
-    return this.storeCache;
-  }
-
-  /**
-   * Initializes variable tooltips for all auth config inputs
-   */
-  private initializeAuthTooltips(): void {
-    try {
-      const authConfig = document.getElementById('auth-config');
-      if (!authConfig) return;
-
-      // CRITICAL: Attach input listeners FIRST (synchronously) to avoid race condition
-      // with loadConfigToDOM() setTimeout that loads values
-      const inputs = authConfig.querySelectorAll('input[type="text"], input[type="password"]');
-
-      inputs.forEach((input) => {
-        const inputElement = input as HTMLInputElement;
-        // Attach input listener immediately if not already attached
-        if (!inputElement.dataset.variableHighlightListenerAttached) {
-          inputElement.addEventListener('input', () => {
-            this.refreshInputHighlight(inputElement);
-          });
-          inputElement.dataset.variableHighlightListenerAttached = 'true';
-
-          // Setup autocomplete for auth inputs
-          setupAutocomplete(inputElement, () => ({
-            activeEnvironment: this.activeEnvironment,
-            globals: this.globals,
-            folderVars: this.folderVars
-          }));
-        }
-      });
-
-      // IMPORTANT: Use already-loaded context instead of reloading from cache
-      // The context has already been loaded by refreshVariableTooltips() with the correct collectionId
-      // Reloading from cache can give stale data or wrong folder variables
-
-      // Don't try to highlight now - inputs are empty at this point
-      // The setTimeout in loadConfigToDOM will populate values and dispatch input events
-      // which will trigger refreshInputHighlight with the correct context
-    } catch (error) {
-      console.error('Failed to initialize auth tooltips:', error);
+      this.variableHandler.enhanceVariableInput(urlInput);
     }
   }
 
@@ -257,7 +120,7 @@ export class RequestFormHandler {
           // This fixes the issue where variables lose color when switching between tabs
           // Use setTimeout to ensure the section is fully visible before refreshing
           setTimeout(() => {
-            this.refreshAuthInputHighlighting();
+            this.variableHandler.refreshAuthInputHighlighting();
           }, 0);
         }
       });
@@ -309,7 +172,7 @@ export class RequestFormHandler {
 
     if (methodSelect) {
       methodSelect.value = request.method;
-      this.updateMethodSelectColor(methodSelect);
+      this.uiHandler.updateMethodSelectColor(methodSelect);
     }
     if (urlInput) urlInput.value = request.url;
   }
@@ -320,152 +183,23 @@ export class RequestFormHandler {
 
     if (methodSelect) {
       methodSelect.value = 'GET';
-      this.updateMethodSelectColor(methodSelect);
+      this.uiHandler.updateMethodSelectColor(methodSelect);
     }
     if (urlInput) {
       urlInput.value = '';
-
-      // Remove any leftover variable overlay/indicator from the previous tab
-      const existing = urlInput.parentElement?.querySelector('.variable-highlight-container');
-      if (existing) existing.remove();
-      urlInput.classList.remove('has-variable-overlay', 'has-variables');
+      this.uiHandler.clearUrlInputOverlay(urlInput);
     }
-  }
-
-  /**
-   * Updates the method select element's color class based on the current HTTP method
-   */
-  private updateMethodSelectColor(methodSelect: HTMLSelectElement): void {
-    // Remove all existing method color classes
-    methodSelect.classList.remove(
-      'method-get', 'method-post', 'method-put', 
-      'method-patch', 'method-delete', 'method-head', 'method-options'
-    );
-    // Add the appropriate class for the current method
-    const method = methodSelect.value.toLowerCase();
-    methodSelect.classList.add(`method-${method}`);
   }
 
   showEmptyState(): void {
-    const requestPanel = document.querySelector('.request-panel');
-    if (!requestPanel) return;
-
-    const requestForm = document.querySelector('.request-form') as HTMLElement;
-    if (requestForm) requestForm.style.display = 'none';
-
-    let emptyState = document.getElementById('request-empty-state');
-    if (!emptyState) {
-      emptyState = document.createElement('div');
-      emptyState.id = 'request-empty-state';
-      emptyState.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex: 1;
-        color: var(--text-secondary);
-        font-size: 14px;
-        text-align: center;
-        padding: 40px 20px;
-      `;
-
-      const icon = document.createElement('div');
-      icon.style.cssText = `
-        margin-bottom: 16px;
-        opacity: 0.5;
-        width: 48px;
-        height: 48px;
-      `;
-      icon.appendChild(createIconElement('file', { style: { width: '100%', height: '100%' } }));
-
-      const title = document.createElement('h3');
-      title.textContent = 'No Request Selected';
-      title.style.cssText = `
-        margin: 0 0 8px 0;
-        color: var(--text-primary);
-        font-size: 16px;
-        font-weight: 500;
-      `;
-
-      const description = document.createElement('p');
-      description.textContent = 'Select a request from collections or create a new request tab to get started';
-      description.style.cssText = `
-        margin: 0;
-        line-height: 1.5;
-        max-width: 300px;
-      `;
-
-      emptyState.appendChild(icon);
-      emptyState.appendChild(title);
-      emptyState.appendChild(description);
-      requestPanel.appendChild(emptyState);
-    } else {
-      emptyState.style.display = 'flex';
-    }
+    this.uiHandler.showEmptyState();
   }
 
   showRequestForm(): void {
-    const requestForm = document.querySelector('.request-form') as HTMLElement;
-    const emptyState = document.getElementById('request-empty-state');
-
-    if (requestForm) requestForm.style.display = 'flex';
-    if (emptyState) emptyState.style.display = 'none';
+    this.uiHandler.showRequestForm();
   }
 
   showError(message: string): void {
-    const errorDiv = document.createElement('div');
-    errorDiv.textContent = message;
-    errorDiv.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--error-color);
-      color: white;
-      padding: 12px 16px;
-      border-radius: 4px;
-      z-index: 10001;
-      font-size: 14px;
-      max-width: 300px;
-      word-wrap: break-word;
-    `;
-
-    document.body.appendChild(errorDiv);
-    setTimeout(() => {
-      if (document.body.contains(errorDiv)) {
-        document.body.removeChild(errorDiv);
-      }
-    }, 5000);
-  }
-
-  /**
-   * Add variable highlighting and tooltips to a text input, reusing cached context
-   */
-  private enhanceVariableInput(inputElement: HTMLInputElement): void {
-    // Always add input listener first, so it works even if value is loaded later
-    if (!inputElement.dataset.variableHighlightListenerAttached) {
-      inputElement.addEventListener('input', () => {
-        this.refreshInputHighlight(inputElement);
-      });
-      inputElement.dataset.variableHighlightListenerAttached = 'true';
-    }
-
-    // For password fields, only apply highlighting if there are variables
-    // If there ARE variables, we want to show them for easy copying
-    if (inputElement.type === 'password') {
-      const hasVariables = detectVariables(inputElement.value).length > 0;
-      if (!hasVariables) {
-        return; // Keep as password field (dots) if no variables
-      }
-    }
-
-    this.refreshInputHighlight(inputElement);
-  }
-
-  /**
-   * Refresh highlighting state for an input
-   */
-  private refreshInputHighlight(inputElement: HTMLInputElement): void {
-    addVariableHighlighting(inputElement, this.activeEnvironment, this.globals, this.folderVars);
-    this.updateVariableIndicator(inputElement);
+    this.uiHandler.showError(message);
   }
 }
