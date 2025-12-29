@@ -33,6 +33,7 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  padding-bottom: 12px;
 
   .btn {
     padding: 8px 18px;
@@ -63,6 +64,63 @@
       &:active {
         transform: translateY(-1px);
         box-shadow: 0 3px 6px rgba(var(--primary-color-rgb), 0.3);
+      }
+    }
+
+    &.btn-secondary {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+
+      &:hover {
+        background: rgba(var(--primary-color-rgb), 0.2);
+        border-color: rgba(var(--primary-color-rgb), 0.35);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+    }
+  }
+}
+
+.input-actions {
+  display: flex;
+  gap: 8px;
+
+  .btn {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    &.btn-primary {
+      background: var(--primary-color);
+      border: 1px solid var(--primary-color);
+      color: white;
+
+      &:hover {
+        background: var(--primary-dark);
+        border-color: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(var(--primary-color-rgb), 0.3);
+      }
+
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(var(--primary-color-rgb), 0.25);
       }
     }
 
