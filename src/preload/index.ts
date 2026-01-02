@@ -35,6 +35,10 @@ const IPC_CHANNELS = {
   COLLECTIONS_STATE_GET: 'collections-state:get',
   COLLECTIONS_STATE_SET: 'collections-state:set',
 
+  // JSON Viewer UI state channels
+  JSONVIEWER_STATE_GET: 'jsonviewer-state:get',
+  JSONVIEWER_STATE_SET: 'jsonviewer-state:set',
+
   // System helpers
   OPEN_EXTERNAL: 'system:open-external',
 
@@ -221,6 +225,11 @@ interface OAuthResult {
 
 interface CollectionsUIState {
   expandedFolderIds: string[];
+}
+
+interface JsonViewerUIState {
+  expandedNodesByRequest: Record<string, string[]>;
+  requestAccessOrder: string[];
 }
 
 // AI Chat Types
@@ -436,6 +445,13 @@ const apiCourierAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.COLLECTIONS_STATE_GET),
     set: (uiState: CollectionsUIState): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.COLLECTIONS_STATE_SET, uiState),
+  },
+
+  jsonViewerState: {
+    get: (): Promise<JsonViewerUIState> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JSONVIEWER_STATE_GET),
+    set: (uiState: JsonViewerUIState): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JSONVIEWER_STATE_SET, uiState),
   },
 
   system: {

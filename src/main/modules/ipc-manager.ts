@@ -17,6 +17,7 @@ import {
   LoadTestSummary,
   OAuthConfig,
   CollectionsUIState,
+  JsonViewerUIState,
   AiContext,
   AiSendMessageParams,
   MockServerCreateParams,
@@ -313,6 +314,16 @@ class IpcManager {
 
     ipcMain.handle(IPC_CHANNELS.COLLECTIONS_STATE_SET, (_, uiState: CollectionsUIState): void => {
       storeManager.setState({ collectionsUIState: uiState });
+    });
+
+    // JSON Viewer UI state IPC handlers
+    ipcMain.handle(IPC_CHANNELS.JSONVIEWER_STATE_GET, (): JsonViewerUIState => {
+      const state = storeManager.getState();
+      return state.jsonViewerUIState || { expandedNodesByRequest: {}, requestAccessOrder: [] };
+    });
+
+    ipcMain.handle(IPC_CHANNELS.JSONVIEWER_STATE_SET, (_, uiState: JsonViewerUIState): void => {
+      storeManager.setState({ jsonViewerUIState: uiState });
     });
 
     ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, async (_, url: string): Promise<void> => {

@@ -32,6 +32,10 @@ export const IPC_CHANNELS = {
   COLLECTIONS_STATE_GET: 'collections-state:get',
   COLLECTIONS_STATE_SET: 'collections-state:set',
 
+  // JSON Viewer UI state channels
+  JSONVIEWER_STATE_GET: 'jsonviewer-state:get',
+  JSONVIEWER_STATE_SET: 'jsonviewer-state:set',
+
   // System helpers
   OPEN_EXTERNAL: 'system:open-external',
 

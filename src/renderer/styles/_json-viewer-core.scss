@@ -7,7 +7,7 @@
   height: 100%;
   background-color: transparent;
   overflow: hidden;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 16px;
   word-spacing: -0.1em;
@@ -36,7 +36,7 @@
       .line-number {
         text-align: right;
         color: var(--text-secondary);
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-family: var(--font-mono);
         font-size: 12px;
         line-height: 16px;
         word-spacing: -0.1em;

@@ -85,6 +85,15 @@ export interface CollectionsUIState {
   expandedFolderIds: string[];
 }
 
+/**
+ * UI state for JSON response viewer
+ * Stores expanded node paths per request ID with LRU eviction
+ */
+export interface JsonViewerUIState {
+  expandedNodesByRequest: Record<string, string[]>;
+  requestAccessOrder: string[]; // LRU: most recent access at the end
+}
+
 export interface NotepadTab {
   id: string;
   title: string;
@@ -113,6 +122,7 @@ export interface AppState {
   activeEnvironmentId?: string;
   globals: Globals;
   collectionsUIState?: CollectionsUIState;
+  jsonViewerUIState?: JsonViewerUIState;
   notepad?: NotepadState;
   mockServers?: MockServersState;
 }

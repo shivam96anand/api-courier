@@ -128,7 +128,7 @@
 
 .path-text {
   flex: 1;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
   word-break: break-all;
@@ -199,7 +199,7 @@
 }
 
 .value-text {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.4;
   white-space: pre-wrap;

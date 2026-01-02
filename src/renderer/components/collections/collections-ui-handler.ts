@@ -287,7 +287,7 @@ export class CollectionsUIHandler {
       const keySpan = document.createElement('span');
       keySpan.textContent = shortcut.key;
       keySpan.style.cssText = `
-        font-family: monospace;
+        font-family: var(--font-mono);
         background: var(--bg-primary);
         color: var(--primary-color);
         padding: 2px 6px;

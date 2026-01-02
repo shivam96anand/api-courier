@@ -127,7 +127,7 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--primary-color);
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--font-mono);
 }
 
 .var-edit-braces {
@@ -166,7 +166,7 @@
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 14px;
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--font-mono);
   transition: all 0.15s ease;
 
   &:focus {

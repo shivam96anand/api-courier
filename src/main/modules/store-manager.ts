@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { AppState, AppTheme, Globals, CollectionsUIState, NotepadState, MockServersState } from '../../shared/types';
+import { AppState, AppTheme, Globals, CollectionsUIState, JsonViewerUIState, NotepadState, MockServersState } from '../../shared/types';
 
 const defaultNavOrder = ['api', 'json-viewer', 'json-compare', 'notepad', 'load-testing', 'mock-server', 'ask-ai'];
 
@@ -17,6 +17,11 @@ const defaultGlobals: Globals = {
 
 const defaultCollectionsUIState: CollectionsUIState = {
   expandedFolderIds: [],
+};
+
+const defaultJsonViewerUIState: JsonViewerUIState = {
+  expandedNodesByRequest: {},
+  requestAccessOrder: [],
 };
 
 const defaultNotepadState: NotepadState = {
@@ -38,6 +43,7 @@ const defaultState: AppState = {
   environments: [],
   globals: defaultGlobals,
   collectionsUIState: defaultCollectionsUIState,
+  jsonViewerUIState: defaultJsonViewerUIState,
   notepad: defaultNotepadState,
   mockServers: defaultMockServersState,
 };
@@ -69,6 +75,7 @@ class StoreManager {
           activeEnvironmentId: loadedData.activeEnvironmentId,
           globals: loadedData.globals || defaultGlobals,
           collectionsUIState: loadedData.collectionsUIState || defaultCollectionsUIState,
+          jsonViewerUIState: loadedData.jsonViewerUIState || defaultJsonViewerUIState,
           notepad: loadedData.notepad || defaultNotepadState,
           navOrder: loadedData.navOrder || defaultNavOrder,
           mockServers: loadedData.mockServers || defaultMockServersState,

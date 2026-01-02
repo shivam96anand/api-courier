@@ -86,7 +86,7 @@
   color: var(--error-color);
   border-radius: 6px;
   font-size: 12px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
   border: 1px solid rgba(239, 68, 68, 0.2);
   animation: slideInFromTop 0.2s ease;
 

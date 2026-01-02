@@ -215,7 +215,7 @@
     border-radius: 10px;
     color: var(--text-primary);
     padding: 14px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     resize: vertical;
     transition: all 0.2s ease;

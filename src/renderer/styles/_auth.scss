@@ -31,7 +31,7 @@
     border-radius: 6px;
     padding: 6px 10px;
     font-size: 11px;
-    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-family: var(--font-mono);
 
     &::placeholder {
       color: var(--text-secondary);
@@ -82,7 +82,7 @@
     padding: 6px 10px;
     font-size: 11px;
     min-height: 16px;
-    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-family: var(--font-mono);
 
     &::placeholder {
       color: var(--text-secondary);

@@ -255,7 +255,7 @@ export class ResponseManager {
     timer.style.cssText = `
       font-size: 12px;
       color: var(--text-secondary);
-      font-family: 'Courier New', monospace;
+      font-family: var(--font-mono);
     `;
 
     const cancelBtn = document.createElement('button');

@@ -64,13 +64,13 @@ export class JsonViewerPanel {
     this.container.querySelector('#viewer-ask-ai-btn')?.addEventListener('click', () => this.handleAskAI());
   }
 
-  public displayJson(jsonData: any, sourceText: string): void {
+  public async displayJson(jsonData: any, sourceText: string): Promise<void> {
     // Initialize JSON viewer if not already done
     if (!this.jsonViewer) {
       this.jsonViewer = new JsonViewer('json-viewer-tab-container');
     }
 
-    this.jsonViewer.setData(jsonData);
+    await this.jsonViewer.setData(jsonData);
 
     // Show viewer container, hide empty state
     const viewerContainer = this.container.querySelector('#json-viewer-tab-container') as HTMLElement;

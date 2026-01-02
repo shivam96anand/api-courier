@@ -67,7 +67,7 @@
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
-    font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
@@ -92,7 +92,7 @@
   position: relative;
   z-index: 1;
   transition: all 0.2s ease;
-  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 
   &::placeholder {

@@ -115,7 +115,7 @@
 }
 
 .mock-textarea {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   resize: vertical;
   min-height: 120px;
@@ -216,7 +216,7 @@
     .path-match-option-icon {
       font-size: 12px;
       font-weight: 700;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-family: var(--font-mono);
       color: var(--text-secondary);
       width: 24px;
       height: 24px;
@@ -266,7 +266,7 @@
     }
 
     code {
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-family: var(--font-mono);
       font-size: 11px;
       background: rgba(255, 255, 255, 0.08);
       padding: 2px 6px;
@@ -290,7 +290,7 @@
     height: 20px;
     font-size: 10px;
     font-weight: 700;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-family: var(--font-mono);
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-secondary);

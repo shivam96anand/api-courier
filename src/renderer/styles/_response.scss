@@ -107,7 +107,7 @@
 }
 
 pre, code, .json-viewer, .json-content {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 // Error Response Styling

@@ -48,13 +48,13 @@ export class ResponseViewer {
     }
   }
 
-  public displayResponse(response: ApiResponse): void {
-    this.updateResponseBody(response);
+  public async displayResponse(response: ApiResponse): Promise<void> {
+    await this.updateResponseBody(response);
     this.updateResponseHeaders(response);
     this.updateResponseMeta(response);
   }
 
-  private updateResponseBody(response: ApiResponse): void {
+  private async updateResponseBody(response: ApiResponse): Promise<void> {
     const bodyElement = document.getElementById('response-body');
     if (!bodyElement) return;
 
@@ -71,7 +71,7 @@ export class ResponseViewer {
     if (isJson) {
       try {
         const parsed = JSON.parse(response.body);
-        this.setupJsonViewer(bodyElement, parsed);
+        await this.setupJsonViewer(bodyElement, parsed);
         this.currentFormatter = 'json';
       } catch (e) {
         this.setupPlainTextView(bodyElement, response.body);
@@ -83,7 +83,7 @@ export class ResponseViewer {
     }
   }
 
-  private setupJsonViewer(container: HTMLElement, jsonData: any): void {
+  private async setupJsonViewer(container: HTMLElement, jsonData: any): Promise<void> {
     container.innerHTML = '';
 
     const jsonContainer = document.createElement('div');
@@ -97,7 +97,7 @@ export class ResponseViewer {
       this.jsonViewer = new JsonViewer('response-json-viewer-container', {
         requestId: this.currentRequestId
       });
-      this.jsonViewer.setData(jsonData);
+      await this.jsonViewer.setData(jsonData);
     } catch (error) {
       console.error('Failed to initialize JSON viewer:', error);
       this.setupPlainTextView(container, JSON.stringify(jsonData, null, 2));

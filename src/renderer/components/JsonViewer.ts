@@ -4,6 +4,7 @@ import { JsonSearch } from './json-viewer/search';
 import { NodeRenderer } from './json-viewer/renderer';
 import { LineNumbersManager } from './json-viewer/line-numbers';
 import { JsonViewerUtilities } from './json-viewer/utilities';
+import { JsonViewerStatePersistence } from './json-viewer/json-viewer-state-persistence';
 
 export type { JsonNode, SearchMatch } from './json-viewer/types';
 
@@ -17,13 +18,23 @@ export class JsonViewer {
   private resizeObserver: ResizeObserver | null = null;
   private searchEngine: JsonSearch;
   private lineNumbersManager: LineNumbersManager;
+  private requestId?: string;
+  private statePersistence: JsonViewerStatePersistence | null = null;
+  private expandedPaths: Set<string> = new Set();
 
-  constructor(containerId: string) {
+  constructor(containerId: string, config?: { requestId?: string }) {
     const container = document.getElementById(containerId);
     if (!container) {
       throw new Error(`Container with id "${containerId}" not found`);
     }
     this.container = container;
+    this.requestId = config?.requestId;
+
+    // Only enable persistence for response viewer (when requestId is provided)
+    if (this.requestId) {
+      this.statePersistence = new JsonViewerStatePersistence();
+    }
+
     this.searchEngine = new JsonSearch();
     this.lineNumbersManager = new LineNumbersManager();
     this.setupDOMStructure();
@@ -90,14 +101,115 @@ export class JsonViewer {
     }) as unknown as number;
   }
 
-  public setData(jsonData: any): void {
+  public async setData(jsonData: any): Promise<void> {
     this.jsonData = jsonData;
     this.nodes = JsonParser.parseToNodes(jsonData);
+
+    // Generate paths for all nodes
+    this.generateNodePaths(this.nodes);
+
+    // Load and restore saved state if persistence enabled
+    if (this.statePersistence && this.requestId) {
+      await this.restoreExpandedState();
+    }
+
     this.renderNodesOptimized();
     requestAnimationFrame(() => {
       this.lineNumbersManager.generateLineNumbers(this.container);
       this.lineNumbersManager.syncLineNumbersScroll(this.container);
     });
+  }
+
+  /**
+   * Generate paths for all nodes recursively
+   */
+  private generateNodePaths(nodes: JsonNode[]): void {
+    const assignPath = (node: JsonNode): void => {
+      node.path = this.generateNodePath(node);
+      if (node.children) {
+        node.children.forEach((child) => assignPath(child));
+      }
+    };
+
+    nodes.forEach((node) => assignPath(node));
+  }
+
+  /**
+   * Generate path for a single node by walking up parent chain
+   */
+  private generateNodePath(node: JsonNode): string {
+    const segments: string[] = [];
+    let current: JsonNode | undefined = node;
+
+    while (current && current.parent) {
+      if (current.parent.type === 'array') {
+        segments.unshift(`[${current.key}]`);
+      } else if (current.key) {
+        segments.unshift(current.key);
+      }
+      current = current.parent;
+    }
+
+    return segments.join('.').replace(/\.\[/g, '[');
+  }
+
+  /**
+   * Restore expanded state from persistence
+   */
+  private async restoreExpandedState(): Promise<void> {
+    if (!this.statePersistence || !this.requestId) return;
+
+    const savedPaths = await this.statePersistence.loadExpandedPaths(this.requestId);
+    this.expandedPaths = savedPaths;
+
+    // Apply saved state to nodes
+    this.applyExpandedState(this.nodes, savedPaths);
+  }
+
+  /**
+   * Apply expanded state to nodes recursively
+   */
+  private applyExpandedState(nodes: JsonNode[], expandedPaths: Set<string>): void {
+    const applyToNode = (node: JsonNode): void => {
+      if ((node.type === 'object' || node.type === 'array') && node.path) {
+        node.isExpanded = expandedPaths.has(node.path);
+      }
+      if (node.children) {
+        node.children.forEach((child) => applyToNode(child));
+      }
+    };
+
+    nodes.forEach((node) => applyToNode(node));
+  }
+
+  /**
+   * Collect currently expanded paths recursively
+   */
+  private collectExpandedPaths(): Set<string> {
+    const paths = new Set<string>();
+
+    const collectFromNode = (node: JsonNode): void => {
+      if (node.isExpanded && node.path && (node.type === 'object' || node.type === 'array')) {
+        paths.add(node.path);
+      }
+      if (node.children) {
+        node.children.forEach((child) => collectFromNode(child));
+      }
+    };
+
+    this.nodes.forEach((node) => collectFromNode(node));
+    return paths;
+  }
+
+  /**
+   * Save current expanded state to persistence
+   */
+  private saveCurrentState(): void {
+    if (!this.statePersistence || !this.requestId) return;
+
+    const expandedPaths = this.collectExpandedPaths();
+    this.expandedPaths = expandedPaths;
+    this.statePersistence.saveExpandedPaths(this.requestId, expandedPaths);
   }
 
   private renderJsonAsText(): void {
@@ -275,7 +387,10 @@ export class JsonViewer {
     // Toggle and render
     node.isExpanded = !node.isExpanded;
     this.renderNodesOptimized();
-    
+
+    // Save state after toggle
+    this.saveCurrentState();
+
     // Force a reflow to ensure DOM is updated
     void content.offsetHeight;
     
@@ -313,6 +428,7 @@ export class JsonViewer {
   public expandAll(): void {
     JsonParser.expandAll(this.nodes);
     this.renderNodesOptimized();
+    this.saveCurrentState();
     requestAnimationFrame(() => {
       // Reset scroll to top when expanding all
       const content = this.container.querySelector('.json-content') as HTMLElement;
@@ -327,6 +443,7 @@ export class JsonViewer {
   public collapseAll(): void {
     JsonParser.collapseAll(this.nodes);
     this.renderNodesOptimized();
+    this.saveCurrentState();
     requestAnimationFrame(() => {
       // Reset scroll to top when collapsing all
       const content = this.container.querySelector('.json-content') as HTMLElement;
@@ -394,6 +511,11 @@ export class JsonViewer {
   }
 
   public clear(): void {
+    // Flush any pending saves
+    if (this.statePersistence) {
+      this.statePersistence.flush();
+    }
+
     if (this.updateTimer) {
       cancelAnimationFrame(this.updateTimer);
       this.updateTimer = null;

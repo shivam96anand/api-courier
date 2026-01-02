@@ -7,6 +7,7 @@ export interface JsonNode {
   parent?: JsonNode;
   children?: JsonNode[];
   lineNumber: number;
+  path?: string; // Path from root for state persistence (e.g., "data.users[0].name")
 }
 
 export interface SearchMatch {

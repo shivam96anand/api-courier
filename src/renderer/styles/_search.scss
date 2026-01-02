@@ -107,7 +107,7 @@
   .floating-search-results {
     font-size: 11px;
     color: var(--text-secondary);
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     min-width: 35px;
     text-align: center;
     font-weight: 500;

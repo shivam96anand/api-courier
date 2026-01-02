@@ -102,13 +102,13 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--font-mono);
 }
 
 .folder-vars-inherited-value {
   font-size: 13px;
   color: var(--text-secondary);
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: var(--font-mono);
 }
 
 .folder-vars-dialog-footer {

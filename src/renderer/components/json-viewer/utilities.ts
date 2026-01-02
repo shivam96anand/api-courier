@@ -17,7 +17,7 @@ export class JsonViewerUtilities {
     URL.revokeObjectURL(url);
   }
 
-  public static openFullscreen(jsonData: any): void {
+  public static async openFullscreen(jsonData: any): Promise<void> {
     if (!jsonData) return;
 
     const modal = document.createElement('div');
@@ -46,7 +46,7 @@ export class JsonViewerUtilities {
     document.body.appendChild(modal);
 
     const fullscreenViewer = new JsonViewer('fullscreen-json-viewer');
-    fullscreenViewer.setData(jsonData);
+    await fullscreenViewer.setData(jsonData);
 
     // Action button handlers - using exact same logic as JsonViewerPanel
     const jsonString = JSON.stringify(jsonData, null, 2);
