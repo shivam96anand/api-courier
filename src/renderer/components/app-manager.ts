@@ -6,6 +6,7 @@ export class AppManager {
   initialize(): void {
     this.setupNavTabs();
     this.setupFeedbackButton();
+    this.setupKeyboardShortcuts();
     this.showTab(this.activeTab);
   }
 
@@ -47,6 +48,33 @@ export class AppManager {
         }
       });
     }
+  }
+
+  private setupKeyboardShortcuts(): void {
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      // Check for Cmd (Mac) or Ctrl (Windows/Linux) + number key (1-9)
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+
+      if (!modifierKey) return;
+
+      // Check if the pressed key is a number between 1-9
+      const keyNumber = parseInt(e.key, 10);
+      if (isNaN(keyNumber) || keyNumber < 1 || keyNumber > 9) return;
+
+      // Get the tab at this position (keyNumber - 1 because arrays are 0-indexed)
+      const tabIndex = keyNumber - 1;
+      if (tabIndex >= this.navOrder.length) return;
+
+      const targetTabName = this.navOrder[tabIndex];
+
+      // If already on this tab, do nothing
+      if (targetTabName === this.activeTab) return;
+
+      // Prevent default behavior and switch to the tab
+      e.preventDefault();
+      this.switchToTab(targetTabName);
+    });
   }
 
   private switchToTab(tabName: string): void {

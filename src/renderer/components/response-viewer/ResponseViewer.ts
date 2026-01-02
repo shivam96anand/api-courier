@@ -1,12 +1,15 @@
 import { ApiResponse } from '../../../shared/types';
 import { ResponseViewerConfig } from '../../types/response-types';
 import { JsonViewer } from '../JsonViewer';
+import { JsonViewerStatePersistence } from '../json-viewer/json-viewer-state-persistence';
 
 export class ResponseViewer {
   private container: HTMLElement;
   private jsonViewer: JsonViewer | null = null;
   private currentFormatter: 'json' | 'plain' | null = null;
   private currentRequestId: string = 'default';
+  private lastResponseTimestamp: number = 0;
+  private statePersistence: JsonViewerStatePersistence = new JsonViewerStatePersistence();
 
   constructor(container: HTMLElement, private config: ResponseViewerConfig) {
     this.container = container;
@@ -49,6 +52,13 @@ export class ResponseViewer {
   }
 
   public async displayResponse(response: ApiResponse): Promise<void> {
+    // If this is a new response (different timestamp), clear the saved expansion state
+    // This ensures that when you send the same request again, you get fresh auto-expansion
+    if (response.timestamp !== this.lastResponseTimestamp) {
+      await this.statePersistence.clearRequestState(this.currentRequestId);
+      this.lastResponseTimestamp = response.timestamp;
+    }
+
     await this.updateResponseBody(response);
     this.updateResponseHeaders(response);
     this.updateResponseMeta(response);
