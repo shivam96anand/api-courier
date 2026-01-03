@@ -35,12 +35,16 @@ const icons: Record<IconName, string> = {
     <path d="M8 11h8M8 14h6"/>
   `,
   import: `
-    <path d="M12 3v10M12 13l-4-4M12 13l4-4"/>
-    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+<path d="M12 3v10"/>
+<path d="M12 13l-4-4M12 13l4-4"/>
+<path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+
   `,
   export: `
-    <path d="M12 21V11M12 11l-4-4M12 11l4-4"/>
-    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+<path d="M12 21V11"/>
+<path d="M12 11l-4 4M12 11l4 4"/>
+<path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/>
+
   `,
   file: `
     <path d="M7 3h7l5 5v13H7z"/>

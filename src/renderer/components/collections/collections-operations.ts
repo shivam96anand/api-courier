@@ -269,6 +269,54 @@ export class CollectionsOperations {
     URL.revokeObjectURL(url);
   }
 
+  async exportAllCollections(): Promise<void> {
+    const state = await window.apiCourier.store.get();
+    const rootItems = this.buildPostmanItems();
+
+    const collectionExport = {
+      info: {
+        name: 'API Courier Export',
+        schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
+      },
+      item: rootItems
+    };
+
+    this.downloadJson('api-courier-collection', collectionExport);
+
+    const environments = Array.isArray(state.environments) ? state.environments : [];
+    environments.forEach((env) => {
+      const values = Object.entries(env.variables || {}).map(([key, value]) => ({
+        key,
+        value,
+        enabled: true
+      }));
+      if (values.length === 0) return;
+      const envExport = {
+        id: env.id,
+        name: env.name || 'Environment',
+        values,
+        _postman_variable_scope: 'environment'
+      };
+      this.downloadJson(`api-courier-env-${env.name || env.id}`, envExport);
+    });
+
+    const globals = state.globals?.variables || {};
+    const globalValues = Object.entries(globals).map(([key, value]) => ({
+      key,
+      value,
+      enabled: true
+    }));
+    if (globalValues.length > 0) {
+      const globalsExport = {
+        id: 'api-courier-globals',
+        name: 'Globals',
+        values: globalValues,
+        _postman_variable_scope: 'globals'
+      };
+      this.downloadJson('api-courier-globals', globalsExport);
+    }
+  }
+
   private buildExportData(collection: Collection): any {
     const data: any = {
       id: collection.id,
@@ -284,6 +332,190 @@ export class CollectionsOperations {
     }
 
     return data;
+  }
+
+  private buildPostmanItems(parentId?: string): any[] {
+    const items = this.collections
+      .filter(c => c.parentId === parentId)
+      .sort((a, b) => {
+        const orderA = a.order ?? 0;
+        const orderB = b.order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.name.localeCompare(b.name);
+      });
+
+    return items.map((collection) => {
+      if (collection.type === 'folder') {
+        return {
+          name: collection.name,
+          item: this.buildPostmanItems(collection.id)
+        };
+      }
+
+      return {
+        name: collection.request?.name || collection.name,
+        request: this.buildPostmanRequest(collection.request)
+      };
+    });
+  }
+
+  private buildPostmanRequest(request?: ApiRequest): any {
+    if (!request) {
+      return {
+        method: 'GET',
+        url: '',
+      };
+    }
+
+    const headers = this.normalizeKeyValuePairs(request.headers)
+      .map(({ key, value, enabled }) => ({
+        key,
+        value,
+        disabled: !enabled
+      }));
+
+    const params = this.normalizeKeyValuePairs(request.params)
+      .map(({ key, value, enabled }) => ({
+        key,
+        value,
+        disabled: !enabled
+      }));
+
+    const body = this.buildPostmanBody(request.body);
+    const auth = this.buildPostmanAuth(request.auth);
+
+    return {
+      method: request.method,
+      header: headers,
+      url: {
+        raw: request.url || '',
+        query: params
+      },
+      body,
+      auth
+    };
+  }
+
+  private buildPostmanBody(body?: ApiRequest['body']): any | undefined {
+    if (!body || body.type === 'none') {
+      return undefined;
+    }
+
+    if (body.type === 'json' || body.type === 'raw') {
+      return { mode: 'raw', raw: body.content || '' };
+    }
+
+    if (body.type === 'form-urlencoded') {
+      const urlencoded = this.parseUrlEncoded(body.content || '');
+      return { mode: 'urlencoded', urlencoded };
+    }
+
+    if (body.type === 'form-data') {
+      const formdata = this.parseFormData(body.content || '');
+      return { mode: 'formdata', formdata };
+    }
+
+    return undefined;
+  }
+
+  private buildPostmanAuth(auth?: ApiRequest['auth']): any | undefined {
+    if (!auth || auth.type === 'none') {
+      return undefined;
+    }
+
+    if (auth.type === 'bearer' && auth.config.token) {
+      return { type: 'bearer', bearer: [{ key: 'token', value: auth.config.token }] };
+    }
+
+    if (auth.type === 'basic') {
+      return {
+        type: 'basic',
+        basic: [
+          { key: 'username', value: auth.config.username || '' },
+          { key: 'password', value: auth.config.password || '' }
+        ]
+      };
+    }
+
+    if (auth.type === 'api-key') {
+      return {
+        type: 'apikey',
+        apikey: [
+          { key: 'key', value: auth.config.key || '' },
+          { key: 'value', value: auth.config.value || '' },
+          { key: 'in', value: auth.config.in || 'header' }
+        ]
+      };
+    }
+
+    if (auth.type === 'oauth2' && auth.config.accessToken) {
+      return {
+        type: 'oauth2',
+        oauth2: [{ key: 'accessToken', value: auth.config.accessToken }]
+      };
+    }
+
+    return undefined;
+  }
+
+  private normalizeKeyValuePairs(
+    data?: ApiRequest['headers'] | ApiRequest['params']
+  ): Array<{ key: string; value: string; enabled: boolean }> {
+    if (!data) return [];
+    if (Array.isArray(data)) {
+      return data.map(item => ({
+        key: item.key,
+        value: item.value,
+        enabled: item.enabled !== false
+      })).filter(item => item.key);
+    }
+
+    return Object.entries(data).map(([key, value]) => ({
+      key,
+      value,
+      enabled: true
+    }));
+  }
+
+  private parseUrlEncoded(content: string): Array<{ key: string; value: string; disabled?: boolean }> {
+    if (!content) return [];
+    return content.split('&').map((pair) => {
+      const [rawKey, rawValue = ''] = pair.split('=');
+      return {
+        key: decodeURIComponent(rawKey || ''),
+        value: decodeURIComponent(rawValue || '')
+      };
+    }).filter(item => item.key);
+  }
+
+  private parseFormData(content: string): Array<{ key: string; value: string; type?: string; disabled?: boolean }> {
+    if (!content) return [];
+    return content
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return null;
+        const [key, ...rest] = trimmed.split('=');
+        return {
+          key: key.trim(),
+          value: rest.join('=').trim()
+        };
+      })
+      .filter((item): item is { key: string; value: string } => !!item && !!item.key);
+  }
+
+  private downloadJson(baseName: string, data: unknown): void {
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${baseName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   async showCreateDialog(type: 'folder' | 'request' = 'folder', parentId?: string): Promise<Collection | null> {

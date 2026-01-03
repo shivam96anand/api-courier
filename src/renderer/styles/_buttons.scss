@@ -1,7 +1,8 @@
 // Button Components
 
 .btn-add,
-.btn-import {
+.btn-import,
+.btn-export {
   background-color: var(--primary-color);
   color: white;
   border: none;
@@ -33,6 +34,16 @@
 }
 
 .btn-import {
+  padding: 0 8px;
+  font-size: 14px;
+
+  .ui-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.btn-export {
   padding: 0 8px;
   font-size: 14px;
 

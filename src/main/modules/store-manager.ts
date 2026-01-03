@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlink
 import { AppState, AppTheme, Globals, CollectionsUIState, JsonViewerUIState, NotepadState, MockServersState } from '../../shared/types';
 
 const defaultNavOrder = ['notepad', 'api', 'json-viewer', 'json-compare', 'load-testing', 'mock-server', 'ask-ai'];
+const legacyNavOrder = ['api', 'json-viewer', 'json-compare', 'notepad', 'load-testing', 'mock-server', 'ask-ai'];
 
 const defaultTheme: AppTheme = {
   name: 'blue',
@@ -171,10 +172,28 @@ class StoreManager {
       collectionsUIState: loadedData.collectionsUIState || defaultCollectionsUIState,
       jsonViewerUIState: loadedData.jsonViewerUIState || defaultJsonViewerUIState,
       notepad: loadedData.notepad || defaultNotepadState,
-      navOrder: loadedData.navOrder || defaultNavOrder,
+      navOrder: this.resolveNavOrder(loadedData.navOrder),
       mockServers: loadedData.mockServers || defaultMockServersState,
       hasCompletedThemeOnboarding: loadedData.hasCompletedThemeOnboarding ?? false,
     };
+  }
+
+  private resolveNavOrder(navOrder?: AppState['navOrder']): AppState['navOrder'] {
+    if (!Array.isArray(navOrder) || navOrder.length === 0) {
+      return defaultNavOrder;
+    }
+
+    const normalized = navOrder.filter(Boolean);
+    if (this.arraysMatch(normalized, legacyNavOrder)) {
+      return defaultNavOrder;
+    }
+
+    return normalized;
+  }
+
+  private arraysMatch(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    return a.every((value, index) => value === b[index]);
   }
 
   private createBackup(): void {

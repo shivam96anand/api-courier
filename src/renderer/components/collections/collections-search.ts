@@ -34,8 +34,10 @@ export class CollectionsSearch {
     const searchContainer = document.createElement('div');
     searchContainer.className = 'search-container';
     searchContainer.innerHTML = `
-      <input type="text" id="collections-search" class="search-input" placeholder="Search collections">
-      ${iconHtml('search', 'search-icon')}
+      <div class="search-input-wrapper">
+        <input type="text" id="collections-search" class="search-input" placeholder="Search collections">
+        ${iconHtml('search', 'search-icon')}
+      </div>
       <div class="search-actions"></div>
     `;
 
@@ -44,7 +46,14 @@ export class CollectionsSearch {
     // Move the toolbar buttons into the search container
     const searchActions = searchContainer.querySelector('.search-actions');
     if (searchActions && importBtn && addBtn) {
+      const exportBtn = document.createElement('button');
+      exportBtn.id = 'btn-export-collections';
+      exportBtn.className = 'btn-export';
+      exportBtn.title = 'Export Collections';
+      exportBtn.innerHTML = iconHtml('export', 'ui-icon');
+
       searchActions.appendChild(importBtn);
+      searchActions.appendChild(exportBtn);
       searchActions.appendChild(addBtn);
     }
 

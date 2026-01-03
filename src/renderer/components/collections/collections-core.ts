@@ -52,6 +52,7 @@ export class CollectionsCore {
   initialize(): void {
     this.uiHandler.setupCollectionEvents(this.treeState);
     this.search.setupSearchFunctionality(() => this.treeState.expandedFolders);
+    this.setupExportButton();
     this.setupKeyboardShortcuts();
     this.renderCollections();
   }
@@ -199,6 +200,14 @@ export class CollectionsCore {
     );
 
     this.renderer.showContextMenu(event, collection, actions);
+  }
+
+  private setupExportButton(): void {
+    const exportBtn = document.getElementById('btn-export-collections');
+    if (!exportBtn) return;
+    exportBtn.addEventListener('click', () => {
+      this.operations.exportAllCollections();
+    });
   }
 
   private async showFolderVariablesDialog(collectionId: string): Promise<void> {
