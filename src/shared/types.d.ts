@@ -51,6 +51,7 @@ export interface AppState {
     selectedCollectionId?: string;
     theme: AppTheme;
     navOrder: string[];
+    hasCompletedThemeOnboarding?: boolean;
 }
 export interface IpcChannels {
     'store:get': () => AppState;

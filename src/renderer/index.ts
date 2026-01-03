@@ -17,6 +17,8 @@ import { resizeManager } from './utils/resize-manager';
 import { EnvironmentManager } from './components/environments/environment-manager';
 import { ImportManager } from './components/import/import-manager';
 import { setupEventListeners } from './event-listeners';
+import { BackupManager } from './components/backup-manager';
+import { ThemeOnboarding } from './components/theme-onboarding';
 
 declare global {
   interface Window {
@@ -40,6 +42,8 @@ class ApiCourierRenderer {
   private themeManager: ThemeManager;
   private environmentManager: EnvironmentManager;
   private importManager: ImportManager;
+  private backupManager: BackupManager;
+  private themeOnboarding: ThemeOnboarding;
 
   constructor() {
     this.themeManager = new ThemeManager();
@@ -49,6 +53,8 @@ class ApiCourierRenderer {
     this.requestManager = new RequestManager();
     this.environmentManager = new EnvironmentManager();
     this.importManager = new ImportManager(this.handleImportComplete.bind(this));
+    this.backupManager = new BackupManager();
+    this.themeOnboarding = new ThemeOnboarding(this.themeManager);
 
     // Get container elements for managers that require them
     const responseContainer = document.getElementById('response-area') || document.body;
@@ -84,6 +90,7 @@ class ApiCourierRenderer {
     this.responseManager.initialize();
     this.historyManager.initialize();
     this.environmentManager.initialize();
+    this.backupManager.initialize();
     await this.loadTestManager.initialize();
     await this.mockServerManager.initialize();
     this.askAiTab.initialize();
@@ -95,6 +102,8 @@ class ApiCourierRenderer {
 
     // Load initial state after all managers are initialized
     await this.loadInitialState();
+    await this.themeOnboarding.maybeShow();
+    this.bindThemeButton();
 
     // Set up auto-save last
     this.setupAutoSave();
@@ -152,6 +161,14 @@ class ApiCourierRenderer {
     } catch (error) {
       console.error('Failed to save state:', error);
     }
+  }
+
+  private bindThemeButton(): void {
+    const button = document.getElementById('theme-button');
+    if (!button) return;
+    button.addEventListener('click', () => {
+      this.themeOnboarding.openPicker();
+    });
   }
 }
 

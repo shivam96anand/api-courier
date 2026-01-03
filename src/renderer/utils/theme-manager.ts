@@ -43,6 +43,14 @@ export class ThemeManager {
     this.notifyThemeChange();
   }
 
+  previewTheme(theme: AppTheme): void {
+    this.applyTheme(theme);
+  }
+
+  restoreTheme(): void {
+    this.applyTheme(this.currentTheme);
+  }
+
   private applyTheme(theme: AppTheme): void {
     document.body.setAttribute('data-theme', theme.name);
 

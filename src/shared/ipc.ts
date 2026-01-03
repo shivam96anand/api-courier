@@ -36,6 +36,10 @@ export const IPC_CHANNELS = {
   JSONVIEWER_STATE_GET: 'jsonviewer-state:get',
   JSONVIEWER_STATE_SET: 'jsonviewer-state:set',
 
+  // Backup channels
+  BACKUP_LIST: 'backup:list',
+  BACKUP_RESTORE: 'backup:restore',
+
   // System helpers
   OPEN_EXTERNAL: 'system:open-external',
 

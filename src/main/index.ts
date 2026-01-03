@@ -11,6 +11,7 @@ class ApiCourierApp {
   async initialize(): Promise<void> {
     await app.whenReady();
     await storeManager.initialize();
+    storeManager.startAutoBackup();
     await aiEngine.initialize();
     ipcManager.initialize();
     this.createWindow();
@@ -51,6 +52,7 @@ class ApiCourierApp {
     console.log('Graceful shutdown: flushing database...');
     await mockServerManager.stopAllServers();
     await storeManager.flush();
+    storeManager.stopAutoBackup();
     await aiEngine.flush();
     console.log('Database flushed successfully');
     windowManager.closeAllWindows();
@@ -59,6 +61,7 @@ class ApiCourierApp {
   private async quit(): Promise<void> {
     this.isQuitting = true;
     await storeManager.flush();
+    storeManager.stopAutoBackup();
     await aiEngine.flush();
     app.quit();
   }

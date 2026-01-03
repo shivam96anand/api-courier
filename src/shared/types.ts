@@ -125,6 +125,7 @@ export interface AppState {
   jsonViewerUIState?: JsonViewerUIState;
   notepad?: NotepadState;
   mockServers?: MockServersState;
+  hasCompletedThemeOnboarding?: boolean;
 }
 
 // Load Testing Types

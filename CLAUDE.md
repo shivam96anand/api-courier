@@ -38,6 +38,7 @@ API Courier is a secure Electron desktop app for API testing (Postman/Insomnia-l
 - Migrations must be additive: merge loaded data into `defaultState` (backward compatible).
 - Prefer saving **response metadata** (status/time/size) over huge bodies.
 - Auth tokens: store minimally; avoid logging; prefer user-controlled persistence.
+- Do not delete or overwrite collections/requests without user confirmation.
 
 ## Networking rules (current design)
 - Requests execute in main via Node `http/https` (not renderer fetch).

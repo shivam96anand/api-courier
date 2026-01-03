@@ -39,6 +39,10 @@ const IPC_CHANNELS = {
   JSONVIEWER_STATE_GET: 'jsonviewer-state:get',
   JSONVIEWER_STATE_SET: 'jsonviewer-state:set',
 
+  // Backup channels
+  BACKUP_LIST: 'backup:list',
+  BACKUP_RESTORE: 'backup:restore',
+
   // System helpers
   OPEN_EXTERNAL: 'system:open-external',
 
@@ -130,6 +134,13 @@ interface AppState {
   theme: AppTheme;
   navOrder: string[];
   notepad?: NotepadState;
+  hasCompletedThemeOnboarding?: boolean;
+}
+
+interface BackupInfo {
+  id: string;
+  filename: string;
+  createdAt: number;
 }
 
 // Load Testing Types
@@ -452,6 +463,13 @@ const apiCourierAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.JSONVIEWER_STATE_GET),
     set: (uiState: JsonViewerUIState): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.JSONVIEWER_STATE_SET, uiState),
+  },
+
+  backups: {
+    list: (): Promise<BackupInfo[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BACKUP_LIST),
+    restore: (backupId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BACKUP_RESTORE, backupId),
   },
 
   system: {

@@ -1,9 +1,9 @@
 import { app } from 'electron';
 import { join } from 'path';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { AppState, AppTheme, Globals, CollectionsUIState, JsonViewerUIState, NotepadState, MockServersState } from '../../shared/types';
 
-const defaultNavOrder = ['api', 'json-viewer', 'json-compare', 'notepad', 'load-testing', 'mock-server', 'ask-ai'];
+const defaultNavOrder = ['notepad', 'api', 'json-viewer', 'json-compare', 'load-testing', 'mock-server', 'ask-ai'];
 
 const defaultTheme: AppTheme = {
   name: 'blue',
@@ -46,12 +46,14 @@ const defaultState: AppState = {
   jsonViewerUIState: defaultJsonViewerUIState,
   notepad: defaultNotepadState,
   mockServers: defaultMockServersState,
+  hasCompletedThemeOnboarding: false,
 };
 
 class StoreManager {
   private dbPath: string;
   private data: AppState;
   private writeQueue: NodeJS.Timeout | null = null;
+  private backupTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.dbPath = join(app.getPath('userData'), 'database.json');
@@ -64,22 +66,7 @@ class StoreManager {
         const fileContent = readFileSync(this.dbPath, 'utf-8');
         const loadedData = JSON.parse(fileContent);
 
-        // Merge with default state to handle new fields (migration)
-        this.data = {
-          ...defaultState,
-          ...loadedData,
-          // Ensure history exists if not present
-          history: loadedData.history || [],
-          // Migration: Add environments and globals if not present
-          environments: loadedData.environments || [],
-          activeEnvironmentId: loadedData.activeEnvironmentId,
-          globals: loadedData.globals || defaultGlobals,
-          collectionsUIState: loadedData.collectionsUIState || defaultCollectionsUIState,
-          jsonViewerUIState: loadedData.jsonViewerUIState || defaultJsonViewerUIState,
-          notepad: loadedData.notepad || defaultNotepadState,
-          navOrder: loadedData.navOrder || defaultNavOrder,
-          mockServers: loadedData.mockServers || defaultMockServersState,
-        };
+        this.data = this.mergeLoadedData(loadedData);
       } catch (error) {
         console.error('Failed to read database file, using default state:', error);
         this.data = defaultState;
@@ -117,6 +104,146 @@ class StoreManager {
     } catch (error) {
       console.error('Failed to write database file:', error);
     }
+  }
+
+  startAutoBackup(intervalMs = 24 * 60 * 60 * 1000): void {
+    if (this.backupTimer) {
+      clearInterval(this.backupTimer);
+    }
+
+    this.backupTimer = setInterval(() => {
+      this.createBackup();
+    }, intervalMs);
+
+    const lastBackup = this.getLatestBackupTime();
+    if (!lastBackup || Date.now() - lastBackup >= intervalMs) {
+      this.createBackup();
+    }
+  }
+
+  stopAutoBackup(): void {
+    if (this.backupTimer) {
+      clearInterval(this.backupTimer);
+      this.backupTimer = null;
+    }
+  }
+
+  listBackups(limit = 5): Array<{ id: string; filename: string; createdAt: number }> {
+    const backupDir = this.getBackupDir();
+    if (!existsSync(backupDir)) {
+      return [];
+    }
+
+    const backups = readdirSync(backupDir)
+      .filter((name) => name.startsWith('database-backup-') && name.endsWith('.json'))
+      .map((name) => {
+        const createdAt = this.parseBackupTimestamp(name);
+        return { id: name, filename: name, createdAt: createdAt ?? 0 };
+      })
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    return backups.slice(0, limit);
+  }
+
+  restoreBackup(backupId: string): void {
+    const backupDir = this.getBackupDir();
+    const backupPath = join(backupDir, backupId);
+    if (!existsSync(backupPath)) {
+      throw new Error('Backup file not found');
+    }
+
+    this.createBackup();
+
+    const fileContent = readFileSync(backupPath, 'utf-8');
+    const loadedData = JSON.parse(fileContent);
+    this.data = this.mergeLoadedData(loadedData);
+    this.writeToFile();
+  }
+
+  private mergeLoadedData(loadedData: Partial<AppState>): AppState {
+    return {
+      ...defaultState,
+      ...loadedData,
+      history: loadedData.history || [],
+      environments: loadedData.environments || [],
+      activeEnvironmentId: loadedData.activeEnvironmentId,
+      globals: loadedData.globals || defaultGlobals,
+      collectionsUIState: loadedData.collectionsUIState || defaultCollectionsUIState,
+      jsonViewerUIState: loadedData.jsonViewerUIState || defaultJsonViewerUIState,
+      notepad: loadedData.notepad || defaultNotepadState,
+      navOrder: loadedData.navOrder || defaultNavOrder,
+      mockServers: loadedData.mockServers || defaultMockServersState,
+      hasCompletedThemeOnboarding: loadedData.hasCompletedThemeOnboarding ?? false,
+    };
+  }
+
+  private createBackup(): void {
+    try {
+      const backupDir = this.getBackupDir();
+      mkdirSync(backupDir, { recursive: true });
+      const filename = `database-backup-${this.formatTimestamp(new Date())}.json`;
+      const backupPath = join(backupDir, filename);
+      writeFileSync(backupPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      this.pruneBackups(5);
+    } catch (error) {
+      console.error('Failed to create backup:', error);
+    }
+  }
+
+  private pruneBackups(keepCount: number): void {
+    const backups = this.listBackups(keepCount + 20);
+    if (backups.length <= keepCount) {
+      return;
+    }
+
+    const backupDir = this.getBackupDir();
+    backups.slice(keepCount).forEach((backup) => {
+      const backupPath = join(backupDir, backup.filename);
+      if (existsSync(backupPath)) {
+        unlinkSync(backupPath);
+      }
+    });
+  }
+
+  private getLatestBackupTime(): number | null {
+    const backups = this.listBackups(1);
+    if (backups.length === 0) {
+      return null;
+    }
+    return backups[0].createdAt || null;
+  }
+
+  private getBackupDir(): string {
+    return join(app.getPath('userData'), 'backups');
+  }
+
+  private formatTimestamp(date: Date): string {
+    const pad = (value: number) => value.toString().padStart(2, '0');
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate()),
+    ].join('') + '-' + [
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+      pad(date.getSeconds()),
+    ].join('');
+  }
+
+  private parseBackupTimestamp(filename: string): number | null {
+    const match = filename.match(/database-backup-(\d{8})-(\d{6})\.json$/);
+    if (!match) {
+      return null;
+    }
+    const [datePart, timePart] = match.slice(1);
+    const year = Number(datePart.slice(0, 4));
+    const month = Number(datePart.slice(4, 6)) - 1;
+    const day = Number(datePart.slice(6, 8));
+    const hour = Number(timePart.slice(0, 2));
+    const minute = Number(timePart.slice(2, 4));
+    const second = Number(timePart.slice(4, 6));
+    const parsed = new Date(year, month, day, hour, minute, second);
+    return isNaN(parsed.getTime()) ? null : parsed.getTime();
   }
 
   async flush(): Promise<void> {

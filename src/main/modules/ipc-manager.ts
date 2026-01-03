@@ -326,6 +326,15 @@ class IpcManager {
       storeManager.setState({ jsonViewerUIState: uiState });
     });
 
+    // Backup IPC handlers
+    ipcMain.handle(IPC_CHANNELS.BACKUP_LIST, (): Array<{ id: string; filename: string; createdAt: number }> => {
+      return storeManager.listBackups(5);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE, (_, backupId: string): void => {
+      storeManager.restoreBackup(backupId);
+    });
+
     ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, async (_, url: string): Promise<void> => {
       if (!url) {
         return;
