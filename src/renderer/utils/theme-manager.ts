@@ -2,18 +2,18 @@ import { AppTheme } from '../../shared/types';
 
 export class ThemeManager {
   private themes: AppTheme[] = [
-    { name: 'blue', primaryColor: '#2563eb', accentColor: '#1d4ed8' },
-    { name: 'green', primaryColor: '#10b981', accentColor: '#059669' },
-    { name: 'purple', primaryColor: '#8b5cf6', accentColor: '#7c3aed' },
-    { name: 'orange', primaryColor: '#f59e0b', accentColor: '#d97706' },
-    { name: 'red', primaryColor: '#ef4444', accentColor: '#dc2626' },
+    { name: 'teal', primaryColor: '#14b8a6', accentColor: '#0f766e' },
+    { name: 'sky', primaryColor: '#38bdf8', accentColor: '#0ea5e9' },
+    { name: 'emerald', primaryColor: '#22c55e', accentColor: '#16a34a' },
+    { name: 'amber', primaryColor: '#f59e0b', accentColor: '#d97706' },
+    { name: 'coral', primaryColor: '#f97316', accentColor: '#ea580c' },
     { name: 'magenta', primaryColor: '#E20074', accentColor: '#B8005A' },
   ];
 
   private currentTheme: AppTheme;
 
   constructor() {
-    this.currentTheme = this.themes[0]; // Default to blue
+    this.currentTheme = this.themes[0]; // Default to teal
   }
 
   initialize(): void {
@@ -57,6 +57,7 @@ export class ThemeManager {
     // Update CSS custom properties
     document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
     document.documentElement.style.setProperty('--primary-dark', theme.accentColor);
+    document.documentElement.style.setProperty('--json-bracket', theme.primaryColor);
 
     // Calculate lighter variant
     const lightColor = this.lightenColor(theme.primaryColor, 20);

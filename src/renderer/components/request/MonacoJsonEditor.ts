@@ -59,6 +59,19 @@ export class MonacoJsonEditor {
         'editorLineNumber.foreground': `#${lineNumberColor}`,
         'editor.selectionBackground': '#404040',
         'editor.lineHighlightBackground': '#2d2d2d',
+        'editorBracketHighlight.foreground1': `#${bracketColor}`,
+        'editorBracketHighlight.foreground2': `#${bracketColor}`,
+        'editorBracketHighlight.foreground3': `#${bracketColor}`,
+        'editorBracketHighlight.foreground4': `#${bracketColor}`,
+        'editorBracketHighlight.foreground5': `#${bracketColor}`,
+        'editorBracketHighlight.foreground6': `#${bracketColor}`,
+        'editorBracketPairGuide.activeBackground1': `#${bracketColor}`,
+        'editorBracketPairGuide.activeBackground2': `#${bracketColor}`,
+        'editorBracketPairGuide.activeBackground3': `#${bracketColor}`,
+        'editorBracketPairGuide.activeBackground4': `#${bracketColor}`,
+        'editorBracketPairGuide.activeBackground5': `#${bracketColor}`,
+        'editorBracketPairGuide.activeBackground6': `#${bracketColor}`,
+        'editorBracketHighlight.unexpectedBracket.foreground': `#${bracketColor}`,
       }
     });
 
