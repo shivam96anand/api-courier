@@ -56,8 +56,11 @@ export class ResponseViewer {
     // This ensures that when you send the same request again, you get fresh auto-expansion
     const lastTimestamp = this.lastResponseTimestamps.get(this.currentRequestId);
     if (response.timestamp !== lastTimestamp) {
+      console.log(`[ResponseViewer] New response detected (size: ${response.size} bytes), clearing saved expansion state`);
       await this.statePersistence.clearRequestState(this.currentRequestId);
       this.lastResponseTimestamps.set(this.currentRequestId, response.timestamp);
+    } else {
+      console.log(`[ResponseViewer] Same response, preserving expansion state (size: ${response.size} bytes)`);
     }
 
     await this.updateResponseBody(response);
@@ -82,7 +85,7 @@ export class ResponseViewer {
     if (isJson) {
       try {
         const parsed = JSON.parse(response.body);
-        await this.setupJsonViewer(bodyElement, parsed);
+        await this.setupJsonViewer(bodyElement, parsed, response.size);
         this.currentFormatter = 'json';
       } catch (e) {
         this.setupPlainTextView(bodyElement, response.body);
@@ -94,7 +97,7 @@ export class ResponseViewer {
     }
   }
 
-  private async setupJsonViewer(container: HTMLElement, jsonData: any): Promise<void> {
+  private async setupJsonViewer(container: HTMLElement, jsonData: any, responseSize?: number): Promise<void> {
     container.innerHTML = '';
 
     const jsonContainer = document.createElement('div');
@@ -106,7 +109,8 @@ export class ResponseViewer {
 
     try {
       this.jsonViewer = new JsonViewer('response-json-viewer-container', {
-        requestId: this.currentRequestId
+        requestId: this.currentRequestId,
+        responseSize: responseSize
       });
       await this.jsonViewer.setData(jsonData);
     } catch (error) {

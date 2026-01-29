@@ -1,28 +1,22 @@
 import { JsonNode } from './types';
 
 export class JsonParser {
-  public static parseToNodes(jsonData: any): JsonNode[] {
+  public static parseToNodes(jsonData: any, responseSize?: number): JsonNode[] {
     const nodes: JsonNode[] = [];
     let lineNumber = 1;
 
-    // First pass: count total nodes to determine expansion strategy
-    const totalNodes = this.countNodes(jsonData);
-    const autoExpandDepth = this.calculateAutoExpandDepth(totalNodes);
+    // Determine expansion strategy based on response size
+    const autoExpandDepth = this.calculateAutoExpandDepth(responseSize);
 
     const parseNode = (key: string, value: any, level: number, parent?: JsonNode): JsonNode => {
       const type = JsonParser.getValueType(value);
-
-      // Calculate child count for smart expansion
-      const childCount = (type === 'object' || type === 'array') && value !== null
-        ? (type === 'object' ? Object.keys(value).length : value.length)
-        : 0;
 
       const node: JsonNode = {
         key,
         value,
         type,
         level,
-        isExpanded: this.shouldAutoExpand(level, childCount, totalNodes, autoExpandDepth),
+        isExpanded: level < autoExpandDepth,
         parent,
         lineNumber: lineNumber++
       };
@@ -186,32 +180,36 @@ export class JsonParser {
 
   /**
    * Calculate optimal auto-expand depth based on response size
+   * Simple rule: < 1MB = expand everything, >= 1MB = conservative expansion
    */
-  private static calculateAutoExpandDepth(totalNodes: number): number {
-    if (totalNodes <= 10) return 10;      // Tiny responses: expand everything
-    if (totalNodes <= 30) return 5;       // Small responses: expand 5 levels
-    if (totalNodes <= 100) return 3;      // Medium responses: expand 3 levels
-    if (totalNodes <= 300) return 2;      // Large responses: expand 2 levels
-    return 1;                             // Huge responses: expand only root
-  }
+  private static calculateAutoExpandDepth(responseSize?: number): number {
+    const ONE_MB = 1024 * 1024; // 1MB in bytes
 
-  /**
-   * Determine if a node should be auto-expanded
-   */
-  private static shouldAutoExpand(
-    level: number,
-    childCount: number,
-    totalNodes: number,
-    autoExpandDepth: number
-  ): boolean {
-    // Always expand based on calculated depth
-    if (level < autoExpandDepth) return true;
-
-    // For small responses with few children, expand one more level
-    if (totalNodes <= 50 && childCount <= 5 && level < autoExpandDepth + 1) {
-      return true;
+    // If size unknown, use conservative default
+    if (responseSize === undefined) {
+      console.log('[JsonParser] Response size unknown, using default expansion depth: 3');
+      return 3;
     }
 
-    return false;
+    // < 1MB: expand everything (use very high depth)
+    if (responseSize < ONE_MB) {
+      console.log(`[JsonParser] Response size ${responseSize} bytes (< 1MB), expanding all levels`);
+      return 999; // Effectively infinite for practical purposes
+    }
+
+    // >= 1MB: use size-based conservative expansion
+    const FIVE_MB = 5 * ONE_MB;
+    const TEN_MB = 10 * ONE_MB;
+
+    if (responseSize < FIVE_MB) {
+      console.log(`[JsonParser] Response size ${responseSize} bytes (1-5MB), expanding 3 levels`);
+      return 3;
+    }
+    if (responseSize < TEN_MB) {
+      console.log(`[JsonParser] Response size ${responseSize} bytes (5-10MB), expanding 2 levels`);
+      return 2;
+    }
+    console.log(`[JsonParser] Response size ${responseSize} bytes (>10MB), expanding only root`);
+    return 1;
   }
 }

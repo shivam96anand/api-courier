@@ -6,6 +6,7 @@
   border-bottom: 2px solid var(--border-color);
   padding: 5px 8px;
   overflow-x: auto;
+  --request-tab-width: 150px;
 }
 
 .tab-list {
@@ -26,7 +27,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  max-width: 150px;
+  flex: 0 0 var(--request-tab-width);
+  width: var(--request-tab-width);
+  max-width: var(--request-tab-width);
   position: relative;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -52,6 +55,9 @@
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     font-weight: 600;
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
 
     &:hover {
       background: var(--primary-color);

@@ -21,14 +21,16 @@ export class JsonViewer {
   private requestId?: string;
   private statePersistence: JsonViewerStatePersistence | null = null;
   private expandedPaths: Set<string> = new Set();
+  private responseSize?: number; // Response size in bytes
 
-  constructor(containerId: string, config?: { requestId?: string }) {
+  constructor(containerId: string, config?: { requestId?: string; responseSize?: number }) {
     const container = document.getElementById(containerId);
     if (!container) {
       throw new Error(`Container with id "${containerId}" not found`);
     }
     this.container = container;
     this.requestId = config?.requestId;
+    this.responseSize = config?.responseSize;
 
     // Only enable persistence for response viewer (when requestId is provided)
     if (this.requestId) {
@@ -103,7 +105,7 @@ export class JsonViewer {
 
   public async setData(jsonData: any): Promise<void> {
     this.jsonData = jsonData;
-    this.nodes = JsonParser.parseToNodes(jsonData);
+    this.nodes = JsonParser.parseToNodes(jsonData, this.responseSize);
 
     // Generate paths for all nodes
     this.generateNodePaths(this.nodes);
@@ -162,8 +164,14 @@ export class JsonViewer {
     const savedPaths = await this.statePersistence.loadExpandedPaths(this.requestId);
     this.expandedPaths = savedPaths;
 
-    // Apply saved state to nodes
-    this.applyExpandedState(this.nodes, savedPaths);
+    // Only apply saved state if there actually is saved state
+    // If empty, preserve the auto-expansion set by the parser
+    if (savedPaths.size > 0) {
+      console.log(`[JsonViewer] Restoring ${savedPaths.size} saved expansion paths`);
+      this.applyExpandedState(this.nodes, savedPaths);
+    } else {
+      console.log('[JsonViewer] No saved state, preserving auto-expansion');
+    }
   }
 
   /**
