@@ -61,6 +61,8 @@
   padding: 8px 16px;
   cursor: pointer;
   font-weight: 600;
+  flex-shrink: 0; // Prevent button from being compressed
+  white-space: nowrap; // Prevent text wrapping
 
   &:hover {
     background-color: var(--primary-dark);

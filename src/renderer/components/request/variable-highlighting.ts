@@ -51,12 +51,24 @@ export function addVariableHighlighting(
   // CRITICAL FIX: Always update position and size, not just on creation
   // This ensures the overlay stays aligned when DOM reflows or tabs switch
   const updatePosition = () => {
-    const rect = inputElement.getBoundingClientRect();
-    const parentRect = inputElement.parentElement!.getBoundingClientRect();
-    container.style.left = `${rect.left - parentRect.left}px`;
-    container.style.top = `${rect.top - parentRect.top}px`;
-    container.style.width = `${rect.width}px`;
-    container.style.height = `${rect.height}px`;
+    // For URL input wrapper, use inset: 0 from CSS instead of explicit dimensions
+    // to prevent overflow issues when the input changes size
+    const isInUrlWrapper = inputElement.closest('.url-input-wrapper');
+    if (isInUrlWrapper) {
+      // Don't set explicit dimensions - let CSS handle it with inset: 0
+      container.style.left = '';
+      container.style.top = '';
+      container.style.width = '';
+      container.style.height = '';
+    } else {
+      // For other inputs, calculate position relative to parent
+      const rect = inputElement.getBoundingClientRect();
+      const parentRect = inputElement.parentElement!.getBoundingClientRect();
+      container.style.left = `${rect.left - parentRect.left}px`;
+      container.style.top = `${rect.top - parentRect.top}px`;
+      container.style.width = `${rect.width}px`;
+      container.style.height = `${rect.height}px`;
+    }
   };
   updatePosition();
 

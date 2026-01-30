@@ -53,6 +53,7 @@
 
 .url-input-wrapper {
   flex: 1;
+  min-width: 0; // Allow flex item to shrink below content size
   position: relative;
 
   // Variable highlight container gets appended here by JS
@@ -64,14 +65,14 @@
     display: flex;
     align-items: center;
     padding: 8px 12px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden; // Prevent overlay from overflowing parent
     white-space: nowrap;
     font-family: var(--font-mono);
     font-size: 13px;
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
+    max-width: 100%; // Ensure overlay never exceeds parent width
 
     // Hide scrollbar but keep scrolling functionality
     scrollbar-width: none;
