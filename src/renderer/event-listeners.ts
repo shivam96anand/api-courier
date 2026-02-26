@@ -50,7 +50,7 @@ export function setupEventListeners(deps: EventListenersDeps): void {
       // Check if we have a previous response for this request
       const lastData = historyManager.getLastResponseForRequest(request.id);
 
-      if (lastData) {
+      if (lastData && lastData.response.body) {
         // Open tab with the last known state (request + response)
         tabsManager.openRequestInTabWithResponse(lastData.request, lastData.response, collectionId);
       } else {

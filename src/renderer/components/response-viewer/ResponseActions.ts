@@ -80,29 +80,15 @@ export class ResponseActions {
     }
   }
 
-  public updateVisibility(response: ApiResponse | null, activeTab: string): void {
-    const shouldShow = activeTab === 'body' && 
-                     response && 
-                     this.isJsonResponse(response);
+  public updateVisibility(response: ApiResponse | null, activeTab: string, isJsonResponse: boolean): void {
+    const shouldShow = activeTab === 'body' &&
+                     response &&
+                     isJsonResponse;
     
     if (shouldShow) {
       this.showForJsonResponse();
     } else {
       this.hide();
-    }
-  }
-
-  private isJsonResponse(response: ApiResponse): boolean {
-    const contentType = response.headers['content-type'] || '';
-    return contentType.includes('application/json') || this.isValidJSON(response.body || '');
-  }
-
-  private isValidJSON(str: string): boolean {
-    try {
-      JSON.parse(str);
-      return true;
-    } catch (e) {
-      return false;
     }
   }
 

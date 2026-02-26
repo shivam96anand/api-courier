@@ -19,6 +19,7 @@ import { ImportManager } from './components/import/import-manager';
 import { setupEventListeners } from './event-listeners';
 import { BackupManager } from './components/backup-manager';
 import { ThemeOnboarding } from './components/theme-onboarding';
+import { sanitizeHistoryForPersistence, sanitizeTabsForPersistence } from './utils/response-persistence';
 
 declare global {
   interface Window {
@@ -147,10 +148,13 @@ class ApiCourierRenderer {
 
   private async saveState(): Promise<void> {
     try {
+      const tabs = this.tabsManager.getTabs();
+      const history = this.historyManager.getHistory();
+
       const state = {
         collections: this.collectionsManager.getCollections(),
-        openTabs: this.tabsManager.getTabs(),
-        history: this.historyManager.getHistory(),
+        openTabs: sanitizeTabsForPersistence(tabs),
+        history: sanitizeHistoryForPersistence(history),
         activeTabId: this.tabsManager.getActiveTabId(),
         theme: this.themeManager.getCurrentTheme(),
         navOrder: this.appManager.getNavOrder(),

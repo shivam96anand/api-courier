@@ -45,7 +45,9 @@ export class JsonViewerUtilities {
 
     document.body.appendChild(modal);
 
-    const fullscreenViewer = new JsonViewer('fullscreen-json-viewer');
+    const fullscreenViewer = new JsonViewer('fullscreen-json-viewer', {
+      showLineNumbers: true,
+    });
     await fullscreenViewer.setData(jsonData);
 
     // Action button handlers - using exact same logic as JsonViewerPanel

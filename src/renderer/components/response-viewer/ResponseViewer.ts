@@ -4,9 +4,14 @@ import { JsonViewer } from '../JsonViewer';
 import { JsonViewerStatePersistence } from '../json-viewer/json-viewer-state-persistence';
 
 export class ResponseViewer {
+  private static readonly LARGE_JSON_RAW_THRESHOLD_BYTES = 2 * 1024 * 1024;
+  private static readonly JSON_SNIFF_LIMIT_BYTES = 256 * 1024;
+
   private container: HTMLElement;
   private jsonViewer: JsonViewer | null = null;
   private currentFormatter: 'json' | 'plain' | null = null;
+  private parsedJsonData: unknown | null = null;
+  private detectedJsonBody = false;
   private currentRequestId: string = 'default';
   private lastResponseTimestamps: Map<string, number> = new Map();
   private statePersistence: JsonViewerStatePersistence = new JsonViewerStatePersistence();
@@ -76,28 +81,57 @@ export class ResponseViewer {
       bodyElement.innerHTML = '<div class="response-placeholder">No response body</div>';
       this.jsonViewer = null;
       this.currentFormatter = null;
+      this.parsedJsonData = null;
+      this.detectedJsonBody = false;
+      this.emitModeChanged();
       return;
     }
 
     const contentType = response.headers['content-type'] || '';
-    const isJson = contentType.includes('application/json') || this.isValidJSON(response.body);
+    const responseBytes = this.getResponseBytes(response);
+    const isJsonContentType = this.isJsonContentType(contentType);
+    const shouldSniffJson = !isJsonContentType && responseBytes <= ResponseViewer.JSON_SNIFF_LIMIT_BYTES;
 
-    if (isJson) {
-      try {
-        const parsed = JSON.parse(response.body);
-        await this.setupJsonViewer(bodyElement, parsed, response.size);
+    let parsedJson: unknown | null = null;
+    let detectedJson = false;
+
+    if (isJsonContentType || shouldSniffJson) {
+      const parseResult = this.tryParseJson(response.body);
+      detectedJson = parseResult.ok;
+      parsedJson = parseResult.value;
+    }
+
+    if (detectedJson && parsedJson !== null && responseBytes >= ResponseViewer.LARGE_JSON_RAW_THRESHOLD_BYTES) {
+      this.setupLargeJsonPreview(bodyElement, response.body, response.size);
+      this.currentFormatter = 'plain';
+      this.parsedJsonData = null;
+      this.detectedJsonBody = true;
+      this.emitModeChanged();
+      return;
+    }
+
+    if (detectedJson && parsedJson !== null) {
+      const mounted = await this.setupJsonViewer(bodyElement, parsedJson, response.size);
+      if (mounted) {
         this.currentFormatter = 'json';
-      } catch (e) {
-        this.setupPlainTextView(bodyElement, response.body);
+        this.parsedJsonData = parsedJson;
+        this.detectedJsonBody = true;
+      } else {
         this.currentFormatter = 'plain';
+        this.parsedJsonData = null;
+        this.detectedJsonBody = false;
       }
     } else {
       this.setupPlainTextView(bodyElement, response.body);
       this.currentFormatter = 'plain';
+      this.parsedJsonData = null;
+      this.detectedJsonBody = false;
     }
+
+    this.emitModeChanged();
   }
 
-  private async setupJsonViewer(container: HTMLElement, jsonData: any, responseSize?: number): Promise<void> {
+  private async setupJsonViewer(container: HTMLElement, jsonData: any, responseSize?: number): Promise<boolean> {
     container.innerHTML = '';
 
     const jsonContainer = document.createElement('div');
@@ -110,19 +144,90 @@ export class ResponseViewer {
     try {
       this.jsonViewer = new JsonViewer('response-json-viewer-container', {
         requestId: this.currentRequestId,
-        responseSize: responseSize
+        responseSize: responseSize,
+        showLineNumbers: true,
       });
       await this.jsonViewer.setData(jsonData);
+      return true;
     } catch (error) {
       console.error('Failed to initialize JSON viewer:', error);
       this.setupPlainTextView(container, JSON.stringify(jsonData, null, 2));
-      this.currentFormatter = 'plain';
+      return false;
     }
+  }
+
+  private setupLargeJsonPreview(container: HTMLElement, content: string, responseSize?: number): void {
+    this.jsonViewer = null;
+
+    const notice = document.createElement('div');
+    notice.style.cssText = `
+      margin: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    `;
+
+    const message = document.createElement('div');
+    message.style.fontSize = '12px';
+    message.style.color = 'var(--text-secondary)';
+    message.textContent = `Large JSON response (${this.formatBytes(responseSize || this.getResponseBytesFromBody(content))}) shown as raw text by default.`;
+
+    const button = document.createElement('button');
+    button.textContent = 'Pretty Print';
+    button.className = 'response-action-btn';
+    button.style.whiteSpace = 'nowrap';
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      button.textContent = 'Formatting...';
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const parseResult = this.tryParseJson(content);
+      if (!parseResult.ok || parseResult.value === null) {
+        button.disabled = false;
+        button.textContent = 'Pretty Print';
+        return;
+      }
+
+      const mounted = await this.setupJsonViewer(container, parseResult.value, responseSize);
+      if (!mounted) {
+        button.disabled = false;
+        button.textContent = 'Pretty Print';
+        return;
+      }
+
+      this.currentFormatter = 'json';
+      this.parsedJsonData = parseResult.value;
+      this.detectedJsonBody = true;
+      this.emitModeChanged();
+    });
+
+    notice.appendChild(message);
+    notice.appendChild(button);
+
+    const preElement = this.buildPlainTextElement(content);
+    container.innerHTML = '';
+    container.appendChild(notice);
+    container.appendChild(preElement);
   }
 
   private setupPlainTextView(container: HTMLElement, content: string): void {
     this.jsonViewer = null;
+    this.parsedJsonData = null;
 
+    const preElement = this.buildPlainTextElement(content);
+    container.innerHTML = '';
+    container.appendChild(preElement);
+  }
+
+  private buildPlainTextElement(content: string): HTMLPreElement {
     const preElement = document.createElement('pre');
     preElement.style.whiteSpace = 'pre-wrap';
     preElement.style.wordBreak = 'break-word';
@@ -139,9 +244,7 @@ export class ResponseViewer {
     const codeElement = document.createElement('code');
     codeElement.textContent = content;
     preElement.appendChild(codeElement);
-
-    container.innerHTML = '';
-    container.appendChild(preElement);
+    return preElement;
   }
 
   private updateResponseHeaders(response: ApiResponse): void {
@@ -345,6 +448,14 @@ export class ResponseViewer {
     }
   }
 
+  public isJsonBody(): boolean {
+    return this.currentFormatter === 'json';
+  }
+
+  public getParsedJson(): unknown | null {
+    return this.parsedJsonData;
+  }
+
   public clear(): void {
     const bodyElement = document.getElementById('response-body');
     const headersElement = document.getElementById('response-headers');
@@ -369,15 +480,40 @@ export class ResponseViewer {
 
     this.jsonViewer = null;
     this.currentFormatter = null;
+    this.parsedJsonData = null;
+    this.detectedJsonBody = false;
+    this.emitModeChanged();
   }
 
-  private isValidJSON(str: string): boolean {
+  private tryParseJson(str: string): { ok: boolean; value: unknown | null } {
     try {
-      JSON.parse(str);
-      return true;
+      return { ok: true, value: JSON.parse(str) };
     } catch (e) {
-      return false;
+      return { ok: false, value: null };
     }
+  }
+
+  private isJsonContentType(contentType: string): boolean {
+    return /\bapplication\/(.+\+)?json\b/i.test(contentType);
+  }
+
+  private getResponseBytes(response: ApiResponse): number {
+    const transferBytes = response.size && response.size > 0 ? response.size : 0;
+    const bodyBytes = this.getResponseBytesFromBody(response.body || '');
+    return Math.max(transferBytes, bodyBytes);
+  }
+
+  private getResponseBytesFromBody(body: string): number {
+    return new TextEncoder().encode(body).length;
+  }
+
+  private emitModeChanged(): void {
+    document.dispatchEvent(new CustomEvent('response-viewer-mode-changed', {
+      detail: {
+        isJson: this.detectedJsonBody,
+        formatter: this.currentFormatter,
+      },
+    }));
   }
 
   private getStatusClass(status: number): string {
@@ -407,5 +543,7 @@ export class ResponseViewer {
       this.jsonViewer = null;
     }
     this.currentFormatter = null;
+    this.parsedJsonData = null;
+    this.detectedJsonBody = false;
   }
 }

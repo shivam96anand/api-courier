@@ -1,4 +1,5 @@
 import { HistoryItem, ApiRequest, ApiResponse } from '../../shared/types';
+import { sanitizeResponseForPersistence } from '../utils/response-persistence';
 
 export class HistoryManager {
   private history: HistoryItem[] = [];
@@ -41,10 +42,12 @@ export class HistoryManager {
   }
 
   addToHistory(request: ApiRequest, response: ApiResponse): void {
+    const compactResponse = sanitizeResponseForPersistence(response)!;
+
     const historyItem: HistoryItem = {
       id: this.generateId(),
       request: { ...request }, // Clone to avoid reference issues
-      response: { ...response }, // Clone to avoid reference issues
+      response: compactResponse,
       timestamp: new Date(),
     };
 

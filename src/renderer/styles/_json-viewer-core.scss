@@ -68,6 +68,14 @@
     }
   }
 
+  &.show-line-numbers {
+    .json-viewer-content {
+      .line-numbers {
+        display: block;
+      }
+    }
+  }
+
   .json-content {
     &::-webkit-scrollbar { width: 6px; height: 6px; }
     &::-webkit-scrollbar-track { background: transparent; }

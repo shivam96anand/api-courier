@@ -1,7 +1,19 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
-import { AppState, AppTheme, Globals, CollectionsUIState, JsonViewerUIState, NotepadState, MockServersState } from '../../shared/types';
+import { writeFile } from 'fs/promises';
+import {
+  AppState,
+  AppTheme,
+  Globals,
+  CollectionsUIState,
+  JsonViewerUIState,
+  NotepadState,
+  MockServersState,
+  RequestTab,
+  HistoryItem,
+  ApiResponse,
+} from '../../shared/types';
 
 const defaultNavOrder = ['notepad', 'api', 'json-viewer', 'json-compare', 'load-testing', 'mock-server', 'ask-ai'];
 const legacyNavOrder = ['api', 'json-viewer', 'json-compare', 'notepad', 'load-testing', 'mock-server', 'ask-ai'];
@@ -85,7 +97,8 @@ class StoreManager {
   }
 
   setState(updates: Partial<AppState>): void {
-    this.data = { ...this.data, ...updates };
+    const sanitizedUpdates = this.sanitizeUpdatesForPersistence(updates);
+    this.data = { ...this.data, ...sanitizedUpdates };
     this.queueWrite();
   }
 
@@ -101,10 +114,39 @@ class StoreManager {
 
   private async writeToFile(): Promise<void> {
     try {
-      writeFileSync(this.dbPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      await writeFile(this.dbPath, JSON.stringify(this.data, null, 2), 'utf-8');
     } catch (error) {
       console.error('Failed to write database file:', error);
     }
+  }
+
+  private sanitizeUpdatesForPersistence(updates: Partial<AppState>): Partial<AppState> {
+    const next: Partial<AppState> = { ...updates };
+
+    if (updates.openTabs) {
+      next.openTabs = updates.openTabs.map((tab: RequestTab) => ({
+        ...tab,
+        response: this.sanitizeResponse(tab.response),
+      }));
+    }
+
+    if (updates.history) {
+      next.history = updates.history.map((item: HistoryItem) => ({
+        ...item,
+        response: this.sanitizeResponse(item.response)!,
+      }));
+    }
+
+    return next;
+  }
+
+  private sanitizeResponse(response?: ApiResponse): ApiResponse | undefined {
+    if (!response) return undefined;
+
+    return {
+      ...response,
+      body: '',
+    };
   }
 
   startAutoBackup(intervalMs = 24 * 60 * 60 * 1000): void {
@@ -162,19 +204,21 @@ class StoreManager {
   }
 
   private mergeLoadedData(loadedData: Partial<AppState>): AppState {
+    const sanitizedLoaded = this.sanitizeUpdatesForPersistence(loadedData);
+
     return {
       ...defaultState,
-      ...loadedData,
-      history: loadedData.history || [],
-      environments: loadedData.environments || [],
-      activeEnvironmentId: loadedData.activeEnvironmentId,
-      globals: loadedData.globals || defaultGlobals,
-      collectionsUIState: loadedData.collectionsUIState || defaultCollectionsUIState,
-      jsonViewerUIState: loadedData.jsonViewerUIState || defaultJsonViewerUIState,
-      notepad: loadedData.notepad || defaultNotepadState,
-      navOrder: this.resolveNavOrder(loadedData.navOrder),
-      mockServers: loadedData.mockServers || defaultMockServersState,
-      hasCompletedThemeOnboarding: loadedData.hasCompletedThemeOnboarding ?? false,
+      ...sanitizedLoaded,
+      history: sanitizedLoaded.history || [],
+      environments: sanitizedLoaded.environments || [],
+      activeEnvironmentId: sanitizedLoaded.activeEnvironmentId,
+      globals: sanitizedLoaded.globals || defaultGlobals,
+      collectionsUIState: sanitizedLoaded.collectionsUIState || defaultCollectionsUIState,
+      jsonViewerUIState: sanitizedLoaded.jsonViewerUIState || defaultJsonViewerUIState,
+      notepad: sanitizedLoaded.notepad || defaultNotepadState,
+      navOrder: this.resolveNavOrder(sanitizedLoaded.navOrder),
+      mockServers: sanitizedLoaded.mockServers || defaultMockServersState,
+      hasCompletedThemeOnboarding: sanitizedLoaded.hasCompletedThemeOnboarding ?? false,
     };
   }
 

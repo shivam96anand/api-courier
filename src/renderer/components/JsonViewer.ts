@@ -22,8 +22,12 @@ export class JsonViewer {
   private statePersistence: JsonViewerStatePersistence | null = null;
   private expandedPaths: Set<string> = new Set();
   private responseSize?: number; // Response size in bytes
+  private showLineNumbers: boolean;
 
-  constructor(containerId: string, config?: { requestId?: string; responseSize?: number }) {
+  constructor(
+    containerId: string,
+    config?: { requestId?: string; responseSize?: number; showLineNumbers?: boolean }
+  ) {
     const container = document.getElementById(containerId);
     if (!container) {
       throw new Error(`Container with id "${containerId}" not found`);
@@ -31,6 +35,7 @@ export class JsonViewer {
     this.container = container;
     this.requestId = config?.requestId;
     this.responseSize = config?.responseSize;
+    this.showLineNumbers = config?.showLineNumbers ?? false;
 
     // Only enable persistence for response viewer (when requestId is provided)
     if (this.requestId) {
@@ -45,7 +50,7 @@ export class JsonViewer {
 
   private setupDOMStructure(): void {
     this.container.innerHTML = `
-      <div class="json-viewer">
+      <div class="json-viewer ${this.showLineNumbers ? 'show-line-numbers' : ''}">
         <div class="json-viewer-content">
           <div class="line-numbers"></div>
           <div class="json-content">

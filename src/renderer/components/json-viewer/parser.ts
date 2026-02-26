@@ -180,36 +180,35 @@ export class JsonParser {
 
   /**
    * Calculate optimal auto-expand depth based on response size
-   * Simple rule: < 1MB = expand everything, >= 1MB = conservative expansion
+   * Keep defaults conservative so large payloads don't block the renderer.
    */
   private static calculateAutoExpandDepth(responseSize?: number): number {
-    const ONE_MB = 1024 * 1024; // 1MB in bytes
+    const KB = 1024;
+    const MB = 1024 * KB;
 
     // If size unknown, use conservative default
     if (responseSize === undefined) {
-      console.log('[JsonParser] Response size unknown, using default expansion depth: 3');
-      return 3;
-    }
-
-    // < 1MB: expand everything (use very high depth)
-    if (responseSize < ONE_MB) {
-      console.log(`[JsonParser] Response size ${responseSize} bytes (< 1MB), expanding all levels`);
-      return 999; // Effectively infinite for practical purposes
-    }
-
-    // >= 1MB: use size-based conservative expansion
-    const FIVE_MB = 5 * ONE_MB;
-    const TEN_MB = 10 * ONE_MB;
-
-    if (responseSize < FIVE_MB) {
-      console.log(`[JsonParser] Response size ${responseSize} bytes (1-5MB), expanding 3 levels`);
-      return 3;
-    }
-    if (responseSize < TEN_MB) {
-      console.log(`[JsonParser] Response size ${responseSize} bytes (5-10MB), expanding 2 levels`);
+      console.log('[JsonParser] Response size unknown, using default expansion depth: 2');
       return 2;
     }
-    console.log(`[JsonParser] Response size ${responseSize} bytes (>10MB), expanding only root`);
+
+    // Keep expansion conservative to avoid renderer stalls on deeply nested payloads.
+    if (responseSize < 256 * KB) {
+      console.log(`[JsonParser] Response size ${responseSize} bytes (< 256KB), expanding 4 levels`);
+      return 4;
+    }
+
+    if (responseSize < MB) {
+      console.log(`[JsonParser] Response size ${responseSize} bytes (256KB-1MB), expanding 3 levels`);
+      return 3;
+    }
+
+    if (responseSize < 5 * MB) {
+      console.log(`[JsonParser] Response size ${responseSize} bytes (1-5MB), expanding 2 levels`);
+      return 2;
+    }
+
+    console.log(`[JsonParser] Response size ${responseSize} bytes (>=5MB), expanding only root`);
     return 1;
   }
 }

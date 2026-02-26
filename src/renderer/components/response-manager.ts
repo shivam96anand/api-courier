@@ -79,6 +79,7 @@ export class ResponseManager {
     this.listenToResponses();
     this.listenToTabChanges();
     this.listenForSearchTrigger();
+    this.listenForViewerModeChanges();
   }
 
   initialize(): void {
@@ -88,7 +89,7 @@ export class ResponseManager {
   private handleTabChange(tab: string): void {
     this.state.activeTab = tab;
     this.viewer.switchTab(tab);
-    this.actions.updateVisibility(this.state.currentResponse, tab);
+    this.actions.updateVisibility(this.state.currentResponse, tab, this.viewer.isJsonBody());
     
     // Hide search if switching away from body
     if (tab !== 'body') {
@@ -158,12 +159,22 @@ export class ResponseManager {
     });
   }
 
+  private listenForViewerModeChanges(): void {
+    document.addEventListener('response-viewer-mode-changed', () => {
+      this.actions.updateVisibility(
+        this.state.currentResponse,
+        this.state.activeTab,
+        this.viewer.isJsonBody()
+      );
+    });
+  }
+
   private displayResponse(response: ApiResponse): void {
     this.state.currentResponse = response;
     this.viewer.setRequestId(this.currentRequestId);
     this.viewer.displayResponse(response);
     this.tabs.updateTabs(response);
-    this.actions.updateVisibility(response, this.state.activeTab);
+    this.actions.updateVisibility(response, this.state.activeTab, this.viewer.isJsonBody());
   }
 
   getCurrentResponse(): ApiResponse | null {
@@ -328,9 +339,9 @@ export class ResponseManager {
     try {
       let textToCopy = this.state.currentResponse.body;
 
-      // If it's JSON, format it nicely
-      if (this.isJsonResponse()) {
-        const parsed = JSON.parse(this.state.currentResponse.body);
+      // Reuse parsed JSON from viewer when available to avoid expensive re-parsing.
+      const parsed = this.viewer.getParsedJson();
+      if (parsed !== null && parsed !== undefined) {
         textToCopy = JSON.stringify(parsed, null, 2);
       }
 
@@ -407,17 +418,7 @@ export class ResponseManager {
 
   private isJsonResponse(): boolean {
     if (!this.state.currentResponse) return false;
-    const contentType = this.state.currentResponse.headers['content-type'] || '';
-    return contentType.includes('application/json') || this.isValidJSON(this.state.currentResponse.body || '');
-  }
-
-  private isValidJSON(str: string): boolean {
-    try {
-      JSON.parse(str);
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return this.viewer.isJsonBody();
   }
 
   private showToast(message: string): void {
