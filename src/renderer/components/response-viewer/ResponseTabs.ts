@@ -12,11 +12,10 @@ export class ResponseTabs {
   }
 
   private createTabsContainer(container: HTMLElement): void {
-    // Find existing tabs or create new ones
-    this.tabsContainer = container.querySelector('.response-tabs');
+    this.tabsContainer = container.querySelector('.response-toolbar');
     if (!this.tabsContainer) {
       this.tabsContainer = document.createElement('div');
-      this.tabsContainer.className = 'response-tabs';
+      this.tabsContainer.className = 'response-toolbar';
       container.prepend(this.tabsContainer);
     }
   }
@@ -24,39 +23,40 @@ export class ResponseTabs {
   private createTabs(): void {
     if (!this.tabsContainer) return;
 
-    const tabs = ['body', 'headers'];
-
-    // Clear existing tabs
     this.tabsContainer.innerHTML = '';
 
+    // Left section: tabs
+    const tabGroup = document.createElement('div');
+    tabGroup.className = 'response-toolbar__tabs';
+
+    const tabs = ['body', 'headers'];
     tabs.forEach(tab => {
-      const tabElement = document.createElement('button');
-      tabElement.className = `tab ${tab === this.activeTab ? 'active' : ''}`;
-      tabElement.dataset.section = tab;
-      tabElement.textContent = this.getTabLabel(tab);
-      tabElement.addEventListener('click', () => this.selectTab(tab));
-      this.tabsContainer!.appendChild(tabElement);
+      const tabEl = document.createElement('button');
+      tabEl.className = `response-toolbar__tab ${tab === this.activeTab ? 'active' : ''}`;
+      tabEl.dataset.section = tab;
+      tabEl.textContent = this.getTabLabel(tab);
+      tabEl.addEventListener('click', () => this.selectTab(tab));
+      tabGroup.appendChild(tabEl);
     });
 
-    // Add response metadata element
-    const metaElement = document.createElement('div');
-    metaElement.className = 'response-meta';
-    metaElement.id = 'response-meta';
-    metaElement.innerHTML = `
-      <span class="status-secondary">---</span>
-      <span class="meta-separator">•</span>
-      <span>---</span>
-      <span class="meta-separator">•</span>
-      <span>---</span>
+    // Center section: meta chips
+    const metaGroup = document.createElement('div');
+    metaGroup.className = 'response-toolbar__meta';
+    metaGroup.id = 'response-meta';
+    metaGroup.innerHTML = `
+      <span class="meta-chip meta-chip--status" id="meta-status">---</span>
+      <span class="meta-chip meta-chip--time" id="meta-time">---</span>
+      <span class="meta-chip meta-chip--size" id="meta-size">---</span>
     `;
-    this.tabsContainer.appendChild(metaElement);
 
-    // Add timestamp element on the right
-    const timestampElement = document.createElement('span');
-    timestampElement.className = 'response-timestamp';
-    timestampElement.id = 'response-timestamp';
-    timestampElement.textContent = '--:--:-- --';
-    this.tabsContainer.appendChild(timestampElement);
+    // Right section: timestamp
+    const timestampEl = document.createElement('span');
+    timestampEl.className = 'response-toolbar__timestamp';
+    timestampEl.id = 'response-timestamp';
+
+    this.tabsContainer.appendChild(tabGroup);
+    this.tabsContainer.appendChild(metaGroup);
+    this.tabsContainer.appendChild(timestampEl);
   }
 
   private getTabLabel(tab: string): string {
@@ -69,52 +69,31 @@ export class ResponseTabs {
 
   private selectTab(tab: string): void {
     if (this.activeTab === tab) return;
-    
     this.updateActiveTab(tab);
     this.onTabChangeCallback?.(tab);
   }
 
   private updateActiveTab(tab: string): void {
     if (!this.tabsContainer) return;
-
-    // Remove active class from current tab
-    const currentActive = this.tabsContainer.querySelector('.tab.active');
+    const currentActive = this.tabsContainer.querySelector('.response-toolbar__tab.active');
     currentActive?.classList.remove('active');
-    
-    // Add active class to new tab
     const newActive = this.tabsContainer.querySelector(`[data-section="${tab}"]`);
     newActive?.classList.add('active');
-    
     this.activeTab = tab;
   }
 
   public updateTabs(response: ApiResponse): void {
-    // Update tab badges with response info if needed
     this.updateTabBadges(response);
   }
 
   private updateTabBadges(response: ApiResponse): void {
     if (!this.tabsContainer) return;
 
-    const bodyTab = this.tabsContainer.querySelector('[data-section="body"]');
-    if (bodyTab && response.body) {
-      const formatBadge = this.detectResponseFormat(response);
-      bodyTab.setAttribute('data-format', formatBadge);
-    }
-
     const headersTab = this.tabsContainer.querySelector('[data-section="headers"]');
     if (headersTab && response.headers) {
       const headerCount = Object.keys(response.headers).length;
       headersTab.setAttribute('data-count', headerCount.toString());
     }
-  }
-
-  private detectResponseFormat(response: ApiResponse): string {
-    const contentType = response.headers['content-type'] || '';
-    if (contentType.includes('application/json')) return 'JSON';
-    if (contentType.includes('text/xml')) return 'XML';
-    if (contentType.includes('text/html')) return 'HTML';
-    return 'TEXT';
   }
 
   public onTabChange(callback: (tab: string) => void): void {
@@ -132,26 +111,22 @@ export class ResponseTabs {
   public clear(): void {
     this.selectTab('body');
 
-    const metaElement = document.getElementById('response-meta');
-    if (metaElement) {
-      metaElement.innerHTML = `
-        <span class="status-secondary">---</span>
-        <span class="meta-separator">•</span>
-        <span>---</span>
-        <span class="meta-separator">•</span>
-        <span>---</span>
-      `;
-    }
+    const statusEl = document.getElementById('meta-status');
+    const timeEl = document.getElementById('meta-time');
+    const sizeEl = document.getElementById('meta-size');
+    const timestampEl = document.getElementById('response-timestamp');
 
-    const timestampElement = document.getElementById('response-timestamp');
-    if (timestampElement) {
-      timestampElement.textContent = '--:--:-- --';
-    }
+    if (statusEl) statusEl.textContent = '---';
+    if (timeEl) timeEl.textContent = '---';
+    if (sizeEl) sizeEl.textContent = '---';
+    if (timestampEl) timestampEl.textContent = '';
 
-    // Remove status classes from tabs container
     if (this.tabsContainer) {
       this.tabsContainer.classList.remove('status-2xx', 'status-3xx', 'status-4xx', 'status-5xx');
     }
+
+    // Reset chip modifiers
+    statusEl?.classList.remove('meta-chip--success', 'meta-chip--warning', 'meta-chip--error');
   }
 
   public destroy(): void {

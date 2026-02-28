@@ -1,4 +1,5 @@
 import { JsonViewer } from '../JsonViewer';
+import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
 
 export class JsonViewerUtilities {
   public static exportJson(jsonData: any): void {
@@ -159,6 +160,124 @@ export class JsonViewerUtilities {
       if (e.target === modal) {
         document.body.removeChild(modal);
         document.removeEventListener('keydown', handleEscape);
+      }
+    });
+  }
+
+  /**
+   * Open a fullscreen modal with a read-only Monaco JSON editor (matches request body editor).
+   */
+  public static openFullscreenMonaco(jsonData: any): void {
+    if (!jsonData) return;
+
+    const jsonString = JSON.stringify(jsonData, null, 2);
+
+    const modal = document.createElement('div');
+    modal.className = 'json-fullscreen-modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title">JSON Viewer - Full Screen</div>
+          <div class="modal-actions">
+            <button id="fs-copy-btn" class="response-action-btn" title="Copy JSON to clipboard">Copy</button>
+            <button id="fs-search-btn" class="response-action-btn" title="Search within JSON">Search</button>
+            <button id="fs-collapse-btn" class="response-action-btn" title="Collapse all JSON nodes">Collapse</button>
+            <button id="fs-expand-btn" class="response-action-btn" title="Expand all JSON nodes">Expand</button>
+            <button id="fs-top-btn" class="response-action-btn" title="Scroll to top">Top</button>
+            <button id="fs-bottom-btn" class="response-action-btn" title="Scroll to bottom">Bottom</button>
+            <button id="fs-ask-ai-btn" class="response-action-btn ask-ai-btn" title="Ask AI about this JSON">Ask AI</button>
+            <button class="close-btn">×</button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <div id="fullscreen-monaco-json-viewer" style="width:100%;height:100%;"></div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const editorContainer = modal.querySelector('#fullscreen-monaco-json-viewer') as HTMLElement;
+    const fullscreenEditor = new MonacoJsonEditor({
+      container: editorContainer,
+      value: jsonString,
+      onChange: () => { /* read-only, no-op */ },
+      readOnly: true,
+    });
+
+    // Action button handlers
+    const copyBtn = modal.querySelector('#fs-copy-btn') as HTMLButtonElement;
+    copyBtn?.addEventListener('click', () => {
+      navigator.clipboard.writeText(jsonString).catch(() => { /* silent */ });
+    });
+
+    const searchBtn = modal.querySelector('#fs-search-btn') as HTMLButtonElement;
+    searchBtn?.addEventListener('click', () => {
+      fullscreenEditor.triggerFind();
+    });
+
+    const collapseBtn = modal.querySelector('#fs-collapse-btn') as HTMLButtonElement;
+    collapseBtn?.addEventListener('click', () => {
+      fullscreenEditor.foldAll();
+    });
+
+    const expandBtn = modal.querySelector('#fs-expand-btn') as HTMLButtonElement;
+    expandBtn?.addEventListener('click', () => {
+      fullscreenEditor.unfoldAll();
+    });
+
+    const topBtn = modal.querySelector('#fs-top-btn') as HTMLButtonElement;
+    topBtn?.addEventListener('click', () => {
+      fullscreenEditor.scrollToTop();
+    });
+
+    const bottomBtn = modal.querySelector('#fs-bottom-btn') as HTMLButtonElement;
+    bottomBtn?.addEventListener('click', () => {
+      fullscreenEditor.scrollToBottom();
+    });
+
+    const askAiBtn = modal.querySelector('#fs-ask-ai-btn') as HTMLButtonElement;
+    askAiBtn?.addEventListener('click', () => {
+      const response = {
+        body: jsonString,
+        headers: {},
+        status: 200,
+        statusText: 'OK',
+        size: jsonString.length,
+        time: 0,
+        contentType: 'application/json',
+        timestamp: Date.now()
+      };
+
+      const askAIEvent = new CustomEvent('open-ask-ai', {
+        detail: { response }
+      });
+      document.dispatchEvent(askAIEvent);
+
+      cleanup();
+    });
+
+    const cleanup = () => {
+      fullscreenEditor.dispose();
+      if (modal.parentNode) {
+        document.body.removeChild(modal);
+      }
+      document.removeEventListener('keydown', handleEscape);
+    };
+
+    const closeBtn = modal.querySelector('.close-btn') as HTMLButtonElement;
+    closeBtn.addEventListener('click', cleanup);
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cleanup();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        cleanup();
       }
     });
   }

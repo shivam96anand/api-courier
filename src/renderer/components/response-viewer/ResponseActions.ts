@@ -1,5 +1,4 @@
 import { ApiResponse } from '../../../shared/types';
-import { iconHtml } from '../../utils/icons';
 
 export class ResponseActions {
   private actionsContainer: HTMLElement | null = null;
@@ -19,7 +18,6 @@ export class ResponseActions {
   }
 
   private setupActionsContainer(container: HTMLElement): void {
-    // Find existing actions container or create new one
     this.actionsContainer = container.querySelector('#response-actions');
     
     if (!this.actionsContainer) {
@@ -27,20 +25,26 @@ export class ResponseActions {
       this.actionsContainer.id = 'response-actions';
       this.actionsContainer.className = 'response-actions';
       this.actionsContainer.style.display = 'none';
-      
+
       this.actionsContainer.innerHTML = `
-        <button id="enlarge-btn" class="response-action-btn" title="Fullscreen view">${iconHtml('maximize')}</button>
-        <button id="copy-btn" class="response-action-btn" title="Copy response">${iconHtml('clipboard')}</button>
-        <button id="export-btn" class="response-action-btn" title="Export JSON">${iconHtml('export')}</button>
-        <button id="search-btn" class="response-action-btn" title="Search in response">${iconHtml('search')}</button>
-        <button id="collapse-btn" class="response-action-btn" title="Collapse all">${iconHtml('collapse')}</button>
-        <button id="expand-btn" class="response-action-btn" title="Expand all">${iconHtml('expand')}</button>
-        <button id="top-btn" class="response-action-btn" title="Scroll to top">${iconHtml('arrow-up')}</button>
-        <button id="bottom-btn" class="response-action-btn" title="Scroll to bottom">${iconHtml('arrow-down')}</button>
-        <button id="ask-ai-btn" class="response-action-btn ask-ai-btn" title="Ask AI about this response">${iconHtml('bot')}</button>
+        <button id="search-btn" class="response-action-btn" title="Search (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+F)">Search</button>
+        <button id="copy-btn" class="response-action-btn" title="Copy response">Copy</button>
+        <button id="export-btn" class="response-action-btn" title="Export JSON">Export</button>
+        <button id="collapse-btn" class="response-action-btn" title="Collapse all">Collapse</button>
+        <button id="expand-btn" class="response-action-btn" title="Expand all">Expand</button>
+        <button id="top-btn" class="response-action-btn" title="Scroll to top">Top</button>
+        <button id="bottom-btn" class="response-action-btn" title="Scroll to bottom">Bottom</button>
+        <button id="enlarge-btn" class="response-action-btn" title="Fullscreen">Enlarge</button>
+        <button id="ask-ai-btn" class="response-action-btn ask-ai-btn" title="Ask AI">Ask AI</button>
       `;
       
-      container.appendChild(this.actionsContainer);
+      // Insert after toolbar but before body/header sections
+      const toolbar = container.querySelector('.response-toolbar');
+      if (toolbar && toolbar.parentNode) {
+        toolbar.parentNode.insertBefore(this.actionsContainer, toolbar.nextSibling);
+      } else {
+        container.prepend(this.actionsContainer);
+      }
     }
   }
 
@@ -81,10 +85,7 @@ export class ResponseActions {
   }
 
   public updateVisibility(response: ApiResponse | null, activeTab: string, isJsonResponse: boolean): void {
-    const shouldShow = activeTab === 'body' &&
-                     response &&
-                     isJsonResponse;
-    
+    const shouldShow = activeTab === 'body' && response && isJsonResponse;
     if (shouldShow) {
       this.showForJsonResponse();
     } else {
@@ -92,41 +93,15 @@ export class ResponseActions {
     }
   }
 
-  public onCopy(callback: () => void): void {
-    this.onCopyCallback = callback;
-  }
-
-  public onExport(callback: () => void): void {
-    this.onExportCallback = callback;
-  }
-
-  public onFullscreen(callback: () => void): void {
-    this.onFullscreenCallback = callback;
-  }
-
-  public onSearch(callback: () => void): void {
-    this.onSearchCallback = callback;
-  }
-
-  public onCollapse(callback: () => void): void {
-    this.onCollapseCallback = callback;
-  }
-
-  public onExpand(callback: () => void): void {
-    this.onExpandCallback = callback;
-  }
-
-  public onScrollTop(callback: () => void): void {
-    this.onScrollTopCallback = callback;
-  }
-
-  public onScrollBottom(callback: () => void): void {
-    this.onScrollBottomCallback = callback;
-  }
-
-  public onAskAi(callback: () => void): void {
-    this.onAskAiCallback = callback;
-  }
+  public onCopy(callback: () => void): void { this.onCopyCallback = callback; }
+  public onExport(callback: () => void): void { this.onExportCallback = callback; }
+  public onFullscreen(callback: () => void): void { this.onFullscreenCallback = callback; }
+  public onSearch(callback: () => void): void { this.onSearchCallback = callback; }
+  public onCollapse(callback: () => void): void { this.onCollapseCallback = callback; }
+  public onExpand(callback: () => void): void { this.onExpandCallback = callback; }
+  public onScrollTop(callback: () => void): void { this.onScrollTopCallback = callback; }
+  public onScrollBottom(callback: () => void): void { this.onScrollBottomCallback = callback; }
+  public onAskAi(callback: () => void): void { this.onAskAiCallback = callback; }
 
   public destroy(): void {
     this.actionsContainer?.remove();

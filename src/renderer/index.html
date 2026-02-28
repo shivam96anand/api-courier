@@ -194,35 +194,17 @@
 
                         <div class="response-panel">
                             <div class="response-content">
-                                <div class="response-tabs">
-                                    <button class="tab active" data-section="body">Body</button>
-                                    <button class="tab" data-section="headers">Headers</button>
-                                    <div class="response-meta" id="response-meta">
-                                        <span class="status-secondary">---</span>
-                                        <span class="meta-separator">•</span>
-                                        <span>---</span>
-                                        <span class="meta-separator">•</span>
-                                        <span>---</span>
+                                <div class="response-toolbar">
+                                    <div class="response-toolbar__tabs">
+                                        <button class="response-toolbar__tab active" data-section="body">Body</button>
+                                        <button class="response-toolbar__tab" data-section="headers">Headers</button>
                                     </div>
-                                    <span class="response-timestamp" id="response-timestamp">--:--:-- --</span>
-                                </div>
-                                <div class="response-actions" id="response-actions" style="display: none;">
-                                    <button class="response-action-btn" id="enlarge-btn" title="Open in fullscreen mode">Enlarge</button>
-                                    <button class="response-action-btn" id="copy-btn" title="Copy JSON response to clipboard">Copy</button>
-                                    <button class="response-action-btn" id="export-btn" title="Export JSON response">Export</button>
-                                    <button class="response-action-btn" id="search-btn" title="Search within JSON response">Search</button>
-                                    <button class="response-action-btn" id="collapse-btn" title="Collapse all JSON nodes">Collapse</button>
-                                    <button class="response-action-btn" id="expand-btn" title="Expand all JSON nodes">Expand</button>
-                                    <button class="response-action-btn" id="top-btn" title="Scroll to top of response">Top</button>
-                                    <button class="response-action-btn" id="bottom-btn" title="Scroll to bottom of response">Bottom</button>
-                                    <button class="response-action-btn ask-ai-btn" id="ask-ai-btn" title="Ask AI about this response">Ask AI</button>
-                                </div>
-                                <div class="floating-search-bar" id="floating-search-bar" style="display: none;">
-                                    <input type="text" class="floating-search-input" placeholder="Search in JSON...">
-                                    <span class="floating-search-results">0/0</span>
-                                    <button class="floating-search-nav" id="search-prev">↑</button>
-                                    <button class="floating-search-nav" id="search-next">↓</button>
-                                    <button class="floating-search-close" id="search-close">×</button>
+                                    <div class="response-toolbar__meta" id="response-meta">
+                                        <span class="meta-chip meta-chip--status" id="meta-status">---</span>
+                                        <span class="meta-chip meta-chip--time" id="meta-time">---</span>
+                                        <span class="meta-chip meta-chip--size" id="meta-size">---</span>
+                                    </div>
+                                    <span class="response-toolbar__timestamp" id="response-timestamp"></span>
                                 </div>
                                 <div id="response-body" class="response-section active">
                                     <div class="response-placeholder">Send a request to see the response here</div>

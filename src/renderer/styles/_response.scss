@@ -44,61 +44,18 @@
 }
 
 .response-meta {
+  // Kept for backward compatibility - main styles are now in _tabs.scss
+  // under .response-toolbar__meta / .meta-chip
   display: inline-flex !important;
   gap: 4px;
   align-items: center;
   min-height: 24px;
-
-  // Separator bullet - show inline without badge styling
-  .meta-separator {
-    display: inline-flex !important;
-    padding: 0 4px;
-    font-size: 10px;
-    color: var(--text-secondary);
-    background: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    opacity: 0.6;
-  }
-
-  // Badge styling for status/time/size spans (not separators)
-  span:not(.meta-separator) {
-    display: inline-flex !important;
-    align-items: center;
-    padding: 5px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    background: rgba(0, 0, 0, 0.85) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
-    color: white !important;
-  }
-
-  // Remove status-specific overrides - keep consistent black background
-  .status-2xx &,
-  .status-3xx &,
-  .status-4xx &,
-  .status-5xx & {
-    .meta-separator {
-      color: var(--text-secondary);
-      opacity: 0.5;
-    }
-  }
-
-  // Empty state - ensure visibility
-  &:empty::before {
-    content: '';
-    display: inline-block;
-    width: 1px;
-    height: 1px;
-  }
 }
 
 .status-success,
 .status-error,
 .status-warning {
-  // Inherits black background and white text from parent .response-meta span styles
+  // Status colors handled by .meta-chip modifiers
 }
 
 .status-secondary {

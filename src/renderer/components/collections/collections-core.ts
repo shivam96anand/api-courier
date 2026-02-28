@@ -124,11 +124,11 @@ export class CollectionsCore {
         // Check if we're on the API tab with a response visible
         const apiTab = document.getElementById('api-tab');
         const isApiTabActive = apiTab?.classList.contains('active');
-        const hasResponse = document.querySelector('#response-body .json-viewer') ||
+        const hasResponse = document.querySelector('#response-body #response-monaco-json-container') ||
                            document.querySelector('#response-body pre');
 
         if (isApiTabActive && hasResponse) {
-          // Trigger response search
+          // Trigger Monaco search in the response viewer
           const searchEvent = new CustomEvent('trigger-response-search');
           document.dispatchEvent(searchEvent);
         } else {

@@ -1,6 +1,6 @@
 /**
- * Monaco-based JSON editor for request body
- * Uses the same Monaco editor as JSON compare for a clean, professional editing experience
+ * Monaco-based JSON editor for request body and read-only response viewing.
+ * Uses the same Monaco editor as JSON compare for a clean, professional editing experience.
  */
 
 import * as monaco from 'monaco-editor';
@@ -10,6 +10,7 @@ export interface MonacoJsonEditorOptions {
   value: string;
   onChange: (value: string) => void;
   onValidityChange?: (valid: boolean, error?: string) => void;
+  readOnly?: boolean;
 }
 
 export class MonacoJsonEditor {
@@ -17,11 +18,13 @@ export class MonacoJsonEditor {
   private container: HTMLElement;
   private onChange: (value: string) => void;
   private onValidityChange?: (valid: boolean, error?: string) => void;
+  private readOnly: boolean;
 
   constructor(options: MonacoJsonEditorOptions) {
     this.container = options.container;
     this.onChange = options.onChange;
     this.onValidityChange = options.onValidityChange;
+    this.readOnly = options.readOnly ?? false;
 
     this.initialize(options.value);
   }
@@ -94,8 +97,10 @@ export class MonacoJsonEditor {
       fontSize: 12,
       lineNumbers: 'on',
       folding: true,
-      formatOnPaste: true,
-      formatOnType: true,
+      formatOnPaste: !this.readOnly,
+      formatOnType: !this.readOnly,
+      readOnly: this.readOnly,
+      domReadOnly: this.readOnly,
       fontFamily: "'SF Mono', 'Cascadia Code', Monaco, Menlo, Consolas, 'Courier New', monospace",
       letterSpacing: -0.3,
       glyphMargin: false,
@@ -182,6 +187,47 @@ export class MonacoJsonEditor {
       // Don't format if invalid
       this.onValidityChange?.(false, error instanceof Error ? error.message : 'Invalid JSON');
     }
+  }
+
+  /** Fold all regions in the editor */
+  public foldAll(): void {
+    if (!this.editor) return;
+    this.editor.getAction('editor.foldAll')?.run();
+  }
+
+  /** Unfold all regions in the editor */
+  public unfoldAll(): void {
+    if (!this.editor) return;
+    this.editor.getAction('editor.unfoldAll')?.run();
+  }
+
+  /** Open Monaco's built-in find widget */
+  public triggerFind(): void {
+    if (!this.editor) return;
+    this.editor.focus();
+    this.editor.getAction('actions.find')?.run();
+  }
+
+  /** Find matches in the model (for external search bars) */
+  public findMatches(query: string): monaco.editor.FindMatch[] {
+    if (!this.editor || !query) return [];
+    const model = this.editor.getModel();
+    if (!model) return [];
+    return model.findMatches(query, true, false, false, null, true);
+  }
+
+  /** Scroll to the bottom of the editor */
+  public scrollToBottom(): void {
+    if (!this.editor) return;
+    const model = this.editor.getModel();
+    if (!model) return;
+    const lineCount = model.getLineCount();
+    this.editor.revealLine(lineCount);
+  }
+
+  /** Get the underlying Monaco editor instance */
+  public getEditor(): monaco.editor.IStandaloneCodeEditor | null {
+    return this.editor;
   }
 
   public dispose(): void {

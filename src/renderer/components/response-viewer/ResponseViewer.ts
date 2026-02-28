@@ -1,20 +1,19 @@
 import { ApiResponse } from '../../../shared/types';
 import { ResponseViewerConfig } from '../../types/response-types';
-import { JsonViewer } from '../JsonViewer';
-import { JsonViewerStatePersistence } from '../json-viewer/json-viewer-state-persistence';
+import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
+import { JsonViewerUtilities } from '../json-viewer/utilities';
 
 export class ResponseViewer {
   private static readonly LARGE_JSON_RAW_THRESHOLD_BYTES = 2 * 1024 * 1024;
   private static readonly JSON_SNIFF_LIMIT_BYTES = 256 * 1024;
 
   private container: HTMLElement;
-  private jsonViewer: JsonViewer | null = null;
+  private monacoEditor: MonacoJsonEditor | null = null;
   private currentFormatter: 'json' | 'plain' | null = null;
   private parsedJsonData: unknown | null = null;
   private detectedJsonBody = false;
   private currentRequestId: string = 'default';
   private lastResponseTimestamps: Map<string, number> = new Map();
-  private statePersistence: JsonViewerStatePersistence = new JsonViewerStatePersistence();
 
   constructor(container: HTMLElement, private config: ResponseViewerConfig) {
     this.container = container;
@@ -57,15 +56,12 @@ export class ResponseViewer {
   }
 
   public async displayResponse(response: ApiResponse): Promise<void> {
-    // If this is a new response (different timestamp), clear the saved expansion state
-    // This ensures that when you send the same request again, you get fresh auto-expansion
     const lastTimestamp = this.lastResponseTimestamps.get(this.currentRequestId);
     if (response.timestamp !== lastTimestamp) {
-      console.log(`[ResponseViewer] New response detected (size: ${response.size} bytes), clearing saved expansion state`);
-      await this.statePersistence.clearRequestState(this.currentRequestId);
+      console.log(`[ResponseViewer] New response detected (size: ${response.size} bytes)`);
       this.lastResponseTimestamps.set(this.currentRequestId, response.timestamp);
     } else {
-      console.log(`[ResponseViewer] Same response, preserving expansion state (size: ${response.size} bytes)`);
+      console.log(`[ResponseViewer] Same response (size: ${response.size} bytes)`);
     }
 
     await this.updateResponseBody(response);
@@ -79,7 +75,7 @@ export class ResponseViewer {
 
     if (!response.body) {
       bodyElement.innerHTML = '<div class="response-placeholder">No response body</div>';
-      this.jsonViewer = null;
+      this.disposeMonaco();
       this.currentFormatter = null;
       this.parsedJsonData = null;
       this.detectedJsonBody = false;
@@ -131,33 +127,35 @@ export class ResponseViewer {
     this.emitModeChanged();
   }
 
-  private async setupJsonViewer(container: HTMLElement, jsonData: any, responseSize?: number): Promise<boolean> {
+  private async setupJsonViewer(container: HTMLElement, jsonData: any, _responseSize?: number): Promise<boolean> {
+    this.disposeMonaco();
     container.innerHTML = '';
 
     const jsonContainer = document.createElement('div');
-    jsonContainer.id = 'response-json-viewer-container';
+    jsonContainer.id = 'response-monaco-json-container';
     jsonContainer.style.height = '100%';
     jsonContainer.style.minHeight = '400px';
 
     container.appendChild(jsonContainer);
 
     try {
-      this.jsonViewer = new JsonViewer('response-json-viewer-container', {
-        requestId: this.currentRequestId,
-        responseSize: responseSize,
-        showLineNumbers: true,
+      const formattedJson = JSON.stringify(jsonData, null, 2);
+      this.monacoEditor = new MonacoJsonEditor({
+        container: jsonContainer,
+        value: formattedJson,
+        onChange: () => { /* read-only, no-op */ },
+        readOnly: true,
       });
-      await this.jsonViewer.setData(jsonData);
       return true;
     } catch (error) {
-      console.error('Failed to initialize JSON viewer:', error);
+      console.error('Failed to initialize Monaco JSON viewer:', error);
       this.setupPlainTextView(container, JSON.stringify(jsonData, null, 2));
       return false;
     }
   }
 
   private setupLargeJsonPreview(container: HTMLElement, content: string, responseSize?: number): void {
-    this.jsonViewer = null;
+    this.disposeMonaco();
 
     const notice = document.createElement('div');
     notice.style.cssText = `
@@ -219,7 +217,7 @@ export class ResponseViewer {
   }
 
   private setupPlainTextView(container: HTMLElement, content: string): void {
-    this.jsonViewer = null;
+    this.disposeMonaco();
     this.parsedJsonData = null;
 
     const preElement = this.buildPlainTextElement(content);
@@ -286,34 +284,38 @@ export class ResponseViewer {
   }
 
   private updateResponseMeta(response: ApiResponse): void {
-    const metaElement = document.getElementById('response-meta');
-    if (!metaElement) return;
+    const statusEl = document.getElementById('meta-status');
+    const timeEl = document.getElementById('meta-time');
+    const sizeEl = document.getElementById('meta-size');
 
-    const statusClass = this.getStatusClass(response.status);
-    const statusBadge = `<span class="${statusClass}">${response.status} ${response.statusText}</span>`;
-    const timeBadge = `<span>${this.formatResponseTime(response.time)}</span>`;
-    const sizeBadge = `<span>${this.formatBytes(response.size)}</span>`;
+    if (statusEl) {
+      statusEl.textContent = `${response.status} ${response.statusText}`;
+      statusEl.classList.remove('meta-chip--success', 'meta-chip--warning', 'meta-chip--error');
+      if (response.status >= 200 && response.status < 300) {
+        statusEl.classList.add('meta-chip--success');
+      } else if (response.status >= 300 && response.status < 500) {
+        statusEl.classList.add('meta-chip--warning');
+      } else if (response.status >= 500) {
+        statusEl.classList.add('meta-chip--error');
+      }
+    }
+    if (timeEl) timeEl.textContent = this.formatResponseTime(response.time);
+    if (sizeEl) sizeEl.textContent = this.formatBytes(response.size);
 
-    metaElement.innerHTML = `${statusBadge}<span class="meta-separator">•</span>${timeBadge}<span class="meta-separator">•</span>${sizeBadge}`;
-
-    // Update timestamp separately
     this.updateResponseTimestamp(response.timestamp);
 
-    // Add status class to response-tabs container for background color
-    const tabsContainer = document.querySelector('.response-tabs');
-    if (tabsContainer) {
-      // Remove existing status classes
-      tabsContainer.classList.remove('status-2xx', 'status-3xx', 'status-4xx', 'status-5xx');
-      
-      // Add appropriate status class
+    // Add status class to toolbar for subtle background tint
+    const toolbar = document.querySelector('.response-toolbar');
+    if (toolbar) {
+      toolbar.classList.remove('status-2xx', 'status-3xx', 'status-4xx', 'status-5xx');
       if (response.status >= 200 && response.status < 300) {
-        tabsContainer.classList.add('status-2xx');
+        toolbar.classList.add('status-2xx');
       } else if (response.status >= 300 && response.status < 400) {
-        tabsContainer.classList.add('status-3xx');
+        toolbar.classList.add('status-3xx');
       } else if (response.status >= 400 && response.status < 500) {
-        tabsContainer.classList.add('status-4xx');
+        toolbar.classList.add('status-4xx');
       } else if (response.status >= 500) {
-        tabsContainer.classList.add('status-5xx');
+        toolbar.classList.add('status-5xx');
       }
     }
   }
@@ -351,25 +353,35 @@ export class ResponseViewer {
     targetSection?.classList.add('active');
   }
 
+  /** Open Monaco's native find widget (single unified search bar) */
+  public triggerMonacoSearch(): void {
+    if (this.monacoEditor && this.currentFormatter === 'json') {
+      this.monacoEditor.triggerFind();
+    }
+  }
+
   public search(query: string): void {
-    if (this.jsonViewer && this.currentFormatter === 'json') {
-      this.jsonViewer.performSearch(query);
+    if (this.monacoEditor && this.currentFormatter === 'json') {
+      this.monacoEditor.triggerFind();
     } else if (this.currentFormatter === 'plain') {
-      // Implement plain text search if needed
       this.searchInPlainText(query);
     }
   }
 
   public navigateSearch(direction: number): void {
-    if (this.jsonViewer && this.currentFormatter === 'json') {
-      this.jsonViewer.navigateSearch(direction);
+    if (this.monacoEditor && this.currentFormatter === 'json') {
+      const editor = this.monacoEditor.getEditor();
+      if (!editor) return;
+      if (direction > 0) {
+        editor.getAction('editor.action.nextMatchFindAction')?.run();
+      } else {
+        editor.getAction('editor.action.previousMatchFindAction')?.run();
+      }
     }
   }
 
   public getSearchInfo(): { total: number, current: number } {
-    if (this.jsonViewer && this.currentFormatter === 'json') {
-      return this.jsonViewer.getSearchInfo();
-    }
+    // Monaco manages search internally via its find widget
     return { total: 0, current: 0 };
   }
 
@@ -387,8 +399,11 @@ export class ResponseViewer {
   }
 
   public clearSearch(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.clearSearch();
+    if (this.monacoEditor) {
+      const editor = this.monacoEditor.getEditor();
+      if (editor) {
+        editor.getAction('closeFindWidget')?.run();
+      }
     }
     // Clear plain text search highlights
     const bodyElement = document.getElementById('response-body');
@@ -400,51 +415,48 @@ export class ResponseViewer {
   }
 
   public collapseAll(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.collapseAll();
+    if (this.monacoEditor) {
+      this.monacoEditor.foldAll();
     }
   }
 
   public expandAll(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.expandAll();
+    if (this.monacoEditor) {
+      this.monacoEditor.unfoldAll();
     }
   }
 
   public scrollToTop(): void {
-    // Scroll the response-section (body) to top
+    if (this.monacoEditor) {
+      this.monacoEditor.scrollToTop();
+      return;
+    }
     const responseBody = document.getElementById('response-body');
     if (responseBody) {
       responseBody.scrollTo({ top: 0, behavior: 'smooth' });
     }
-
-    // Also scroll the JSON content itself to the top
-    const jsonContent = responseBody?.querySelector('.json-content');
-    if (jsonContent) {
-      jsonContent.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   }
 
   public scrollToBottom(): void {
+    if (this.monacoEditor) {
+      this.monacoEditor.scrollToBottom();
+      return;
+    }
     const responseBody = document.getElementById('response-body');
-    const jsonContent = responseBody?.querySelector('.json-content');
-
-    if (jsonContent) {
-      jsonContent.scrollTo({ top: jsonContent.scrollHeight, behavior: 'smooth' });
-    } else if (responseBody) {
+    if (responseBody) {
       responseBody.scrollTo({ top: responseBody.scrollHeight, behavior: 'smooth' });
     }
   }
 
   public openFullscreen(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.openFullscreen();
+    if (this.parsedJsonData) {
+      JsonViewerUtilities.openFullscreenMonaco(this.parsedJsonData);
     }
   }
 
   public exportJson(): void {
-    if (this.jsonViewer && this.currentFormatter === 'json') {
-      this.jsonViewer.exportJson();
+    if (this.parsedJsonData && this.currentFormatter === 'json') {
+      JsonViewerUtilities.exportJson(this.parsedJsonData);
     }
   }
 
@@ -459,8 +471,9 @@ export class ResponseViewer {
   public clear(): void {
     const bodyElement = document.getElementById('response-body');
     const headersElement = document.getElementById('response-headers');
-    const metaElement = document.getElementById('response-meta');
     const timestampElement = document.getElementById('response-timestamp');
+
+    this.disposeMonaco();
 
     if (bodyElement) {
       bodyElement.innerHTML = '<div class="response-placeholder">Send a request to see the response here</div>';
@@ -470,15 +483,27 @@ export class ResponseViewer {
       headersElement.innerHTML = '<div class="response-placeholder">No response headers</div>';
     }
 
-    if (metaElement) {
-      metaElement.innerHTML = '<span>No response yet</span>';
+    // Reset individual meta chips without destroying them
+    const statusEl = document.getElementById('meta-status');
+    const timeEl = document.getElementById('meta-time');
+    const sizeEl = document.getElementById('meta-size');
+    if (statusEl) {
+      statusEl.textContent = '---';
+      statusEl.classList.remove('meta-chip--success', 'meta-chip--warning', 'meta-chip--error');
+    }
+    if (timeEl) timeEl.textContent = '---';
+    if (sizeEl) sizeEl.textContent = '---';
+
+    // Remove toolbar status tint
+    const toolbar = document.querySelector('.response-toolbar');
+    if (toolbar) {
+      toolbar.classList.remove('status-2xx', 'status-3xx', 'status-4xx', 'status-5xx');
     }
 
     if (timestampElement) {
       timestampElement.textContent = '';
     }
 
-    this.jsonViewer = null;
     this.currentFormatter = null;
     this.parsedJsonData = null;
     this.detectedJsonBody = false;
@@ -516,17 +541,6 @@ export class ResponseViewer {
     }));
   }
 
-  private getStatusClass(status: number): string {
-    if (status >= 200 && status < 300) {
-      return 'status-success';
-    } else if (status >= 400) {
-      return 'status-error';
-    } else if (status >= 300) {
-      return 'status-warning';
-    }
-    return '';
-  }
-
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
 
@@ -538,12 +552,16 @@ export class ResponseViewer {
   }
 
   public destroy(): void {
-    if (this.jsonViewer) {
-      this.jsonViewer.clear();
-      this.jsonViewer = null;
-    }
+    this.disposeMonaco();
     this.currentFormatter = null;
     this.parsedJsonData = null;
     this.detectedJsonBody = false;
+  }
+
+  private disposeMonaco(): void {
+    if (this.monacoEditor) {
+      this.monacoEditor.dispose();
+      this.monacoEditor = null;
+    }
   }
 }

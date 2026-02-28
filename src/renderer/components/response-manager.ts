@@ -2,13 +2,11 @@ import { ApiResponse } from '../../shared/types';
 import { ResponseState, ResponseManagerConfig } from '../types/response-types';
 import { ResponseViewer } from './response-viewer/ResponseViewer';
 import { ResponseTabs } from './response-viewer/ResponseTabs';
-import { ResponseSearch } from './response-viewer/ResponseSearch';
 import { ResponseActions } from './response-viewer/ResponseActions';
 
 export class ResponseManager {
   private viewer!: ResponseViewer;
   private tabs!: ResponseTabs;
-  private search!: ResponseSearch;
   private actions!: ResponseActions;
   private state: ResponseState;
   private container: HTMLElement;
@@ -55,7 +53,6 @@ export class ResponseManager {
 
     this.viewer = new ResponseViewer(this.container, config.viewerConfig);
     this.tabs = new ResponseTabs(this.container, config.tabsConfig);
-    this.search = new ResponseSearch(this.container, config.searchConfig);
     this.actions = new ResponseActions(this.container);
 
     this.setupEventListeners();
@@ -63,13 +60,11 @@ export class ResponseManager {
 
   private setupEventListeners(): void {
     this.tabs.onTabChange((tab) => this.handleTabChange(tab));
-    this.search.onSearchChange((query) => this.handleSearchChange(query));
-    this.search.onNavigate((direction) => this.handleSearchNavigate(direction));
 
     this.actions.onCopy(() => this.copyJsonResponse());
     this.actions.onExport(() => this.exportJsonResponse());
     this.actions.onFullscreen(() => this.toggleFullscreen());
-    this.actions.onSearch(() => this.toggleFloatingSearch());
+    this.actions.onSearch(() => this.triggerMonacoSearch());
     this.actions.onCollapse(() => this.collapseAll());
     this.actions.onExpand(() => this.expandAll());
     this.actions.onScrollTop(() => this.scrollToTop());
@@ -90,22 +85,6 @@ export class ResponseManager {
     this.state.activeTab = tab;
     this.viewer.switchTab(tab);
     this.actions.updateVisibility(this.state.currentResponse, tab, this.viewer.isJsonBody());
-    
-    // Hide search if switching away from body
-    if (tab !== 'body') {
-      this.search.hide();
-    }
-  }
-
-  private handleSearchChange(query: string): void {
-    this.state.searchQuery = query;
-    this.viewer.search(query);
-    this.updateFloatingSearchResults();
-  }
-
-  private handleSearchNavigate(direction: number): void {
-    this.viewer.navigateSearch(direction);
-    this.updateFloatingSearchResults();
   }
 
   private listenToResponses(): void {
@@ -115,11 +94,11 @@ export class ResponseManager {
       this.showLoadingState(startTime);
     });
 
-    document.addEventListener('response-received', (e: Event) => {
+    document.addEventListener('response-received', async (e: Event) => {
       const customEvent = e as CustomEvent;
       const response = customEvent.detail.response;
       this.hideLoadingState();
-      this.displayResponse(response);
+      await this.displayResponse(response);
     });
 
     document.addEventListener('request-failed', (e: Event) => {
@@ -127,7 +106,6 @@ export class ResponseManager {
       this.state.currentResponse = null;
       this.viewer.clear();
       this.actions.hide();
-      this.search.hide();
     });
 
     document.addEventListener('request-cancelled', () => {
@@ -136,14 +114,14 @@ export class ResponseManager {
   }
 
   private listenToTabChanges(): void {
-    document.addEventListener('tab-changed', (e: Event) => {
+    document.addEventListener('tab-changed', async (e: Event) => {
       const customEvent = e as CustomEvent;
       const activeTab = customEvent.detail.activeTab;
 
       if (activeTab && activeTab.response) {
         // Update current request ID for state persistence
         this.currentRequestId = activeTab.id || 'default';
-        this.displayResponse(activeTab.response);
+        await this.displayResponse(activeTab.response);
       } else {
         this.currentRequestId = 'default';
         this.clearResponse();
@@ -154,7 +132,7 @@ export class ResponseManager {
   private listenForSearchTrigger(): void {
     document.addEventListener('trigger-response-search', () => {
       if (this.state.currentResponse) {
-        this.search.show();
+        this.triggerMonacoSearch();
       }
     });
   }
@@ -169,10 +147,10 @@ export class ResponseManager {
     });
   }
 
-  private displayResponse(response: ApiResponse): void {
+  private async displayResponse(response: ApiResponse): Promise<void> {
     this.state.currentResponse = response;
     this.viewer.setRequestId(this.currentRequestId);
-    this.viewer.displayResponse(response);
+    await this.viewer.displayResponse(response);
     this.tabs.updateTabs(response);
     this.actions.updateVisibility(response, this.state.activeTab, this.viewer.isJsonBody());
   }
@@ -185,7 +163,6 @@ export class ResponseManager {
     this.state.currentResponse = null;
     this.viewer.clear();
     this.actions.hide();
-    this.search.hide();
     this.hideLoadingState();
   }
 
@@ -196,7 +173,6 @@ export class ResponseManager {
     // Hide any existing response
     this.viewer.clear();
     this.actions.hide();
-    this.search.hide();
 
     ['response-body', 'response-headers'].forEach((sectionId) => {
       const section = this.container.querySelector(`#${sectionId}`);
@@ -325,7 +301,6 @@ export class ResponseManager {
     this.state.currentResponse = null;
     this.viewer.clear();
     this.actions.hide();
-    this.search.hide();
   }
 
   // Action button implementations
@@ -371,14 +346,8 @@ export class ResponseManager {
     this.viewer.exportJson();
   }
 
-  private toggleFloatingSearch(): void {
-    this.search.toggle();
-  }
-
-  private updateFloatingSearchResults(): void {
-    const searchInfo = this.viewer.getSearchInfo();
-    const currentIndex = searchInfo.current > 0 ? searchInfo.current - 1 : -1;
-    this.search.updateResults(searchInfo.current, searchInfo.total, currentIndex);
+  private triggerMonacoSearch(): void {
+    this.viewer.triggerMonacoSearch();
   }
 
   private collapseAll(): void {
