@@ -29,6 +29,7 @@ export class JsonViewerUtilities {
           <div class="modal-title">JSON Viewer - Full Screen</div>
           <div class="modal-actions">
             <button id="fs-copy-btn" class="response-action-btn" title="Copy JSON to clipboard">Copy</button>
+            <button id="fs-export-btn" class="response-action-btn" title="Export JSON">Export</button>
             <button id="fs-search-btn" class="response-action-btn" title="Search within JSON">Search</button>
             <button id="fs-collapse-btn" class="response-action-btn" title="Collapse all JSON nodes">Collapse</button>
             <button id="fs-expand-btn" class="response-action-btn" title="Expand all JSON nodes">Expand</button>
@@ -66,6 +67,11 @@ export class JsonViewerUtilities {
       }).catch(() => {
         // Silently fail without toast notification
       });
+    });
+
+    const exportBtn = modal.querySelector('#fs-export-btn') as HTMLButtonElement;
+    exportBtn?.addEventListener('click', () => {
+      JsonViewerUtilities.exportJson(jsonData);
     });
 
     const searchBtn = modal.querySelector('#fs-search-btn') as HTMLButtonElement;
@@ -180,6 +186,7 @@ export class JsonViewerUtilities {
           <div class="modal-title">JSON Viewer - Full Screen</div>
           <div class="modal-actions">
             <button id="fs-copy-btn" class="response-action-btn" title="Copy JSON to clipboard">Copy</button>
+            <button id="fs-export-btn" class="response-action-btn" title="Export JSON">Export</button>
             <button id="fs-search-btn" class="response-action-btn" title="Search within JSON">Search</button>
             <button id="fs-collapse-btn" class="response-action-btn" title="Collapse all JSON nodes">Collapse</button>
             <button id="fs-expand-btn" class="response-action-btn" title="Expand all JSON nodes">Expand</button>
@@ -209,6 +216,11 @@ export class JsonViewerUtilities {
     const copyBtn = modal.querySelector('#fs-copy-btn') as HTMLButtonElement;
     copyBtn?.addEventListener('click', () => {
       navigator.clipboard.writeText(jsonString).catch(() => { /* silent */ });
+    });
+
+    const exportBtn = modal.querySelector('#fs-export-btn') as HTMLButtonElement;
+    exportBtn?.addEventListener('click', () => {
+      JsonViewerUtilities.exportJson(jsonData);
     });
 
     const searchBtn = modal.querySelector('#fs-search-btn') as HTMLButtonElement;
