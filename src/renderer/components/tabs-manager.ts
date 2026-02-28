@@ -23,7 +23,8 @@ export class TabsManager {
       (event, tabId) => this.showTabContextMenu(event, tabId),
       (updates, markAsModified) => this.updateActiveTabAndRender(updates, markAsModified),
       (requestId) => this.closeTabsByRequestIdAndRender(requestId),
-      (requestId, newName) => this.updateTabNameForRequestAndRender(requestId, newName)
+      (requestId, newName) => this.updateTabNameForRequestAndRender(requestId, newName),
+      (requestId, updates, markAsModified) => this.updateTabByRequestIdAndRender(requestId, updates, markAsModified)
     );
   }
 
@@ -84,6 +85,11 @@ export class TabsManager {
 
   private updateActiveTabAndRender(updates: Partial<RequestTab>, markAsModified: boolean): void {
     this.stateManager.updateActiveTab(updates, markAsModified);
+    this.renderer.renderTabs(this.stateManager.getTabs(), this.stateManager.getActiveTabId());
+  }
+
+  private updateTabByRequestIdAndRender(requestId: string, updates: Partial<RequestTab>, markAsModified: boolean): void {
+    this.stateManager.updateTabByRequestId(requestId, updates, markAsModified);
     this.renderer.renderTabs(this.stateManager.getTabs(), this.stateManager.getActiveTabId());
   }
 

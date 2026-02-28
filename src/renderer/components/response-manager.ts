@@ -16,6 +16,8 @@ export class ResponseManager {
   private loadingStartTime: number = 0;
   private loadingTimerInterval: number | null = null;
   private currentRequestId: string = 'default';
+  private pendingRequests: Map<string, number> = new Map();
+  private activeTabRequestId: string | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -91,25 +93,63 @@ export class ResponseManager {
     document.addEventListener('request-sending', (e: Event) => {
       const customEvent = e as CustomEvent;
       const startTime = customEvent.detail.timestamp;
-      this.showLoadingState(startTime);
+      const requestId = customEvent.detail.requestId;
+
+      // Always track pending requests for tab-switch awareness
+      if (requestId) {
+        this.pendingRequests.set(requestId, startTime);
+      }
+
+      // Only show loading UI if this is the active tab's request
+      if (requestId && requestId === this.activeTabRequestId) {
+        this.showLoadingState(startTime);
+      }
     });
 
     document.addEventListener('response-received', async (e: Event) => {
       const customEvent = e as CustomEvent;
       const response = customEvent.detail.response;
-      this.hideLoadingState();
-      await this.displayResponse(response);
+      const requestId = customEvent.detail.request?.id;
+
+      // Always remove from pending
+      if (requestId) {
+        this.pendingRequests.delete(requestId);
+      }
+
+      // Only display if this response belongs to the currently active tab
+      if (requestId && requestId === this.activeTabRequestId) {
+        this.hideLoadingState();
+        await this.displayResponse(response);
+      }
     });
 
     document.addEventListener('request-failed', (e: Event) => {
-      this.hideLoadingState();
-      this.state.currentResponse = null;
-      this.viewer.clear();
-      this.actions.hide();
+      const customEvent = e as CustomEvent;
+      const requestId = customEvent.detail.requestId;
+
+      if (requestId) {
+        this.pendingRequests.delete(requestId);
+      }
+
+      if (requestId && requestId === this.activeTabRequestId) {
+        this.hideLoadingState();
+        this.state.currentResponse = null;
+        this.viewer.clear();
+        this.actions.hide();
+      }
     });
 
-    document.addEventListener('request-cancelled', () => {
-      this.handleRequestCancelled();
+    document.addEventListener('request-cancelled', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const requestId = customEvent.detail.requestId;
+
+      if (requestId) {
+        this.pendingRequests.delete(requestId);
+      }
+
+      if (requestId && requestId === this.activeTabRequestId) {
+        this.handleRequestCancelled();
+      }
     });
   }
 
@@ -118,11 +158,24 @@ export class ResponseManager {
       const customEvent = e as CustomEvent;
       const activeTab = customEvent.detail.activeTab;
 
-      if (activeTab && activeTab.response) {
-        // Update current request ID for state persistence
+      if (activeTab) {
+        this.activeTabRequestId = activeTab.request?.id || null;
         this.currentRequestId = activeTab.id || 'default';
-        await this.displayResponse(activeTab.response);
+
+        // Check if this tab has a pending request (still loading)
+        if (this.activeTabRequestId && this.pendingRequests.has(this.activeTabRequestId)) {
+          const startTime = this.pendingRequests.get(this.activeTabRequestId)!;
+          this.showLoadingState(startTime);
+        } else if (activeTab.response) {
+          // Tab has a response — display it
+          this.hideLoadingState();
+          await this.displayResponse(activeTab.response);
+        } else {
+          // No pending request, no response — clear
+          this.clearResponse();
+        }
       } else {
+        this.activeTabRequestId = null;
         this.currentRequestId = 'default';
         this.clearResponse();
       }

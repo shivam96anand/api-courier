@@ -131,6 +131,19 @@ export class TabsStateManager {
     }
   }
 
+  updateTabByRequestId(requestId: string, updates: Partial<RequestTab>, markAsModified: boolean = false): void {
+    const tabIndex = this.tabs.findIndex(tab => tab.request.id === requestId);
+    if (tabIndex === -1) return;
+
+    const currentTab = this.tabs[tabIndex];
+    this.tabs[tabIndex] = {
+      ...currentTab,
+      ...updates,
+      isModified: markAsModified ? true : currentTab.isModified
+    };
+    this.saveState();
+  }
+
   openRequestInTab(request: ApiRequest, collectionId?: string): void {
     const existingTab = this.tabs.find(tab => tab.request.id === request.id);
 

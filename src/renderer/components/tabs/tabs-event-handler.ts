@@ -10,6 +10,8 @@ export class TabsEventHandler {
   private onCloseTabsByRequestId: (requestId: string) => void;
   private onUpdateTabNameForRequest: (requestId: string, newName: string) => void;
 
+  private onUpdateTabByRequestId: (requestId: string, updates: Partial<RequestTab>, markAsModified: boolean) => void;
+
   constructor(
     onCreateNewTab: () => void,
     onSwitchToTab: (tabId: string) => void,
@@ -17,7 +19,8 @@ export class TabsEventHandler {
     onShowTabContextMenu: (event: MouseEvent, tabId: string) => void,
     onUpdateActiveTab: (updates: Partial<RequestTab>, markAsModified: boolean) => void,
     onCloseTabsByRequestId: (requestId: string) => void,
-    onUpdateTabNameForRequest: (requestId: string, newName: string) => void
+    onUpdateTabNameForRequest: (requestId: string, newName: string) => void,
+    onUpdateTabByRequestId: (requestId: string, updates: Partial<RequestTab>, markAsModified: boolean) => void
   ) {
     this.onCreateNewTab = onCreateNewTab;
     this.onSwitchToTab = onSwitchToTab;
@@ -26,6 +29,7 @@ export class TabsEventHandler {
     this.onUpdateActiveTab = onUpdateActiveTab;
     this.onCloseTabsByRequestId = onCloseTabsByRequestId;
     this.onUpdateTabNameForRequest = onUpdateTabNameForRequest;
+    this.onUpdateTabByRequestId = onUpdateTabByRequestId;
   }
 
   setupTabEvents(): void {
@@ -81,8 +85,10 @@ export class TabsEventHandler {
     document.addEventListener('response-received', (e: Event) => {
       const customEvent = e as CustomEvent;
       const response = customEvent.detail.response;
-      if (response) {
-        this.onUpdateActiveTab({ response }, false);
+      const request = customEvent.detail.request;
+      if (response && request) {
+        // Route response to the tab that owns this request, not the active tab
+        this.onUpdateTabByRequestId(request.id, { response }, false);
       }
     });
 
