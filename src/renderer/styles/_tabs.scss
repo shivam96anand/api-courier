@@ -107,114 +107,139 @@
   }
 }
 
-// ── Response toolbar (unified tabs + meta + actions) ──
+// ── Response toolbar ──
+// Matches the request panel tab style: dark bg-primary, underline tabs, mono meta
 .response-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: var(--bg-secondary);
+  justify-content: space-between;
+  background: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-  z-index: 10;
-  transition: background 0.3s ease, border-color 0.3s ease;
-
-  // ── Status-based tint ──
-  &.status-2xx { border-bottom-color: rgba(34, 197, 94, 0.4); }
-  &.status-3xx { border-bottom-color: rgba(251, 191, 36, 0.4); }
-  &.status-4xx { border-bottom-color: rgba(251, 191, 36, 0.4); }
-  &.status-5xx { border-bottom-color: rgba(239, 68, 68, 0.4); }
+  min-height: 38px;
+  padding: 0;
 }
 
-// ── Tab buttons ──
+// ── Tab group (left) ──
 .response-toolbar__tabs {
   display: flex;
-  gap: 2px;
-  margin-right: 4px;
+  align-items: stretch;
+  height: 100%;
 }
 
 .response-toolbar__tab {
+  position: relative;
   background: transparent;
   border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-secondary);
-  padding: 5px 14px;
+  padding: 0 16px;
+  height: 38px;
   cursor: pointer;
-  border-radius: 6px;
-  font-weight: 500;
-  font-size: 12px;
-  letter-spacing: 0.2px;
-  transition: all 0.15s ease;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+  margin-bottom: -1px;
 
   &:hover {
     color: var(--text-primary);
-    background: rgba(var(--primary-color-rgb), 0.08);
   }
 
   &.active {
     color: var(--primary-color);
-    background: rgba(var(--primary-color-rgb), 0.12);
-    font-weight: 600;
+    border-bottom-color: var(--primary-color);
   }
 
   &:focus-visible {
     outline: 2px solid var(--primary-color);
-    outline-offset: 1px;
+    outline-offset: -2px;
   }
 }
 
-// ── Meta chips ──
+// ── Meta row (right) ──
 .response-toolbar__meta {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  gap: 2px;
+  padding: 0 12px;
+  height: 100%;
 }
 
-.meta-chip {
+// ── Status badge ──
+.meta-chip--status {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
   font-family: var(--font-mono);
-  letter-spacing: -0.2px;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-color);
-  line-height: 1;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 4px;
+  letter-spacing: 0.1px;
   white-space: nowrap;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 
-  &--status {
-    color: var(--text-primary);
-  }
-
-  &--success {
+  &.meta-chip--success {
     color: #22c55e;
-    border-color: rgba(34, 197, 94, 0.3);
-    background: rgba(34, 197, 94, 0.08);
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.25);
   }
 
-  &--warning {
+  &.meta-chip--warning {
     color: #fbbf24;
-    border-color: rgba(251, 191, 36, 0.3);
-    background: rgba(251, 191, 36, 0.08);
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.25);
   }
 
-  &--error {
+  &.meta-chip--error {
     color: #ef4444;
-    border-color: rgba(239, 68, 68, 0.3);
-    background: rgba(239, 68, 68, 0.08);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.25);
   }
 }
 
-// ── Timestamp ──
-.response-toolbar__timestamp {
-  font-size: 10px;
+// ── Stat chips (time / size) ──
+.meta-chip--time,
+.meta-chip--size {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-secondary);
-  margin-left: 4px;
   opacity: 0.7;
+  padding: 0 6px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+// ── Divider dot between chips ──
+.meta-divider {
+  color: var(--border-color);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+// ── Timestamp (far right) ──
+.response-toolbar__timestamp {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  padding: 0 6px;
+  white-space: nowrap;
+  line-height: 1;
 
   &:empty { display: none; }
 }

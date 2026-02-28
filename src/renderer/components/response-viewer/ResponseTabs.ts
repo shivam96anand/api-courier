@@ -45,7 +45,9 @@ export class ResponseTabs {
     metaGroup.id = 'response-meta';
     metaGroup.innerHTML = `
       <span class="meta-chip meta-chip--status" id="meta-status">---</span>
+      <span class="meta-divider">&middot;</span>
       <span class="meta-chip meta-chip--time" id="meta-time">---</span>
+      <span class="meta-divider">&middot;</span>
       <span class="meta-chip meta-chip--size" id="meta-size">---</span>
     `;
 

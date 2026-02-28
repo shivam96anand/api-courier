@@ -1,38 +1,47 @@
 import { ApiResponse, HistoryItem, RequestTab } from '../../shared/types';
 
-const PERSISTED_BODY_PREVIEW_LIMIT = 0;
+// Max body size to persist for open tabs (~1 MB). Keep history lean (no body).
+const TAB_BODY_LIMIT = 1_000_000;
 
-function toBodyPreview(body: string): string {
-  if (!body || PERSISTED_BODY_PREVIEW_LIMIT <= 0) {
-    return '';
-  }
-
-  return body.length > PERSISTED_BODY_PREVIEW_LIMIT
-    ? body.slice(0, PERSISTED_BODY_PREVIEW_LIMIT)
-    : body;
+function clampBody(body: string, limit: number): string {
+  if (!body) return '';
+  return body.length > limit ? body.slice(0, limit) : body;
 }
 
-export function sanitizeResponseForPersistence(
+function sanitizeTabResponseForPersistence(
   response?: ApiResponse
 ): ApiResponse | undefined {
   if (!response) return undefined;
-
   return {
     ...response,
-    body: toBodyPreview(response.body || ''),
+    body: clampBody(response.body || '', TAB_BODY_LIMIT),
   };
+}
+
+function sanitizeHistoryResponseForPersistence(
+  response?: ApiResponse
+): ApiResponse | undefined {
+  if (!response) return undefined;
+  return { ...response, body: '' };
+}
+
+// Keep for backwards-compat if imported elsewhere
+export function sanitizeResponseForPersistence(
+  response?: ApiResponse
+): ApiResponse | undefined {
+  return sanitizeTabResponseForPersistence(response);
 }
 
 export function sanitizeTabsForPersistence(tabs: RequestTab[]): RequestTab[] {
   return tabs.map((tab) => ({
     ...tab,
-    response: sanitizeResponseForPersistence(tab.response),
+    response: sanitizeTabResponseForPersistence(tab.response),
   }));
 }
 
 export function sanitizeHistoryForPersistence(history: HistoryItem[]): HistoryItem[] {
   return history.map((item) => ({
     ...item,
-    response: sanitizeResponseForPersistence(item.response)!,
+    response: sanitizeHistoryResponseForPersistence(item.response)!,
   }));
 }

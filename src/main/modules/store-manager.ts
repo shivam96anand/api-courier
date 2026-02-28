@@ -126,7 +126,7 @@ class StoreManager {
     if (updates.openTabs) {
       next.openTabs = updates.openTabs.map((tab: RequestTab) => ({
         ...tab,
-        response: this.sanitizeResponse(tab.response),
+        response: this.sanitizeTabResponse(tab.response),
       }));
     }
 
@@ -140,6 +140,18 @@ class StoreManager {
     return next;
   }
 
+  // For open tabs: preserve body up to 1 MB so responses are visible after restart
+  private sanitizeTabResponse(response?: ApiResponse): ApiResponse | undefined {
+    if (!response) return undefined;
+
+    const MAX_BODY_CHARS = 1_000_000; // ~1 MB
+    return {
+      ...response,
+      body: response.body.length > MAX_BODY_CHARS ? response.body.slice(0, MAX_BODY_CHARS) : response.body,
+    };
+  }
+
+  // For history entries: strip body to keep the store lean
   private sanitizeResponse(response?: ApiResponse): ApiResponse | undefined {
     if (!response) return undefined;
 
