@@ -5,6 +5,12 @@ import { ipcManager } from './modules/ipc-manager';
 import { aiEngine } from './modules/ai-engine';
 import { mockServerManager } from './modules/mock-server-manager';
 
+if (process.env.NODE_ENV !== 'development') {
+  console.log = () => {};
+  console.debug = () => {};
+  console.info = () => {};
+}
+
 class ApiCourierApp {
   private isQuitting = false;
 

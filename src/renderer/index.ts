@@ -1,4 +1,11 @@
 import './styles/main.scss';
+
+if (process.env.NODE_ENV !== 'development') {
+  console.log = () => {};
+  console.debug = () => {};
+  console.info = () => {};
+}
+
 import { ApiCourierAPI } from '../preload/index';
 import { AppManager } from './components/app-manager';
 import { TabsManager } from './components/tabs-manager';
