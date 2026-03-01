@@ -14,6 +14,8 @@ export class RequestDataManager {
   private cancelledRequestIds = new Set<string>();
   private emittedCancellationIds = new Set<string>();
   private uiHelpers = new UIHelpers();
+  private curlPreviewUpdateTimeout?: number;
+  private curlPreviewRenderToken = 0;
 
   constructor(onShowError: (message: string) => void, editorsManager?: RequestEditorsManager) {
     this.onShowError = onShowError;
@@ -39,13 +41,24 @@ export class RequestDataManager {
     this.toggleRequestButtons(false);
   }
 
-  setupCopyCurlButton(): void {
-    const copyBtn = document.getElementById('copy-curl');
+  setupSwitchToSoapButton(): void {
+    const switchBtn = document.getElementById('switch-to-soap');
+    if (!switchBtn) return;
+
+    switchBtn.addEventListener('click', () => {
+      // Intentionally left blank for upcoming SOAP switching flow.
+    });
+  }
+
+  setupCurlTab(): void {
+    const copyBtn = document.getElementById('copy-curl-command');
     if (copyBtn) {
       copyBtn.addEventListener('click', async () => {
-        await this.copyCurl();
+        await this.copyCurlFromTab();
       });
     }
+
+    this.scheduleCurlPreviewUpdate();
   }
 
   setupCancelButton(): void {
@@ -81,6 +94,7 @@ export class RequestDataManager {
 
   setCurrentRequest(request: ApiRequest | null): void {
     this.currentRequest = request;
+    this.scheduleCurlPreviewUpdate();
   }
 
   getCurrentRequest(): ApiRequest | null {
@@ -91,6 +105,7 @@ export class RequestDataManager {
     if (!this.currentRequest) return;
 
     this.currentRequest = { ...this.currentRequest, ...updates };
+    this.scheduleCurlPreviewUpdate();
 
     const event = new CustomEvent('request-updated', {
       detail: { request: this.currentRequest }
@@ -98,19 +113,81 @@ export class RequestDataManager {
     document.dispatchEvent(event);
   }
 
-  private async copyCurl(): Promise<void> {
+  private scheduleCurlPreviewUpdate(): void {
+    if (this.curlPreviewUpdateTimeout) {
+      window.clearTimeout(this.curlPreviewUpdateTimeout);
+    }
+
+    this.curlPreviewUpdateTimeout = window.setTimeout(() => {
+      void this.renderCurlPreview();
+    }, 120);
+  }
+
+  private getCurlOutputElement(): HTMLTextAreaElement | null {
+    return document.getElementById('curl-command-output') as HTMLTextAreaElement | null;
+  }
+
+  private cloneRequestForCurl(request: ApiRequest): ApiRequest {
+    return {
+      ...request,
+      params: Array.isArray(request.params) ? request.params.map((param) => ({ ...param })) : request.params ? { ...request.params } : request.params,
+      headers: Array.isArray(request.headers) ? request.headers.map((header) => ({ ...header })) : { ...request.headers },
+      body: request.body ? { ...request.body } : request.body,
+      auth: request.auth ? { ...request.auth, config: { ...request.auth.config } } : request.auth
+    };
+  }
+
+  private async buildCurlForCurrentRequest(): Promise<string | null> {
+    if (!this.currentRequest) {
+      return null;
+    }
+
+    if (!this.currentRequest.url?.trim()) {
+      return '';
+    }
+
+    const requestSnapshot = this.cloneRequestForCurl(this.currentRequest);
+    const resolvedRequest = await resolveRequestVariables(requestSnapshot);
+    return buildCurlCommand(resolvedRequest);
+  }
+
+  private async renderCurlPreview(): Promise<void> {
+    const curlOutput = this.getCurlOutputElement();
+    if (!curlOutput) return;
+
+    if (!this.currentRequest) {
+      curlOutput.value = '';
+      return;
+    }
+
+    const renderToken = ++this.curlPreviewRenderToken;
+
+    try {
+      const curlCommand = await this.buildCurlForCurrentRequest();
+      if (renderToken !== this.curlPreviewRenderToken) return;
+      curlOutput.value = curlCommand || '';
+    } catch (error) {
+      if (renderToken !== this.curlPreviewRenderToken) return;
+      console.error('Failed to render cURL preview:', error);
+      curlOutput.value = '';
+    }
+  }
+
+  private async copyCurlFromTab(): Promise<void> {
     if (!this.currentRequest) {
       this.uiHelpers.showToast('No request to copy');
       return;
     }
 
-    if (!this.currentRequest.url) {
+    let curlCommand = this.getCurlOutputElement()?.value?.trim() || '';
+    if (!curlCommand) {
+      curlCommand = (await this.buildCurlForCurrentRequest()) || '';
+    }
+
+    if (!curlCommand) {
       this.uiHelpers.showToast('Request URL is empty');
       return;
     }
-
-    const resolvedRequest = await resolveRequestVariables(this.currentRequest);
-    const curlCommand = buildCurlCommand(resolvedRequest);
 
     try {
       if (navigator.clipboard) {

@@ -139,9 +139,10 @@
                                         <button class="tab" data-section="body">Body</button>
                                         <button class="tab" data-section="auth">Auth</button>
                                         <button class="tab" data-section="headers">Headers</button>
+                                        <button class="tab" data-section="curl">CURL</button>
                                         </div>
                                         <div class="tabs-right">
-                                            <button id="copy-curl" class="copy-curl-btn" title="Copy curl">Copy curl</button>
+                                            <button id="switch-to-soap" class="copy-curl-btn" title="Switch to SOAP">Switch to SOAP</button>
                                         </div>
                                     </div>
 
@@ -186,6 +187,20 @@
                                             </div>
                                         </div>
                                         <button class="add-header-btn">Add Header</button>
+                                    </div>
+
+                                    <div id="curl-section" class="section">
+                                        <div class="curl-section-toolbar">
+                                            <button id="copy-curl-command" class="curl-copy-btn" title="Copy cURL command">Copy</button>
+                                        </div>
+                                        <textarea
+                                          id="curl-command-output"
+                                          class="curl-output"
+                                          spellcheck="false"
+                                          readonly
+                                          aria-label="Generated cURL command"
+                                          placeholder="cURL command will appear here">
+                                        </textarea>
                                     </div>
                                 </div>
                             </div>

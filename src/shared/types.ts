@@ -55,7 +55,7 @@ export interface RequestTab {
   response?: ApiResponse;
   isModified: boolean;
   collectionId?: string; // Track which collection this tab belongs to
-  activeDetailsTab?: string; // Track active tab (params/headers/body/auth) for this request tab
+  activeDetailsTab?: string; // Track active tab (params/body/auth/headers/curl) for this request tab
 }
 
 export interface HistoryItem {
