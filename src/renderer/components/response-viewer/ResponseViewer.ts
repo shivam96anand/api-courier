@@ -1,4 +1,4 @@
-import { ApiResponse } from '../../../shared/types';
+import { ApiResponse, RequestMode } from '../../../shared/types';
 import { ResponseViewerConfig } from '../../types/response-types';
 import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
 import { JsonViewerUtilities } from '../json-viewer/utilities';
@@ -12,6 +12,7 @@ export class ResponseViewer {
   private currentFormatter: 'json' | 'plain' | null = null;
   private parsedJsonData: unknown | null = null;
   private detectedJsonBody = false;
+  private currentSoapFault = false;
   private currentRequestId: string = 'default';
   private lastResponseTimestamps: Map<string, number> = new Map();
 
@@ -55,7 +56,7 @@ export class ResponseViewer {
     }
   }
 
-  public async displayResponse(response: ApiResponse): Promise<void> {
+  public async displayResponse(response: ApiResponse, requestMode: RequestMode = 'rest'): Promise<void> {
     const lastTimestamp = this.lastResponseTimestamps.get(this.currentRequestId);
     if (response.timestamp !== lastTimestamp) {
       console.log(`[ResponseViewer] New response detected (size: ${response.size} bytes)`);
@@ -64,12 +65,12 @@ export class ResponseViewer {
       console.log(`[ResponseViewer] Same response (size: ${response.size} bytes)`);
     }
 
-    await this.updateResponseBody(response);
+    await this.updateResponseBody(response, requestMode);
     this.updateResponseHeaders(response);
     this.updateResponseMeta(response);
   }
 
-  private async updateResponseBody(response: ApiResponse): Promise<void> {
+  private async updateResponseBody(response: ApiResponse, requestMode: RequestMode): Promise<void> {
     const bodyElement = document.getElementById('response-body');
     if (!bodyElement) return;
 
@@ -79,11 +80,31 @@ export class ResponseViewer {
       this.currentFormatter = null;
       this.parsedJsonData = null;
       this.detectedJsonBody = false;
+      this.currentSoapFault = false;
+      this.updateSoapFaultBadge(false);
       this.emitModeChanged();
       return;
     }
 
     const contentType = response.headers['content-type'] || '';
+    this.currentSoapFault = false;
+    const isXmlMode = requestMode === 'soap' || this.isXmlContentType(contentType);
+    if (isXmlMode) {
+      const xmlParseResult = this.tryParseXml(response.body);
+      if (xmlParseResult.ok && xmlParseResult.document) {
+        const formattedXml = this.prettyPrintXml(xmlParseResult.document);
+        const hasSoapFault = this.hasSoapFault(xmlParseResult.document);
+        this.setupXmlView(bodyElement, formattedXml, hasSoapFault);
+        this.currentFormatter = 'plain';
+        this.parsedJsonData = null;
+        this.detectedJsonBody = false;
+        this.currentSoapFault = hasSoapFault;
+        this.updateSoapFaultBadge(hasSoapFault);
+        this.emitModeChanged();
+        return;
+      }
+    }
+
     const responseBytes = this.getResponseBytes(response);
     const isJsonContentType = this.isJsonContentType(contentType);
     const shouldSniffJson = !isJsonContentType && responseBytes <= ResponseViewer.JSON_SNIFF_LIMIT_BYTES;
@@ -126,9 +147,42 @@ export class ResponseViewer {
       this.currentFormatter = 'plain';
       this.parsedJsonData = null;
       this.detectedJsonBody = false;
+      this.currentSoapFault = false;
     }
 
+    this.updateSoapFaultBadge(this.currentSoapFault);
     this.emitModeChanged();
+  }
+
+  private setupXmlView(container: HTMLElement, xml: string, hasSoapFault: boolean): void {
+    this.disposeMonaco();
+    this.parsedJsonData = null;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `xml-response-wrapper${hasSoapFault ? ' has-soap-fault' : ''}`;
+
+    if (hasSoapFault) {
+      const banner = document.createElement('div');
+      banner.className = 'soap-fault-banner';
+      banner.textContent = 'SOAP Fault detected';
+      wrapper.appendChild(banner);
+    }
+
+    const preElement = document.createElement('pre');
+    preElement.className = `xml-response${hasSoapFault ? ' soap-fault' : ''}`;
+    const codeElement = document.createElement('code');
+
+    if (hasSoapFault) {
+      codeElement.innerHTML = this.highlightSoapFault(xml);
+    } else {
+      codeElement.textContent = xml;
+    }
+
+    preElement.appendChild(codeElement);
+    wrapper.appendChild(preElement);
+
+    container.innerHTML = '';
+    container.appendChild(wrapper);
   }
 
   private async setupJsonViewer(container: HTMLElement, jsonData: any, _responseSize?: number): Promise<boolean> {
@@ -593,6 +647,8 @@ export class ResponseViewer {
     this.currentFormatter = null;
     this.parsedJsonData = null;
     this.detectedJsonBody = false;
+    this.currentSoapFault = false;
+    this.updateSoapFaultBadge(false);
     this.emitModeChanged();
   }
 
@@ -606,6 +662,94 @@ export class ResponseViewer {
 
   private isJsonContentType(contentType: string): boolean {
     return /\bapplication\/(.+\+)?json\b/i.test(contentType);
+  }
+
+  private isXmlContentType(contentType: string): boolean {
+    return /\b(application|text)\/(.+\+)?xml\b/i.test(contentType);
+  }
+
+  private tryParseXml(str: string): { ok: boolean; document?: Document } {
+    try {
+      const parser = new DOMParser();
+      const documentNode = parser.parseFromString(str, 'application/xml');
+      const parserError = documentNode.querySelector('parsererror');
+      if (parserError) {
+        return { ok: false };
+      }
+      return { ok: true, document: documentNode };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  private hasSoapFault(documentNode: Document): boolean {
+    const allElements = Array.from(documentNode.getElementsByTagName('*'));
+    return allElements.some((element) => element.localName?.toLowerCase() === 'fault');
+  }
+
+  private prettyPrintXml(documentNode: Document): string {
+    const serializeNode = (node: Node, depth: number): string => {
+      const indent = '  '.repeat(depth);
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = (node.nodeValue || '').trim();
+        return text ? `${indent}${text}\n` : '';
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+      }
+
+      const element = node as Element;
+      const attrs = Array.from(element.attributes)
+        .map((attr) => `${attr.name}=\"${attr.value}\"`)
+        .join(' ');
+      const openTag = attrs ? `<${element.tagName} ${attrs}>` : `<${element.tagName}>`;
+
+      const children = Array.from(element.childNodes)
+        .filter((child) => child.nodeType === Node.ELEMENT_NODE || ((child.nodeType === Node.TEXT_NODE) && (child.nodeValue || '').trim()));
+
+      if (children.length === 0) {
+        return `${indent}${openTag.replace('>', '/>')}\n`;
+      }
+
+      const textOnly = children.every((child) => child.nodeType === Node.TEXT_NODE);
+      if (textOnly) {
+        const text = children.map((child) => (child.nodeValue || '').trim()).join('');
+        return `${indent}${openTag}${text}</${element.tagName}>\n`;
+      }
+
+      let result = `${indent}${openTag}\n`;
+      children.forEach((child) => {
+        result += serializeNode(child, depth + 1);
+      });
+      result += `${indent}</${element.tagName}>\n`;
+      return result;
+    };
+
+    const declaration = '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n';
+    return `${declaration}${serializeNode(documentNode.documentElement, 0).trimEnd()}`;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  private highlightSoapFault(xml: string): string {
+    const escaped = this.escapeHtml(xml);
+    return escaped.replace(
+      /(&lt;\/?[\w:-]*Fault(?:\s+[^&]*?)?&gt;)/g,
+      '<span class=\"soap-fault-node\">$1</span>'
+    );
+  }
+
+  private updateSoapFaultBadge(hasFault: boolean): void {
+    const faultChip = document.getElementById('meta-soap-fault');
+    if (!faultChip) return;
+    faultChip.style.display = hasFault ? 'inline-flex' : 'none';
   }
 
   private getResponseBytes(response: ApiResponse): number {
@@ -642,6 +786,7 @@ export class ResponseViewer {
     this.currentFormatter = null;
     this.parsedJsonData = null;
     this.detectedJsonBody = false;
+    this.currentSoapFault = false;
   }
 
   private disposeMonaco(): void {

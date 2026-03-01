@@ -21,6 +21,7 @@ export class RequestBodyEditor {
   private folderVars: any;
   private highlightOverlay: HTMLDivElement | null = null;
   private monacoEditor: MonacoJsonEditor | null = null;
+  private forcedContentType?: string;
   private readonly formatContentTypes: Record<BodyFormat, string> = {
     json: 'application/json',
     xml: 'application/xml',
@@ -491,6 +492,21 @@ export class RequestBodyEditor {
     }
   }
 
+  public setForcedContentType(contentType?: string): void {
+    this.forcedContentType = contentType;
+    this.handleBodyContentChange();
+  }
+
+  public focusEditor(): void {
+    if (this.monacoEditor) {
+      this.monacoEditor.focus();
+      return;
+    }
+
+    const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement | null;
+    bodyEditor?.focus();
+  }
+
   public destroy(): void {
     // Cleanup Monaco editor
     if (this.monacoEditor) {
@@ -536,6 +552,9 @@ export class RequestBodyEditor {
     if (this.currentBodyType === 'none') {
       return undefined;
     }
+    if (this.forcedContentType) {
+      return this.forcedContentType;
+    }
     return this.formatContentTypes[this.currentFormat] || undefined;
   }
 
@@ -550,6 +569,7 @@ export class RequestBodyEditor {
         return 'json';
       case 'application/xml':
       case 'text/xml':
+      case 'application/soap+xml':
         return 'xml';
       case 'application/x-yaml':
       case 'text/yaml':

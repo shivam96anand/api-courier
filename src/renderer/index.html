@@ -146,6 +146,26 @@
                                         </div>
                                     </div>
 
+                                    <div id="soap-controls" class="soap-controls" style="display: none;">
+                                        <div class="soap-controls__row">
+                                            <label for="soap-version" class="soap-field">
+                                                <span class="soap-field__label">SOAP Version</span>
+                                                <select id="soap-version" class="soap-select">
+                                                    <option value="1.1">1.1</option>
+                                                    <option value="1.2">1.2</option>
+                                                </select>
+                                            </label>
+                                            <label for="soap-action" id="soap-action-field" class="soap-field">
+                                                <span class="soap-field__label">SOAPAction</span>
+                                                <input id="soap-action" type="text" class="soap-input" placeholder="urn:action-or-endpoint">
+                                            </label>
+                                            <div class="soap-controls__actions">
+                                                <button id="soap-format-xml" class="soap-action-btn" title="Format XML body">Format XML</button>
+                                            </div>
+                                        </div>
+                                        <div id="soap-validation-message" class="soap-validation-message" role="status" aria-live="polite"></div>
+                                    </div>
+
                                     <div id="params-section" class="section active">
                                         <div class="key-value-editor" id="params-editor">
                                             <div class="kv-row">
@@ -159,7 +179,7 @@
                                     </div>
 
                                     <div id="body-section" class="section">
-                                        <!-- Enhanced body editor will be inserted here by RequestBodyEditor -->
+                                        <div id="request-body-editor-host"></div>
                                     </div>
 
                                     <div id="auth-section" class="section">

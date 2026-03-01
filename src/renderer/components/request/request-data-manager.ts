@@ -1,4 +1,4 @@
-import { ApiRequest } from '../../../shared/types';
+import { ApiRequest, RequestMode } from '../../../shared/types';
 import { RequestEditorsManager } from './request-editors-manager';
 import { UIHelpers } from './UIHelpers';
 import { buildCurlCommand } from './curl-builder';
@@ -16,6 +16,9 @@ export class RequestDataManager {
   private uiHelpers = new UIHelpers();
   private curlPreviewUpdateTimeout?: number;
   private curlPreviewRenderToken = 0;
+  private requestMode: RequestMode = 'rest';
+  private isCurrentRequestValid = true;
+  private currentInvalidReason = '';
 
   constructor(onShowError: (message: string) => void, editorsManager?: RequestEditorsManager) {
     this.onShowError = onShowError;
@@ -46,7 +49,7 @@ export class RequestDataManager {
     if (!switchBtn) return;
 
     switchBtn.addEventListener('click', () => {
-      // Intentionally left blank for upcoming SOAP switching flow.
+      document.dispatchEvent(new CustomEvent('request-mode-toggle-clicked'));
     });
   }
 
@@ -83,10 +86,12 @@ export class RequestDataManager {
       const activeTab = customEvent.detail.activeTab;
       if (activeTab) {
         this.setCurrentRequest(activeTab.request);
+        this.setRequestMode((activeTab.requestMode || 'rest') as RequestMode);
         const isActiveTabSending = this.sendingRequestIds.has(activeTab.request.id);
         this.toggleRequestButtons(isActiveTabSending);
       } else {
         this.setCurrentRequest(null);
+        this.setRequestMode('rest');
         this.toggleRequestButtons(false);
       }
     });
@@ -95,6 +100,23 @@ export class RequestDataManager {
   setCurrentRequest(request: ApiRequest | null): void {
     this.currentRequest = request;
     this.scheduleCurlPreviewUpdate();
+  }
+
+  setRequestMode(mode: RequestMode): void {
+    this.requestMode = mode;
+  }
+
+  getRequestMode(): RequestMode {
+    return this.requestMode;
+  }
+
+  setRequestValidity(isValid: boolean, reason = ''): void {
+    this.isCurrentRequestValid = isValid;
+    this.currentInvalidReason = reason;
+    const isCurrentTabSending = this.currentRequest
+      ? this.sendingRequestIds.has(this.currentRequest.id)
+      : false;
+    this.toggleRequestButtons(isCurrentTabSending);
   }
 
   getCurrentRequest(): ApiRequest | null {
@@ -108,7 +130,7 @@ export class RequestDataManager {
     this.scheduleCurlPreviewUpdate();
 
     const event = new CustomEvent('request-updated', {
-      detail: { request: this.currentRequest }
+      detail: { request: this.currentRequest, requestMode: this.requestMode }
     });
     document.dispatchEvent(event);
   }
@@ -209,10 +231,18 @@ export class RequestDataManager {
 
   private async sendRequest(): Promise<void> {
     if (!this.currentRequest) return;
+    if (!this.isCurrentRequestValid) {
+      this.uiHelpers.showToast(this.currentInvalidReason || 'Request is invalid');
+      return;
+    }
 
     // Capture request at send time — tab switches must not change what we're sending
     const sendingRequest = { ...this.currentRequest };
+    if (this.requestMode === 'soap') {
+      sendingRequest.method = 'POST';
+    }
     const requestId = sendingRequest.id;
+    const sendingRequestMode = this.requestMode;
 
     this.sendingRequestIds.add(requestId);
     this.toggleRequestButtons(true);
@@ -232,7 +262,7 @@ export class RequestDataManager {
       }
 
       const event = new CustomEvent('response-received', {
-        detail: { response, request: sendingRequest }
+        detail: { response, request: sendingRequest, requestMode: sendingRequestMode }
       });
       document.dispatchEvent(event);
     } catch (error) {
@@ -326,7 +356,8 @@ export class RequestDataManager {
 
     if (sendBtn) {
       sendBtn.textContent = isSending ? 'Sending...' : 'Send';
-      sendBtn.disabled = isSending;
+      sendBtn.disabled = isSending || !this.isCurrentRequestValid;
+      sendBtn.title = !this.isCurrentRequestValid ? (this.currentInvalidReason || 'Request is invalid') : '';
     }
 
     if (cancelBtn) {

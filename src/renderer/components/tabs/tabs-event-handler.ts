@@ -1,4 +1,4 @@
-import { RequestTab } from '../../../shared/types';
+import { ApiRequest, RequestMode, RequestTab } from '../../../shared/types';
 import { iconHtml } from '../../utils/icons';
 
 export class TabsEventHandler {
@@ -77,8 +77,43 @@ export class TabsEventHandler {
     document.addEventListener('request-updated', (e: Event) => {
       const customEvent = e as CustomEvent;
       const updatedRequest = customEvent.detail.request;
+      const requestMode = customEvent.detail.requestMode as RequestMode | undefined;
       if (updatedRequest) {
-        this.onUpdateActiveTab({ request: updatedRequest }, true);
+        const updates: Partial<RequestTab> = { request: updatedRequest };
+        if (requestMode === 'soap') {
+          updates.requestMode = 'soap';
+          updates.soapDraft = this.cloneRequest(updatedRequest);
+        } else if (requestMode === 'rest') {
+          updates.requestMode = 'rest';
+          updates.restDraft = this.cloneRequest(updatedRequest);
+        }
+        this.onUpdateActiveTab(updates, true);
+      }
+    });
+
+    document.addEventListener('request-mode-switched', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail || {};
+      const updates: Partial<RequestTab> = {};
+
+      if (detail.request) {
+        updates.request = detail.request as ApiRequest;
+      }
+      if (detail.requestMode) {
+        updates.requestMode = detail.requestMode as RequestMode;
+      }
+      if (detail.restDraft) {
+        updates.restDraft = detail.restDraft as ApiRequest;
+      }
+      if (detail.soapDraft) {
+        updates.soapDraft = detail.soapDraft as ApiRequest;
+      }
+      if (detail.activeDetailsTab) {
+        updates.activeDetailsTab = detail.activeDetailsTab as string;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        this.onUpdateActiveTab(updates, true);
       }
     });
 
@@ -282,5 +317,23 @@ export class TabsEventHandler {
         document.body.removeChild(notification);
       }
     }, 3000);
+  }
+
+  private cloneRequest(request: ApiRequest): ApiRequest {
+    return {
+      ...request,
+      params: Array.isArray(request.params)
+        ? request.params.map((param) => ({ ...param }))
+        : request.params
+          ? { ...request.params }
+          : request.params,
+      headers: Array.isArray(request.headers)
+        ? request.headers.map((header) => ({ ...header }))
+        : { ...request.headers },
+      body: request.body ? { ...request.body } : request.body,
+      auth: request.auth ? { ...request.auth, config: { ...request.auth.config } } : request.auth,
+      soap: request.soap ? { ...request.soap } : request.soap,
+      variables: request.variables ? { ...request.variables } : request.variables,
+    };
   }
 }

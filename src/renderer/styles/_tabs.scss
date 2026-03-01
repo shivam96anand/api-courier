@@ -219,6 +219,22 @@
   line-height: 1;
 }
 
+.meta-chip--soap-fault {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+  margin-left: 6px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
 // ── Divider dot between chips ──
 .meta-divider {
   color: var(--border-color);

@@ -1,4 +1,4 @@
-import { ApiResponse } from '../../shared/types';
+import { ApiResponse, RequestMode } from '../../shared/types';
 import { ResponseState, ResponseManagerConfig } from '../types/response-types';
 import { ResponseViewer } from './response-viewer/ResponseViewer';
 import { ResponseTabs } from './response-viewer/ResponseTabs';
@@ -18,6 +18,7 @@ export class ResponseManager {
   private currentRequestId: string = 'default';
   private pendingRequests: Map<string, number> = new Map();
   private activeTabRequestId: string | null = null;
+  private activeTabRequestMode: RequestMode = 'rest';
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -110,6 +111,7 @@ export class ResponseManager {
       const customEvent = e as CustomEvent;
       const response = customEvent.detail.response;
       const requestId = customEvent.detail.request?.id;
+      const requestMode = (customEvent.detail.requestMode || this.activeTabRequestMode) as RequestMode;
 
       // Always remove from pending
       if (requestId) {
@@ -119,7 +121,7 @@ export class ResponseManager {
       // Only display if this response belongs to the currently active tab
       if (requestId && requestId === this.activeTabRequestId) {
         this.hideLoadingState();
-        await this.displayResponse(response);
+        await this.displayResponse(response, requestMode);
       }
     });
 
@@ -160,6 +162,7 @@ export class ResponseManager {
 
       if (activeTab) {
         this.activeTabRequestId = activeTab.request?.id || null;
+        this.activeTabRequestMode = (activeTab.requestMode || 'rest') as RequestMode;
         this.currentRequestId = activeTab.id || 'default';
 
         // Check if this tab has a pending request (still loading)
@@ -169,13 +172,14 @@ export class ResponseManager {
         } else if (activeTab.response) {
           // Tab has a response — display it
           this.hideLoadingState();
-          await this.displayResponse(activeTab.response);
+          await this.displayResponse(activeTab.response, this.activeTabRequestMode);
         } else {
           // No pending request, no response — clear
           this.clearResponse();
         }
       } else {
         this.activeTabRequestId = null;
+        this.activeTabRequestMode = 'rest';
         this.currentRequestId = 'default';
         this.clearResponse();
       }
@@ -200,10 +204,10 @@ export class ResponseManager {
     });
   }
 
-  private async displayResponse(response: ApiResponse): Promise<void> {
+  private async displayResponse(response: ApiResponse, requestMode: RequestMode = 'rest'): Promise<void> {
     this.state.currentResponse = response;
     this.viewer.setRequestId(this.currentRequestId);
-    await this.viewer.displayResponse(response);
+    await this.viewer.displayResponse(response, requestMode);
     this.tabs.updateTabs(response);
     this.actions.updateVisibility(response, this.state.activeTab, this.viewer.isJsonBody());
   }

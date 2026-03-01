@@ -17,6 +17,13 @@ export interface KeyValuePair {
   enabled: boolean;
 }
 
+export type RequestMode = 'rest' | 'soap';
+
+export interface SoapRequestConfig {
+  version: '1.1' | '1.2';
+  action?: string;
+}
+
 export interface ApiRequest {
   id: string;
   name: string;
@@ -34,6 +41,7 @@ export interface ApiRequest {
     type: 'none' | 'basic' | 'bearer' | 'api-key' | 'oauth2';
     config: Record<string, string>;
   };
+  soap?: SoapRequestConfig;
   variables?: Record<string, string>; // request-local variables
   collectionId?: string; // track which collection/folder this request belongs to
 }
@@ -55,6 +63,9 @@ export interface RequestTab {
   response?: ApiResponse;
   isModified: boolean;
   collectionId?: string; // Track which collection this tab belongs to
+  requestMode?: RequestMode; // Tracks protocol mode for this tab
+  restDraft?: ApiRequest; // Preserved REST draft for mode switching
+  soapDraft?: ApiRequest; // Preserved SOAP draft for mode switching
   activeDetailsTab?: string; // Track active tab (params/body/auth/headers/curl) for this request tab
 }
 

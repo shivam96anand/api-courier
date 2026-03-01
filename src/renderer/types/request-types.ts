@@ -1,4 +1,4 @@
-import { ApiRequest } from '../../shared/types';
+import { ApiRequest, RequestMode } from '../../shared/types';
 
 export type EditorType = 'json' | 'raw' | 'form-data' | 'x-www-form-urlencoded' | 'binary';
 
@@ -114,6 +114,9 @@ export interface RequestStateCache {
   request: ApiRequest;
   collectionId?: string;
   variableContext: VariableContext;
+  requestMode?: RequestMode;
+  restDraft?: ApiRequest;
+  soapDraft?: ApiRequest;
   activeDetailsTab?: string;
   timestamp: number;
 }

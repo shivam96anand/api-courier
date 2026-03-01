@@ -28,7 +28,12 @@ export class TabsStateManager {
   }
 
   setTabs(tabs: RequestTab[], activeTabId?: string): void {
-    this.tabs = tabs;
+    this.tabs = tabs.map((tab) => ({
+      ...tab,
+      requestMode: tab.requestMode || 'rest',
+      restDraft: tab.restDraft ? this.cloneRequest(tab.restDraft) : this.cloneRequest(tab.request),
+      soapDraft: tab.soapDraft ? this.cloneRequest(tab.soapDraft) : undefined,
+    }));
     this.activeTabId = activeTabId;
   }
 
@@ -50,6 +55,9 @@ export class TabsStateManager {
       id: this.generateId(),
       name: newRequest.name,
       request: newRequest,
+      requestMode: 'rest',
+      restDraft: this.cloneRequest(newRequest),
+      soapDraft: undefined,
       isModified: false,
     };
 
@@ -152,10 +160,14 @@ export class TabsStateManager {
       this.onNotifyTabChange();
       this.saveState();
     } else {
+      const requestWithCollection = { ...request, collectionId };
       const newTab: RequestTab = {
         id: this.generateId(),
         name: request.name,
-        request: { ...request, collectionId }, // Add collectionId to request
+        request: requestWithCollection, // Add collectionId to request
+        requestMode: request.soap ? 'soap' : 'rest',
+        restDraft: this.cloneRequest(requestWithCollection),
+        soapDraft: request.soap ? this.cloneRequest(requestWithCollection) : undefined,
         isModified: false,
         collectionId: collectionId,
       };
@@ -176,10 +188,14 @@ export class TabsStateManager {
       this.onNotifyTabChange();
       this.saveState();
     } else {
+      const requestWithCollection = { ...request, collectionId };
       const newTab: RequestTab = {
         id: this.generateId(),
         name: request.name,
-        request: { ...request, collectionId }, // Add collectionId to request
+        request: requestWithCollection, // Add collectionId to request
+        requestMode: request.soap ? 'soap' : 'rest',
+        restDraft: this.cloneRequest(requestWithCollection),
+        soapDraft: request.soap ? this.cloneRequest(requestWithCollection) : undefined,
         response: { ...response },
         isModified: false,
         collectionId: collectionId,
@@ -253,13 +269,21 @@ export class TabsStateManager {
     const originalTab = this.tabs.find(tab => tab.id === tabId);
     if (!originalTab) return;
 
+    const duplicatedRequestId = this.generateId();
     const duplicatedTab: RequestTab = {
       id: this.generateId(),
       name: `${originalTab.name} (Copy)`,
       request: {
         ...originalTab.request,
-        id: this.generateId()
+        id: duplicatedRequestId
       },
+      requestMode: originalTab.requestMode || 'rest',
+      restDraft: originalTab.restDraft
+        ? { ...originalTab.restDraft, id: duplicatedRequestId }
+        : undefined,
+      soapDraft: originalTab.soapDraft
+        ? { ...originalTab.soapDraft, id: duplicatedRequestId }
+        : undefined,
       response: originalTab.response ? { ...originalTab.response } : undefined,
       isModified: true
     };
@@ -318,6 +342,24 @@ export class TabsStateManager {
 
   private generateId(): string {
     return Math.random().toString(36).substr(2, 9);
+  }
+
+  private cloneRequest(request: ApiRequest): ApiRequest {
+    return {
+      ...request,
+      params: Array.isArray(request.params)
+        ? request.params.map((param) => ({ ...param }))
+        : request.params
+          ? { ...request.params }
+          : request.params,
+      headers: Array.isArray(request.headers)
+        ? request.headers.map((header) => ({ ...header }))
+        : { ...request.headers },
+      body: request.body ? { ...request.body } : request.body,
+      auth: request.auth ? { ...request.auth, config: { ...request.auth.config } } : request.auth,
+      soap: request.soap ? { ...request.soap } : request.soap,
+      variables: request.variables ? { ...request.variables } : request.variables,
+    };
   }
 
   private saveState(): void {

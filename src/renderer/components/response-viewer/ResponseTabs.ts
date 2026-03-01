@@ -49,6 +49,7 @@ export class ResponseTabs {
       <span class="meta-chip meta-chip--time" id="meta-time">---</span>
       <span class="meta-divider">&middot;</span>
       <span class="meta-chip meta-chip--size" id="meta-size">---</span>
+      <span class="meta-chip meta-chip--soap-fault" id="meta-soap-fault" style="display:none;">SOAP Fault</span>
     `;
 
     // Right section: timestamp
@@ -117,10 +118,12 @@ export class ResponseTabs {
     const timeEl = document.getElementById('meta-time');
     const sizeEl = document.getElementById('meta-size');
     const timestampEl = document.getElementById('response-timestamp');
+    const soapFaultEl = document.getElementById('meta-soap-fault');
 
     if (statusEl) statusEl.textContent = '---';
     if (timeEl) timeEl.textContent = '---';
     if (sizeEl) sizeEl.textContent = '---';
+    if (soapFaultEl) soapFaultEl.style.display = 'none';
     if (timestampEl) timestampEl.textContent = '';
 
     if (this.tabsContainer) {

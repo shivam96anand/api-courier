@@ -77,6 +77,45 @@ pre, code, .json-viewer, .json-content {
   font-family: var(--font-mono);
 }
 
+.xml-response-wrapper {
+  padding: 8px 12px 12px;
+}
+
+.soap-fault-banner {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.xml-response {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-tertiary);
+  overflow: auto;
+  max-height: 420px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  font-size: 12px;
+}
+
+.soap-fault-node {
+  color: #f97316;
+  font-weight: 700;
+  background: rgba(249, 115, 22, 0.16);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
 // Error Response Styling
 .response-body-error {
   .json-viewer {

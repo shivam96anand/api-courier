@@ -28,6 +28,7 @@ export class RequestEditorsManager {
   private oauth2Manager!: OAuth2Manager;
   private variableResolver!: VariableResolver;
   private uiHelpers!: UIHelpers;
+  private isContentTypeSyncEnabled = true;
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
     this.onRequestUpdate = onRequestUpdate;
@@ -182,17 +183,21 @@ export class RequestEditorsManager {
   }
 
   setupBodyEditor(): void {
-    const bodySection = document.getElementById('body-section');
+    const bodySection = document.getElementById('request-body-editor-host') || document.getElementById('body-section');
     if (!bodySection) return;
 
     // Initialize the enhanced body editor (keeping existing implementation)
     this.bodyEditor = new RequestBodyEditor(bodySection, {
       onBodyChange: (body) => {
-        this.syncContentTypeHeader(body.contentType);
+        if (this.isContentTypeSyncEnabled) {
+          this.syncContentTypeHeader(body.contentType);
+        }
         this.onRequestUpdate({ body });
       },
       onContentTypeChange: (contentType) => {
-        this.syncContentTypeHeader(contentType || undefined);
+        if (this.isContentTypeSyncEnabled) {
+          this.syncContentTypeHeader(contentType || undefined);
+        }
       },
       onStatusUpdate: (type, message) => {
         if (type === 'error') {
@@ -307,6 +312,7 @@ export class RequestEditorsManager {
 
   clearEditors(): void {
     if (this.bodyEditor) {
+      this.bodyEditor.setForcedContentType(undefined);
       this.bodyEditor.clear();
     }
 
@@ -349,6 +355,32 @@ export class RequestEditorsManager {
 
   updateTokenInfo(config: Record<string, string>): void {
     this.uiHelpers.updateTokenInfo(config);
+  }
+
+  setContentTypeSyncEnabled(enabled: boolean): void {
+    this.isContentTypeSyncEnabled = enabled;
+  }
+
+  setBodySoapMode(enabled: boolean, forcedContentType?: string): void {
+    const bodySection = document.getElementById('body-section');
+    if (bodySection) {
+      bodySection.classList.toggle('soap-mode', enabled);
+    }
+    if (this.bodyEditor) {
+      this.bodyEditor.setForcedContentType(enabled ? forcedContentType : undefined);
+    }
+  }
+
+  focusBodyEditor(): void {
+    this.bodyEditor?.focusEditor();
+  }
+
+  upsertHeader(key: string, value: string): void {
+    this.headersManager.updateHeader(key, value);
+  }
+
+  removeHeader(key: string): void {
+    this.headersManager.removeHeader(key);
   }
 
   private syncContentTypeHeader(contentType?: string | null): void {
