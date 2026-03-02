@@ -331,8 +331,8 @@ class IpcManager {
       return storeManager.listBackups(5);
     });
 
-    ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE, (_, backupId: string): void => {
-      storeManager.restoreBackup(backupId);
+    ipcMain.handle(IPC_CHANNELS.BACKUP_RESTORE, async (_, backupId: string): Promise<void> => {
+      await storeManager.restoreBackup(backupId);
     });
 
     ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, async (_, url: string): Promise<void> => {

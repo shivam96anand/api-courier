@@ -99,14 +99,14 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
         fontSize: 12,
-        lineNumbers: 'off',
+        lineNumbers: 'on',
         folding: true,
         formatOnPaste: true,
         formatOnType: true,
         fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
         glyphMargin: false,
-        lineDecorationsWidth: 0,
-        lineNumbersMinChars: 0
+        lineDecorationsWidth: 4,
+        lineNumbersMinChars: 3
       });
 
       editorRef.current = editor;
@@ -236,44 +236,48 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
       revealPath: (path: string) => {
-        if (!editorRef.current) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        const model = editor.getModel();
+        if (!model) return;
 
-        const decoration = decorationMapRef.current.get(path);
-        let range: monaco.Range | null = null;
+        // Parse JSON Pointer segments (RFC 6901)
+        const segments = path === '' ? [] : path.slice(1).split('/').map(s =>
+          s.replace(/~1/g, '/').replace(/~0/g, '~')
+        );
 
-        if (decoration) {
-          range = new monaco.Range(
-            decoration.startLine,
-            decoration.startColumn,
-            decoration.endLine,
-            decoration.endColumn
-          );
-        } else if (decorationMapRef.current.size > 0) {
-          const fallback = decorationMapRef.current.values().next().value as DiffDecoration | undefined;
-          if (fallback) {
-            range = new monaco.Range(
-              fallback.startLine,
-              fallback.startColumn,
-              fallback.endLine,
-              fallback.endColumn
-            );
-          }
-        }
-
-        if (!range) {
-          const model = editorRef.current.getModel();
-          if (model) {
-            range = model.getFullModelRange();
-          }
-        }
-
-        if (!range) {
+        if (segments.length === 0) {
+          editor.revealLine(1, monaco.editor.ScrollType.Smooth);
+          editor.focus();
           return;
         }
 
-        editorRef.current.revealRangeInCenter(range, monaco.editor.ScrollType.Smooth);
-        editorRef.current.setSelection(range);
-        editorRef.current.focus();
+        // Walk each path segment, searching for "key": after the previous match.
+        // Numeric segments (array indices) are skipped since they have no key to search.
+        const lineCount = model.getLineCount();
+        let searchStartLine = 1;
+        let targetRange: monaco.Range | null = null;
+
+        for (const seg of segments) {
+          if (!isNaN(Number(seg))) continue; // array index — no key to find
+
+          const searchRange = new monaco.Range(
+            searchStartLine, 1, lineCount, model.getLineMaxColumn(lineCount)
+          );
+          // Escape special regex chars in the key name
+          const escaped = seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const matches = model.findMatches(`"${escaped}"\\s*:`, searchRange, true, false, null, false);
+          if (matches.length === 0) break;
+
+          targetRange = matches[0].range;
+          searchStartLine = targetRange.startLineNumber + 1;
+        }
+
+        if (targetRange) {
+          editor.revealRangeInCenter(targetRange, monaco.editor.ScrollType.Smooth);
+          editor.setSelection(targetRange);
+        }
+        editor.focus();
       },
       focusEditor: () => {
         editorRef.current?.focus();

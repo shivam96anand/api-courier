@@ -7,13 +7,18 @@ export class JsonViewerTab {
   private inputPanel!: JsonInputPanel;
   private viewerPanel!: JsonViewerPanel;
   private searchManager!: JsonViewerSearch;
+  private initialized = false;
 
   constructor() {
     this.container = document.getElementById('json-viewer-tab')!;
-    this.initialize();
   }
 
-  private initialize(): void {
+  /**
+   * Lazy initialization — call when the tab is first shown.
+   */
+  ensureInitialized(): void {
+    if (this.initialized) return;
+    this.initialized = true;
     this.setupDOM();
     this.initializeComponents();
   }

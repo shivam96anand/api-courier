@@ -26,9 +26,13 @@ export class NotepadStore {
   private subscribers: Array<(state: NotepadState) => void> = [];
   private persistTimer: number | null = null;
 
-  async hydrate(): Promise<NotepadState> {
-    const stored = await window.apiCourier.store.get();
-    const persisted = stored.notepad;
+  /**
+   * Load persisted notepad state. Accepts an optional pre-fetched AppState
+   * to avoid a redundant IPC round-trip when the caller already has it.
+   */
+  async hydrate(prefetchedState?: { notepad?: NotepadState }): Promise<NotepadState> {
+    const stored = prefetchedState ?? await window.apiCourier.store.get();
+    const persisted = (stored as any).notepad as NotepadState | undefined;
 
     if (persisted) {
       this.state = {

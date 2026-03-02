@@ -92,6 +92,9 @@ export class AppManager {
 
     // Show appropriate tab content
     this.showTab(tabName);
+
+    // Notify listeners so lazy managers can initialize on first view
+    document.dispatchEvent(new CustomEvent('nav-tab-switched', { detail: { tab: tabName } }));
   }
 
   private showTab(tabName: string): void {

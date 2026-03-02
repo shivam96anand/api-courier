@@ -89,7 +89,7 @@ class ApiCourierRenderer {
       saveState: this.saveState.bind(this),
     });
 
-    // Initialize managers
+    // Initialize synchronous managers (fast, no I/O)
     this.themeManager.initialize();
     this.appManager.initialize();
     this.tabsManager.initialize();
@@ -99,11 +99,17 @@ class ApiCourierRenderer {
     this.historyManager.initialize();
     this.environmentManager.initialize();
     this.backupManager.initialize();
-    await this.loadTestManager.initialize();
-    await this.mockServerManager.initialize();
     this.askAiTab.initialize();
-    await this.notepadManager.initialize();
     resizeManager.initialize();
+
+    // Parallelize independent async initializations
+    await Promise.all([
+      this.loadTestManager.initialize(),
+      this.mockServerManager.initialize(),
+    ]);
+
+    // Wire up lazy init for heavy tabs (Monaco / React / MUI)
+    this.setupLazyTabInit();
 
     // Set up import button
     this.setupImportButton();
@@ -172,6 +178,23 @@ class ApiCourierRenderer {
     } catch (error) {
       console.error('Failed to save state:', error);
     }
+  }
+
+  /**
+   * Lazy-initialize heavy tabs (Monaco/React/MUI) on first navigation.
+   * This avoids ~1-2 s of startup overhead from editors that aren't visible.
+   */
+  private setupLazyTabInit(): void {
+    const lazyMap: Record<string, () => void | Promise<void>> = {
+      'json-viewer': () => this.jsonViewerTab.ensureInitialized(),
+      'json-compare': () => this.jsonCompareTab.ensureInitialized(),
+      'notepad': () => this.notepadManager.ensureInitialized(),
+    };
+
+    document.addEventListener('nav-tab-switched', ((e: CustomEvent<{ tab: string }>) => {
+      const initFn = lazyMap[e.detail.tab];
+      if (initFn) initFn();
+    }) as EventListener);
   }
 
   private bindThemeButton(): void {

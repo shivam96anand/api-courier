@@ -4,13 +4,13 @@
  */
 
 import { create, DiffPatcher } from 'jsondiffpatch';
-import { buildDiffRows, computeDecorations } from '../utils/diffMap';
+import { buildDiffRows } from '../utils/diffMap';
 import type { WorkerRequest, WorkerResponse, DiffResult, DiffStats } from '../types';
 
 const differ: DiffPatcher = create({
   objectHash: (obj: unknown) => (obj as { id?: string })?.id || JSON.stringify(obj),
   arrays: { detectMove: true },
-  textDiff: { minLength: 60 }
+  textDiff: { minLength: Infinity }
 });
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
@@ -43,9 +43,6 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     // Build rows
     const rows = buildDiffRows(delta);
 
-    // Compute decorations
-    const { leftDecorations, rightDecorations } = computeDecorations(rows, leftJson, rightJson);
-
     // Compute stats
     const stats: DiffStats = {
       added: rows.filter(r => r.type === 'added').length,
@@ -56,8 +53,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
 
     const result: DiffResult = {
       rows,
-      leftDecorations,
-      rightDecorations,
+      leftDecorations: [],
+      rightDecorations: [],
       stats
     };
 

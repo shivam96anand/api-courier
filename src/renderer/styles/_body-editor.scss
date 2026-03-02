@@ -1,6 +1,14 @@
 // Body Editor Styles
 // Styles for body editor container, monaco editor, syntax highlighting, and related components
 
+#request-body-editor-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 .body-editor-container {
   margin-top: -10px;
   margin-left: 0;

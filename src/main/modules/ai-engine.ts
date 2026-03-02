@@ -1,6 +1,7 @@
 import { app, net } from 'electron';
 import { join } from 'path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFile } from 'fs/promises';
 import {
   AiSession,
   AiMessage,
@@ -34,7 +35,7 @@ class AiEngine {
   async initialize(): Promise<void> {
     if (existsSync(this.sessionsPath)) {
       try {
-        const content = readFileSync(this.sessionsPath, 'utf-8');
+        const content = await readFile(this.sessionsPath, 'utf-8');
         this.sessions = JSON.parse(content);
       } catch (error) {
         console.error('Failed to load AI sessions:', error);

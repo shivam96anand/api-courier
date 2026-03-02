@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { join } from 'path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
-import { writeFile } from 'fs/promises';
+import { writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
 import {
   AppState,
   AppTheme,
@@ -76,7 +76,7 @@ class StoreManager {
   async initialize(): Promise<void> {
     if (existsSync(this.dbPath)) {
       try {
-        const fileContent = readFileSync(this.dbPath, 'utf-8');
+        const fileContent = await readFile(this.dbPath, 'utf-8');
         const loadedData = JSON.parse(fileContent);
 
         this.data = this.mergeLoadedData(loadedData);
@@ -200,7 +200,7 @@ class StoreManager {
     return backups.slice(0, limit);
   }
 
-  restoreBackup(backupId: string): void {
+  async restoreBackup(backupId: string): Promise<void> {
     const backupDir = this.getBackupDir();
     const backupPath = join(backupDir, backupId);
     if (!existsSync(backupPath)) {
@@ -209,10 +209,10 @@ class StoreManager {
 
     this.createBackup();
 
-    const fileContent = readFileSync(backupPath, 'utf-8');
+    const fileContent = await readFile(backupPath, 'utf-8');
     const loadedData = JSON.parse(fileContent);
     this.data = this.mergeLoadedData(loadedData);
-    this.writeToFile();
+    await this.writeToFile();
   }
 
   private mergeLoadedData(loadedData: Partial<AppState>): AppState {

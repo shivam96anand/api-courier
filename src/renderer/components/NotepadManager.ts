@@ -26,7 +26,23 @@ export class NotepadManager {
     this.container = container || document.createElement('div');
   }
 
+  private initialized = false;
+
+  /**
+   * Lazy initialization — safe to call multiple times; only runs once.
+   */
+  async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
+    await this._doInitialize();
+  }
+
+  /** @deprecated Use ensureInitialized() instead */
   async initialize(): Promise<void> {
+    await this.ensureInitialized();
+  }
+
+  private async _doInitialize(): Promise<void> {
     if (!this.container) return;
 
     this.buildLayout();

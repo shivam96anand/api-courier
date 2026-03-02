@@ -1,28 +1,43 @@
 /**
  * JSON Compare Tab - Vanilla TypeScript integration wrapper
- * This wraps the React component for the existing app architecture
+ * React + MUI + Monaco are loaded lazily on first tab activation.
  */
-
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import JsonCompareTab from '../tabs/json-compare/JsonCompareTab';
 
 export class JsonCompareTabManager {
   private container: HTMLElement;
-  private reactRoot: ReactDOM.Root | null = null;
+  private reactRoot: import('react-dom/client').Root | null = null;
+  private initialized = false;
 
   constructor() {
     this.container = document.getElementById('json-compare-tab')!;
-    this.initialize();
   }
 
-  private initialize(): void {
+  /**
+   * Lazy initialization — call when the tab is first shown.
+   */
+  async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
+
     if (!this.container) {
       console.error('JSON Compare tab container not found');
       return;
     }
+
+    // Dynamic imports so React/MUI/Monaco aren't pulled in at startup
+    const [
+      React,
+      ReactDOM,
+      { ThemeProvider, createTheme },
+      CssBaseline,
+      { default: JsonCompareTab },
+    ] = await Promise.all([
+      import('react'),
+      import('react-dom/client'),
+      import('@mui/material/styles'),
+      import('@mui/material/CssBaseline'),
+      import('../tabs/json-compare/JsonCompareTab'),
+    ]);
 
     // Clear the "Coming Soon" placeholder
     this.container.innerHTML = '<div id="json-compare-root"></div>';
@@ -49,7 +64,7 @@ export class JsonCompareTabManager {
     this.reactRoot.render(
       React.createElement(ThemeProvider, { theme: darkTheme },
         React.createElement(React.Fragment, null,
-          React.createElement(CssBaseline),
+          React.createElement(CssBaseline.default || CssBaseline),
           React.createElement(JsonCompareTab)
         )
       )

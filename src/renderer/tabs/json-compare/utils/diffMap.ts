@@ -29,27 +29,45 @@ export function buildDiffRows(delta: Delta | undefined, basePath: string[] = [])
   if (!delta) return [];
 
   const rows: DiffRow[] = [];
+  const isArrayDelta = delta['_t'] === 'a';
 
   for (const key of Object.keys(delta)) {
     // Skip jsondiffpatch meta keys
     if (key === '_t') continue;
 
     const value = delta[key];
-    const currentPath = [...basePath, key];
+
+    // jsondiffpatch uses _N keys (e.g. _0, _1) for items deleted/moved from
+    // their original index in array deltas. Strip the leading _ so the path
+    // segment reflects the original index.
+    const pathKey = (isArrayDelta && key.startsWith('_') && !isNaN(Number(key.slice(1))))
+      ? key.slice(1)
+      : key;
+
+    const currentPath = [...basePath, pathKey];
     const pathStr = toJsonPointer(currentPath);
 
     if (Array.isArray(value)) {
-      // jsondiffpatch array format: [oldValue, newValue] = changed
-      // [newValue] = added, [oldValue, 0, 0] = deleted
+      // jsondiffpatch array format:
+      //   [newValue]          = added
+      //   [oldValue, 0, 0]    = deleted
+      //   [oldValue, newValue]= changed (simple replacement)
+      //   [patch, 0, 2]       = text diff (string longer than textDiff.minLength)
+      //   ["", newIdx, 3]     = array item moved (detectMove)
       if (value.length === 1) {
         rows.push({ path: pathStr, type: 'added', rightValue: value[0] });
       } else if (value.length === 3 && value[1] === 0 && value[2] === 0) {
         rows.push({ path: pathStr, type: 'removed', leftValue: value[0] });
       } else if (value.length === 2) {
         rows.push({ path: pathStr, type: 'changed', leftValue: value[0], rightValue: value[1] });
+      } else if (value.length === 3 && value[2] === 2) {
+        // Text diff format — old/new not directly available without applying the patch.
+        // Show as changed; values are retrieved from the parsed JSON by the caller if needed.
+        rows.push({ path: pathStr, type: 'changed' });
       }
+      // value[2] === 3 = array move; skip (item still exists, just reordered)
     } else if (typeof value === 'object' && value !== null) {
-      // Nested object - recurse
+      // Nested object/array delta — recurse
       rows.push(...buildDiffRows(value as Delta, currentPath));
     }
   }
@@ -177,27 +195,36 @@ function offsetToLineColumn(
 }
 
 /**
- * Compute decorations from diff rows and JSON texts
+ * Compute decorations from diff rows and JSON texts.
+ * Builds position maps once (not per-row) to avoid O(rows × json_size) hang.
  */
 export function computeDecorations(
   rows: DiffRow[],
   leftText: string,
   rightText: string
 ): { leftDecorations: DiffDecoration[]; rightDecorations: DiffDecoration[] } {
+  if (rows.length === 0) return { leftDecorations: [], rightDecorations: [] };
+
   const leftDecorations: DiffDecoration[] = [];
   const rightDecorations: DiffDecoration[] = [];
 
+  // Build position maps once per text, not once per row
+  const leftPositions = buildPositionMap(leftText);
+  const rightPositions = buildPositionMap(rightText);
+
   rows.forEach(row => {
     if (row.type === 'removed' || row.type === 'changed') {
-      const range = findTextRangeForPath(leftText, row.path);
-      if (range) {
+      const match = leftPositions.find(p => p.path === row.path);
+      if (match) {
+        const range = offsetToLineColumn(leftText, match.startOffset, match.endOffset);
         leftDecorations.push({ path: row.path, ...range, type: row.type });
       }
     }
 
     if (row.type === 'added' || row.type === 'changed') {
-      const range = findTextRangeForPath(rightText, row.path);
-      if (range) {
+      const match = rightPositions.find(p => p.path === row.path);
+      if (match) {
+        const range = offsetToLineColumn(rightText, match.startOffset, match.endOffset);
         rightDecorations.push({ path: row.path, ...range, type: row.type });
       }
     }

@@ -86,7 +86,7 @@ export class ResponseViewer {
       return;
     }
 
-    const contentType = response.headers['content-type'] || '';
+    const contentType = this.getHeaderValueCaseInsensitive(response.headers, 'content-type') || '';
     this.currentSoapFault = false;
     const isXmlMode = requestMode === 'soap' || this.isXmlContentType(contentType);
     if (isXmlMode) {
@@ -377,7 +377,9 @@ export class ResponseViewer {
     preElement.style.border = '1px solid var(--border-color)';
     preElement.style.borderRadius = '4px';
     preElement.style.overflow = 'auto';
-    preElement.style.maxHeight = '400px';
+    preElement.style.flex = '1';
+    preElement.style.minHeight = '0';
+    preElement.style.maxHeight = 'none';
 
     const codeElement = document.createElement('code');
     codeElement.textContent = content;
@@ -653,11 +655,73 @@ export class ResponseViewer {
   }
 
   private tryParseJson(str: string): { ok: boolean; value: unknown | null } {
+    const normalized = this.normalizePotentialJson(str);
+
     try {
-      return { ok: true, value: JSON.parse(str) };
-    } catch (e) {
-      return { ok: false, value: null };
+      return { ok: true, value: JSON.parse(normalized) };
+    } catch {
+      // Some APIs prepend/append non-JSON wrappers.
+      const extracted = this.extractLikelyJson(normalized);
+      if (!extracted) {
+        return { ok: false, value: null };
+      }
+
+      try {
+        return { ok: true, value: JSON.parse(extracted) };
+      } catch {
+        return { ok: false, value: null };
+      }
     }
+  }
+
+  private normalizePotentialJson(value: string): string {
+    let normalized = value || '';
+
+    // Remove UTF-8 BOM.
+    if (normalized.charCodeAt(0) === 0xFEFF) {
+      normalized = normalized.slice(1);
+    }
+
+    normalized = normalized.trim();
+
+    // Remove common XSSI prefix.
+    normalized = normalized.replace(/^\)\]\}',?\s*/, '');
+
+    return normalized;
+  }
+
+  private extractLikelyJson(value: string): string | null {
+    const firstObject = value.indexOf('{');
+    const firstArray = value.indexOf('[');
+
+    let start = -1;
+    if (firstObject >= 0 && firstArray >= 0) {
+      start = Math.min(firstObject, firstArray);
+    } else if (firstObject >= 0) {
+      start = firstObject;
+    } else if (firstArray >= 0) {
+      start = firstArray;
+    }
+
+    if (start < 0) return null;
+
+    const lastObject = value.lastIndexOf('}');
+    const lastArray = value.lastIndexOf(']');
+    const end = Math.max(lastObject, lastArray);
+
+    if (end <= start) return null;
+    return value.slice(start, end + 1);
+  }
+
+  private getHeaderValueCaseInsensitive(headers: Record<string, string>, headerName: string): string | undefined {
+    const direct = headers[headerName];
+    if (typeof direct === 'string') {
+      return direct;
+    }
+
+    const target = headerName.toLowerCase();
+    const foundKey = Object.keys(headers).find((key) => key.toLowerCase() === target);
+    return foundKey ? headers[foundKey] : undefined;
   }
 
   private isJsonContentType(contentType: string): boolean {

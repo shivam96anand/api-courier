@@ -179,6 +179,10 @@ const JsonCompareTab: React.FC = () => {
             <div className="empty-state">
               <p>Fix JSON errors to see differences</p>
             </div>
+          ) : (status === 'error') ? (
+            <div className="empty-state">
+              <p>Compare failed: {error || 'Unknown error'}</p>
+            </div>
           ) : (
             <DiffTable rows={result?.rows || []} onNavigate={handleNavigate} />
           )}
