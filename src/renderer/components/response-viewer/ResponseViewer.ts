@@ -362,9 +362,9 @@ export class ResponseViewer {
     preElement.style.lineHeight = '1.4';
     preElement.style.margin = '0';
     preElement.style.padding = '16px';
-    preElement.style.backgroundColor = 'var(--bg-tertiary)';
-    preElement.style.border = '1px solid var(--border-color)';
-    preElement.style.borderRadius = '4px';
+    preElement.style.backgroundColor = 'var(--bg-primary)';
+    preElement.style.border = 'none';
+    preElement.style.borderRadius = '0';
     preElement.style.overflow = 'auto';
     preElement.style.flex = '1';
     preElement.style.minHeight = '0';
