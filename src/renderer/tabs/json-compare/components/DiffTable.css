@@ -220,6 +220,8 @@
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.7) rgba(255, 255, 255, 0.08);
 }
 
 .jump-pill {
@@ -283,4 +285,44 @@
 
 .diff-table-list-viewport > div {
   overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.75) rgba(255, 255, 255, 0.08);
+  scrollbar-gutter: stable both-edges;
+}
+
+.diff-table-list-viewport > div::-webkit-scrollbar,
+.value-text::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.diff-table-list-viewport > div::-webkit-scrollbar-track,
+.value-text::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.diff-table-list-viewport > div::-webkit-scrollbar-thumb,
+.value-text::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0.78) 0%,
+    rgba(148, 163, 184, 0.58) 100%
+  );
+  border-radius: 999px;
+  border: 2px solid rgba(10, 10, 10, 0.2);
+}
+
+.diff-table-list-viewport > div::-webkit-scrollbar-thumb:hover,
+.value-text::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--primary-color-rgb), 0.8) 0%,
+    rgba(var(--primary-color-rgb), 0.6) 100%
+  );
+}
+
+.diff-table-list-viewport > div::-webkit-scrollbar-corner,
+.value-text::-webkit-scrollbar-corner {
+  background: transparent;
 }

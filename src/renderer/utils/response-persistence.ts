@@ -1,7 +1,8 @@
 import { ApiResponse, HistoryItem, RequestTab } from '../../shared/types';
 
-// Max body size to persist for open tabs (~1 MB). Keep history lean (no body).
-const TAB_BODY_LIMIT = 1_000_000;
+// Max body size to persist for open tabs (~5 MB). Keep history lean (no body).
+// 5 MB prevents truncating many large JSON payloads that are still practical to reopen.
+const TAB_BODY_LIMIT = 5_000_000;
 
 function clampBody(body: string, limit: number): string {
   if (!body) return '';

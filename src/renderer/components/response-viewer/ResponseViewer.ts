@@ -217,28 +217,16 @@ export class ResponseViewer {
     this.disposeMonaco();
 
     const notice = document.createElement('div');
-    notice.style.cssText = `
-      margin: 12px;
-      padding: 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background: var(--bg-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    `;
+    notice.className = 'large-json-notice';
 
     const message = document.createElement('div');
-    message.style.fontSize = '12px';
-    message.style.color = 'var(--text-secondary)';
+    message.className = 'large-json-notice__message';
     message.textContent = `Large JSON response (${this.formatBytes(responseSize || this.getResponseBytesFromBody(content))}) shown as raw text by default.`;
 
     const button = document.createElement('button');
+    button.type = 'button';
     button.textContent = 'Pretty Print';
     button.className = 'response-action-btn';
-    button.style.whiteSpace = 'nowrap';
 
     button.addEventListener('click', async () => {
       button.disabled = true;

@@ -140,11 +140,11 @@ class StoreManager {
     return next;
   }
 
-  // For open tabs: preserve body up to 1 MB so responses are visible after restart
+  // For open tabs: preserve body up to 5 MB so large JSON remains valid after restart
   private sanitizeTabResponse(response?: ApiResponse): ApiResponse | undefined {
     if (!response) return undefined;
 
-    const MAX_BODY_CHARS = 1_000_000; // ~1 MB
+    const MAX_BODY_CHARS = 5_000_000; // ~5 MB
     return {
       ...response,
       body: response.body.length > MAX_BODY_CHARS ? response.body.slice(0, MAX_BODY_CHARS) : response.body,
