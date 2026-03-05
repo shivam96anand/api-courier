@@ -32,7 +32,7 @@ export function updateMonacoTheme(): void {
   const editorBackground = getCssHexVariable('--bg-primary') || '1a1a1a';
   const lineNumberColor = getCssHexVariable('--json-line-number') || '6e6e6e';
 
-  monaco.editor.defineTheme('api-courier-json', {
+  monaco.editor.defineTheme('api-courier-notepad', {
     base: 'vs-dark',
     inherit: true,
     rules: [
@@ -55,7 +55,7 @@ export function updateMonacoTheme(): void {
     },
   });
 
-  monaco.editor.setTheme('api-courier-json');
+  monaco.editor.setTheme('api-courier-notepad');
 }
 
 /**
@@ -71,7 +71,7 @@ export function createNotepadEditor(
   const editor = monaco.editor.create(container, {
     value: '',
     language: 'plaintext',
-    theme: 'api-courier-json',
+    theme: 'api-courier-notepad',
     automaticLayout: true,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,

@@ -111,7 +111,7 @@ export class MonacoJsonEditor {
       insertSpaces: true,
       autoIndent: 'full',
       bracketPairColorization: {
-        enabled: true
+        enabled: false
       },
       padding: {
         top: 12,

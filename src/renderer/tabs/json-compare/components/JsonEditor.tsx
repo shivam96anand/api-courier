@@ -107,7 +107,10 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
         fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
         glyphMargin: false,
         lineDecorationsWidth: 4,
-        lineNumbersMinChars: 3
+        lineNumbersMinChars: 3,
+        bracketPairColorization: {
+          enabled: false
+        }
       });
 
       editorRef.current = editor;
