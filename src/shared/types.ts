@@ -67,6 +67,11 @@ export interface RequestTab {
   restDraft?: ApiRequest; // Preserved REST draft for mode switching
   soapDraft?: ApiRequest; // Preserved SOAP draft for mode switching
   activeDetailsTab?: string; // Track active tab (params/body/auth/headers/curl) for this request tab
+  responseViewState?: {
+    largeJsonPrettyResponseTimestamp?: number;
+    monacoViewStateResponseTimestamp?: number;
+    monacoViewState?: Record<string, unknown>;
+  };
 }
 
 export interface HistoryItem {

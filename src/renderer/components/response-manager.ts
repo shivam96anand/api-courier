@@ -78,6 +78,7 @@ export class ResponseManager {
     this.listenToTabChanges();
     this.listenForSearchTrigger();
     this.listenForViewerModeChanges();
+    this.listenForLargeJsonPreferenceChanges();
   }
 
   initialize(): void {
@@ -157,6 +158,8 @@ export class ResponseManager {
 
   private listenToTabChanges(): void {
     document.addEventListener('tab-changed', async (e: Event) => {
+      this.persistCurrentResponseViewState();
+
       const customEvent = e as CustomEvent;
       const activeTab = customEvent.detail.activeTab;
 
@@ -164,6 +167,15 @@ export class ResponseManager {
         this.activeTabRequestId = activeTab.request?.id || null;
         this.activeTabRequestMode = (activeTab.requestMode || 'rest') as RequestMode;
         this.currentRequestId = activeTab.id || 'default';
+        this.viewer.setLargeJsonPrettySelection(
+          this.currentRequestId,
+          activeTab.responseViewState?.largeJsonPrettyResponseTimestamp
+        );
+        this.viewer.setMonacoViewStateSelection(
+          this.currentRequestId,
+          activeTab.responseViewState?.monacoViewStateResponseTimestamp,
+          activeTab.responseViewState?.monacoViewState
+        );
 
         // Check if this tab has a pending request (still loading)
         if (this.activeTabRequestId && this.pendingRequests.has(this.activeTabRequestId)) {
@@ -181,6 +193,8 @@ export class ResponseManager {
         this.activeTabRequestId = null;
         this.activeTabRequestMode = 'rest';
         this.currentRequestId = 'default';
+        this.viewer.setLargeJsonPrettySelection('default');
+        this.viewer.setMonacoViewStateSelection('default');
         this.clearResponse();
       }
     });
@@ -202,6 +216,45 @@ export class ResponseManager {
         this.viewer.isJsonBody()
       );
     });
+  }
+
+  private listenForLargeJsonPreferenceChanges(): void {
+    document.addEventListener('response-large-json-pretty-selected', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const tabId = customEvent.detail?.tabId as string | undefined;
+      const responseTimestamp = customEvent.detail?.responseTimestamp as number | undefined;
+
+      if (!tabId || typeof responseTimestamp !== 'number') return;
+      if (!this.activeTabRequestId) return;
+
+      document.dispatchEvent(new CustomEvent('response-view-preference-updated', {
+        detail: {
+          tabId,
+          requestId: this.activeTabRequestId,
+          responseViewState: {
+            largeJsonPrettyResponseTimestamp: responseTimestamp,
+          },
+        },
+      }));
+    });
+  }
+
+  private persistCurrentResponseViewState(): void {
+    if (!this.activeTabRequestId || this.currentRequestId === 'default') return;
+
+    const monacoSnapshot = this.viewer.captureMonacoViewState();
+    if (!monacoSnapshot) return;
+
+    document.dispatchEvent(new CustomEvent('response-view-preference-updated', {
+      detail: {
+        tabId: this.currentRequestId,
+        requestId: this.activeTabRequestId,
+        responseViewState: {
+          monacoViewStateResponseTimestamp: monacoSnapshot.responseTimestamp,
+          monacoViewState: monacoSnapshot.viewState,
+        },
+      },
+    }));
   }
 
   private async displayResponse(response: ApiResponse, requestMode: RequestMode = 'rest'): Promise<void> {

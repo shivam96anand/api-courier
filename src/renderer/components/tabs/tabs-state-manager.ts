@@ -130,11 +130,7 @@ export class TabsStateManager {
     const tabIndex = this.tabs.findIndex(tab => tab.id === this.activeTabId);
     if (tabIndex !== -1) {
       const currentTab = this.tabs[tabIndex];
-      this.tabs[tabIndex] = {
-        ...currentTab,
-        ...updates,
-        isModified: markAsModified ? true : currentTab.isModified
-      };
+      this.tabs[tabIndex] = this.mergeTabUpdates(currentTab, updates, markAsModified);
       this.saveState();
     }
   }
@@ -144,11 +140,7 @@ export class TabsStateManager {
     if (tabIndex === -1) return;
 
     const currentTab = this.tabs[tabIndex];
-    this.tabs[tabIndex] = {
-      ...currentTab,
-      ...updates,
-      isModified: markAsModified ? true : currentTab.isModified
-    };
+    this.tabs[tabIndex] = this.mergeTabUpdates(currentTab, updates, markAsModified);
     this.saveState();
   }
 
@@ -359,6 +351,23 @@ export class TabsStateManager {
       auth: request.auth ? { ...request.auth, config: { ...request.auth.config } } : request.auth,
       soap: request.soap ? { ...request.soap } : request.soap,
       variables: request.variables ? { ...request.variables } : request.variables,
+    };
+  }
+
+  private mergeTabUpdates(currentTab: RequestTab, updates: Partial<RequestTab>, markAsModified: boolean): RequestTab {
+    const hasResponseViewStateUpdate = Object.prototype.hasOwnProperty.call(updates, 'responseViewState');
+    const responseViewState = hasResponseViewStateUpdate
+      ? {
+          ...(currentTab.responseViewState || {}),
+          ...(updates.responseViewState || {}),
+        }
+      : currentTab.responseViewState;
+
+    return {
+      ...currentTab,
+      ...updates,
+      responseViewState,
+      isModified: markAsModified ? true : currentTab.isModified,
     };
   }
 

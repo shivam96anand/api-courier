@@ -135,6 +135,19 @@ export class TabsEventHandler {
       }
     });
 
+    document.addEventListener('response-view-preference-updated', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const requestId = customEvent.detail?.requestId as string | undefined;
+      const responseViewState = customEvent.detail?.responseViewState;
+      if (!responseViewState) return;
+
+      if (requestId) {
+        this.onUpdateTabByRequestId(requestId, { responseViewState }, false);
+      } else {
+        this.onUpdateActiveTab({ responseViewState }, false);
+      }
+    });
+
     document.addEventListener('request-deleted', (e: Event) => {
       const customEvent = e as CustomEvent;
       const requestId = customEvent.detail.requestId;

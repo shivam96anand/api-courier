@@ -14,7 +14,10 @@ export class ResponseViewer {
   private detectedJsonBody = false;
   private currentSoapFault = false;
   private currentRequestId: string = 'default';
+  private currentResponseTimestamp: number | null = null;
   private lastResponseTimestamps: Map<string, number> = new Map();
+  private largeJsonPrettySelections: Map<string, number> = new Map();
+  private monacoViewStateSelections: Map<string, { responseTimestamp: number; viewState: Record<string, unknown> }> = new Map();
 
   constructor(container: HTMLElement, private config: ResponseViewerConfig) {
     this.container = container;
@@ -23,6 +26,49 @@ export class ResponseViewer {
 
   public setRequestId(requestId: string): void {
     this.currentRequestId = requestId;
+  }
+
+  public setLargeJsonPrettySelection(requestId: string, responseTimestamp?: number): void {
+    if (typeof responseTimestamp === 'number') {
+      this.largeJsonPrettySelections.set(requestId, responseTimestamp);
+      return;
+    }
+    this.largeJsonPrettySelections.delete(requestId);
+  }
+
+  public setMonacoViewStateSelection(
+    requestId: string,
+    responseTimestamp?: number,
+    viewState?: Record<string, unknown>
+  ): void {
+    if (typeof responseTimestamp === 'number' && viewState && typeof viewState === 'object') {
+      this.monacoViewStateSelections.set(requestId, {
+        responseTimestamp,
+        viewState,
+      });
+      return;
+    }
+    this.monacoViewStateSelections.delete(requestId);
+  }
+
+  public captureMonacoViewState():
+    | { responseTimestamp: number; viewState: Record<string, unknown> }
+    | undefined {
+    if (this.currentFormatter !== 'json' || !this.monacoEditor || typeof this.currentResponseTimestamp !== 'number') {
+      return undefined;
+    }
+
+    const viewState = this.monacoEditor.saveViewState();
+    if (!viewState) return undefined;
+
+    const serializableViewState = viewState as unknown as Record<string, unknown>;
+    const snapshot = {
+      responseTimestamp: this.currentResponseTimestamp,
+      viewState: serializableViewState,
+    };
+
+    this.monacoViewStateSelections.set(this.currentRequestId, snapshot);
+    return snapshot;
   }
 
   private setupViewerElements(): void {
@@ -58,6 +104,8 @@ export class ResponseViewer {
 
   public async displayResponse(response: ApiResponse, requestMode: RequestMode = 'rest'): Promise<void> {
     const lastTimestamp = this.lastResponseTimestamps.get(this.currentRequestId);
+    this.currentResponseTimestamp = response.timestamp;
+
     if (response.timestamp !== lastTimestamp) {
       console.log(`[ResponseViewer] New response detected (size: ${response.size} bytes)`);
       this.lastResponseTimestamps.set(this.currentRequestId, response.timestamp);
@@ -119,7 +167,19 @@ export class ResponseViewer {
     }
 
     if (detectedJson && parsedJson !== null && responseBytes >= ResponseViewer.LARGE_JSON_RAW_THRESHOLD_BYTES) {
-      this.setupLargeJsonPreview(bodyElement, response.body, response.size);
+      const shouldAutoPretty = this.largeJsonPrettySelections.get(this.currentRequestId) === response.timestamp;
+      if (shouldAutoPretty) {
+        const mounted = await this.setupJsonViewer(bodyElement, parsedJson, response.size);
+        if (mounted) {
+          this.currentFormatter = 'json';
+          this.parsedJsonData = parsedJson;
+          this.detectedJsonBody = true;
+          this.emitModeChanged();
+          return;
+        }
+      }
+
+      this.setupLargeJsonPreview(bodyElement, response.body, response.size, response.timestamp);
       this.currentFormatter = 'plain';
       this.parsedJsonData = null;
       this.detectedJsonBody = true;
@@ -205,6 +265,7 @@ export class ResponseViewer {
         onChange: () => { /* read-only, no-op */ },
         readOnly: true,
       });
+      this.tryRestoreMonacoViewState();
       return true;
     } catch (error) {
       console.error('Failed to initialize Monaco JSON viewer:', error);
@@ -213,7 +274,12 @@ export class ResponseViewer {
     }
   }
 
-  private setupLargeJsonPreview(container: HTMLElement, content: string, responseSize?: number): void {
+  private setupLargeJsonPreview(
+    container: HTMLElement,
+    content: string,
+    responseSize?: number,
+    responseTimestamp?: number
+  ): void {
     this.disposeMonaco();
 
     const notice = document.createElement('div');
@@ -221,7 +287,7 @@ export class ResponseViewer {
 
     const message = document.createElement('div');
     message.className = 'large-json-notice__message';
-    message.textContent = `Large JSON response (${this.formatBytes(responseSize || this.getResponseBytesFromBody(content))}) shown as raw text by default.`;
+    message.textContent = `Large JSON response shown as raw text by default.`;
 
     const button = document.createElement('button');
     button.type = 'button';
@@ -251,6 +317,15 @@ export class ResponseViewer {
       this.currentFormatter = 'json';
       this.parsedJsonData = parseResult.value;
       this.detectedJsonBody = true;
+      if (typeof responseTimestamp === 'number') {
+        this.largeJsonPrettySelections.set(this.currentRequestId, responseTimestamp);
+        document.dispatchEvent(new CustomEvent('response-large-json-pretty-selected', {
+          detail: {
+            tabId: this.currentRequestId,
+            responseTimestamp,
+          },
+        }));
+      }
       this.emitModeChanged();
     });
 
@@ -636,11 +711,21 @@ export class ResponseViewer {
     }
 
     this.currentFormatter = null;
+    this.currentResponseTimestamp = null;
     this.parsedJsonData = null;
     this.detectedJsonBody = false;
     this.currentSoapFault = false;
     this.updateSoapFaultBadge(false);
     this.emitModeChanged();
+  }
+
+  private tryRestoreMonacoViewState(): void {
+    if (!this.monacoEditor || typeof this.currentResponseTimestamp !== 'number') return;
+
+    const persistedState = this.monacoViewStateSelections.get(this.currentRequestId);
+    if (!persistedState || persistedState.responseTimestamp !== this.currentResponseTimestamp) return;
+
+    this.monacoEditor.restoreViewState(persistedState.viewState);
   }
 
   private tryParseJson(str: string): { ok: boolean; value: unknown | null } {

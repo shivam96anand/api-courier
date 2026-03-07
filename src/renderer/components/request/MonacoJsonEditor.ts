@@ -230,6 +230,17 @@ export class MonacoJsonEditor {
     return this.editor;
   }
 
+  /** Capture the editor view state (cursor/scroll/contributions). */
+  public saveViewState(): monaco.editor.ICodeEditorViewState | null {
+    return this.editor?.saveViewState() ?? null;
+  }
+
+  /** Restore a previously captured editor view state. */
+  public restoreViewState(state: Record<string, unknown>): void {
+    if (!this.editor) return;
+    this.editor.restoreViewState(state as unknown as monaco.editor.ICodeEditorViewState);
+  }
+
   public dispose(): void {
     if (this.editor) {
       this.editor.dispose();
