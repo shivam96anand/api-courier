@@ -30,10 +30,20 @@ export class JsonInputPanel {
   private setupDOM(): void {
     this.container.innerHTML = `
       <div class="panel-header">
-        <h3>JSON Input</h3>
+        <h3>JSON Viewer</h3>
         <div class="input-actions">
           <button id="clear-input-btn" class="btn btn-secondary">Clear</button>
         </div>
+      </div>
+      <div class="viewer-actions" id="viewer-actions">
+        <button id="viewer-copy-btn" class="response-action-btn" title="Copy JSON to clipboard">Copy</button>
+        <button id="viewer-export-btn" class="response-action-btn" title="Export JSON as file">Export</button>
+        <button id="viewer-search-btn" class="response-action-btn" title="Search in editor">Search</button>
+        <button id="viewer-collapse-btn" class="response-action-btn" title="Collapse all sections">Collapse</button>
+        <button id="viewer-expand-btn" class="response-action-btn" title="Expand all sections">Expand</button>
+        <button id="viewer-top-btn" class="response-action-btn" title="Scroll to top">Top</button>
+        <button id="viewer-bottom-btn" class="response-action-btn" title="Scroll to bottom">Bottom</button>
+        <button id="viewer-ask-ai-btn" class="response-action-btn ask-ai-btn" title="Ask AI about this JSON">Ask AI</button>
       </div>
       <div class="input-methods">
         <div class="input-tabs">
@@ -115,6 +125,16 @@ export class JsonInputPanel {
     this.container.querySelector('#format-btn')?.addEventListener('click', () => this.formatJson());
     this.container.querySelector('#minify-btn')?.addEventListener('click', () => this.minifyJson());
     this.container.querySelector('#parse-btn')?.addEventListener('click', () => this.parseAndView());
+
+    // Toolbar buttons
+    this.container.querySelector('#viewer-copy-btn')?.addEventListener('click', () => this.copyJson());
+    this.container.querySelector('#viewer-export-btn')?.addEventListener('click', () => this.exportJson());
+    this.container.querySelector('#viewer-search-btn')?.addEventListener('click', () => this.openSearch());
+    this.container.querySelector('#viewer-collapse-btn')?.addEventListener('click', () => this.foldAll());
+    this.container.querySelector('#viewer-expand-btn')?.addEventListener('click', () => this.unfoldAll());
+    this.container.querySelector('#viewer-top-btn')?.addEventListener('click', () => this.scrollEditorToTop());
+    this.container.querySelector('#viewer-bottom-btn')?.addEventListener('click', () => this.scrollEditorToBottom());
+    this.container.querySelector('#viewer-ask-ai-btn')?.addEventListener('click', () => this.handleAskAI());
   }
 
   private updateValidationUI(): void {
@@ -285,6 +305,81 @@ export class JsonInputPanel {
       this.events.onStatusUpdate('error', `Invalid JSON: ${error instanceof Error ? error.message : 'Unknown error'}`);
       this.events.onClearViewer();
     }
+  }
+
+  private copyJson(): void {
+    const text = this.monacoEditor?.getValue()?.trim();
+    if (!text) {
+      this.events.onStatusUpdate('warning', 'No JSON to copy');
+      return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      this.events.onStatusUpdate('success', 'JSON copied to clipboard');
+    }).catch(() => {
+      this.events.onStatusUpdate('error', 'Failed to copy to clipboard');
+    });
+  }
+
+  private exportJson(): void {
+    const text = this.monacoEditor?.getValue()?.trim();
+    if (!text) {
+      this.events.onStatusUpdate('warning', 'No JSON to export');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(text);
+      const formatted = JSON.stringify(parsed, null, 2);
+      const blob = new Blob([formatted], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `json-export-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      this.events.onStatusUpdate('success', 'JSON exported successfully');
+    } catch {
+      this.events.onStatusUpdate('error', 'Invalid JSON — cannot export');
+    }
+  }
+
+  private openSearch(): void {
+    if (!this.monacoEditor) return;
+    this.monacoEditor.openSearch();
+  }
+
+  private foldAll(): void {
+    if (!this.monacoEditor) return;
+    this.monacoEditor.foldAll();
+    this.events.onStatusUpdate('info', 'All sections collapsed');
+  }
+
+  private unfoldAll(): void {
+    if (!this.monacoEditor) return;
+    this.monacoEditor.unfoldAll();
+    this.events.onStatusUpdate('info', 'All sections expanded');
+  }
+
+  private scrollEditorToTop(): void {
+    if (!this.monacoEditor) return;
+    this.monacoEditor.scrollToTop();
+  }
+
+  private scrollEditorToBottom(): void {
+    if (!this.monacoEditor) return;
+    this.monacoEditor.scrollToBottom();
+  }
+
+  private handleAskAI(): void {
+    const text = this.monacoEditor?.getValue()?.trim();
+    if (!text) {
+      this.events.onStatusUpdate('warning', 'No JSON to analyze');
+      return;
+    }
+    document.dispatchEvent(new CustomEvent('ask-ai-with-context', {
+      detail: { context: text, source: 'json-viewer' }
+    }));
   }
 
   public getJsonText(): string {

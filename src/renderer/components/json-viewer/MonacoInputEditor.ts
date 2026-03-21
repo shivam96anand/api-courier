@@ -268,6 +268,32 @@ export class MonacoInputEditor {
     }
   }
 
+  public foldAll(): void {
+    this.editor?.trigger('', 'editor.foldAll', {});
+  }
+
+  public unfoldAll(): void {
+    this.editor?.trigger('', 'editor.unfoldAll', {});
+  }
+
+  public scrollToTop(): void {
+    this.editor?.revealLine(1);
+    this.editor?.setPosition({ lineNumber: 1, column: 1 });
+  }
+
+  public scrollToBottom(): void {
+    const model = this.editor?.getModel();
+    if (model) {
+      const lastLine = model.getLineCount();
+      this.editor?.revealLine(lastLine);
+      this.editor?.setPosition({ lineNumber: lastLine, column: 1 });
+    }
+  }
+
+  public openSearch(): void {
+    this.editor?.trigger('', 'actions.find', {});
+  }
+
   public dispose(): void {
     if (this.themeChangeHandler) {
       document.removeEventListener('theme-changed', this.themeChangeHandler);
