@@ -107,8 +107,10 @@ class RequestManager {
         const authQueryParams = RequestBuilder.buildAuthQueryParams(updatedRequest);
         const mergedParams = RequestBuilder.mergeParams(updatedRequest.params, authQueryParams);
         // Build URL with query parameters
+        const rawUrl = updatedRequest.url.trim();
+        const normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `http://${rawUrl}`;
         const urlString = RequestBuilder.buildUrlWithParams(
-          updatedRequest.url,
+          normalizedUrl,
           mergedParams
         );
 

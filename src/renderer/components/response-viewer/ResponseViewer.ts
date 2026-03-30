@@ -155,6 +155,37 @@ export class ResponseViewer {
 
     const responseBytes = this.getResponseBytes(response);
     const isJsonContentType = this.isJsonContentType(contentType);
+
+    // For large responses, use a lightweight heuristic (content-type or first char)
+    // so the banner appears even if the body was truncated or JSON.parse fails.
+    if (responseBytes >= ResponseViewer.LARGE_JSON_RAW_THRESHOLD_BYTES) {
+      const looksLikeJson = isJsonContentType || this.bodyLooksLikeJson(response.body);
+
+      if (looksLikeJson) {
+        const shouldAutoPretty = this.largeJsonPrettySelections.get(this.currentRequestId) === response.timestamp;
+        if (shouldAutoPretty) {
+          const parseResult = this.tryParseJson(response.body);
+          if (parseResult.ok && parseResult.value !== null) {
+            const mounted = await this.setupJsonViewer(bodyElement, parseResult.value, response.size);
+            if (mounted) {
+              this.currentFormatter = 'json';
+              this.parsedJsonData = parseResult.value;
+              this.detectedJsonBody = true;
+              this.emitModeChanged();
+              return;
+            }
+          }
+        }
+
+        this.setupLargeJsonPreview(bodyElement, response.body, response.size, response.timestamp);
+        this.currentFormatter = 'plain';
+        this.parsedJsonData = null;
+        this.detectedJsonBody = true;
+        this.emitModeChanged();
+        return;
+      }
+    }
+
     const shouldSniffJson = !isJsonContentType && responseBytes <= ResponseViewer.JSON_SNIFF_LIMIT_BYTES;
 
     let parsedJson: unknown | null = null;
@@ -164,27 +195,6 @@ export class ResponseViewer {
       const parseResult = this.tryParseJson(response.body);
       detectedJson = parseResult.ok;
       parsedJson = parseResult.value;
-    }
-
-    if (detectedJson && parsedJson !== null && responseBytes >= ResponseViewer.LARGE_JSON_RAW_THRESHOLD_BYTES) {
-      const shouldAutoPretty = this.largeJsonPrettySelections.get(this.currentRequestId) === response.timestamp;
-      if (shouldAutoPretty) {
-        const mounted = await this.setupJsonViewer(bodyElement, parsedJson, response.size);
-        if (mounted) {
-          this.currentFormatter = 'json';
-          this.parsedJsonData = parsedJson;
-          this.detectedJsonBody = true;
-          this.emitModeChanged();
-          return;
-        }
-      }
-
-      this.setupLargeJsonPreview(bodyElement, response.body, response.size, response.timestamp);
-      this.currentFormatter = 'plain';
-      this.parsedJsonData = null;
-      this.detectedJsonBody = true;
-      this.emitModeChanged();
-      return;
     }
 
     if (detectedJson && parsedJson !== null) {
@@ -785,6 +795,16 @@ export class ResponseViewer {
 
     if (end <= start) return null;
     return value.slice(start, end + 1);
+  }
+
+  private bodyLooksLikeJson(body: string): boolean {
+    for (let i = 0, len = Math.min(body.length, 64); i < len; i++) {
+      const ch = body.charCodeAt(i);
+      // Skip whitespace and BOM
+      if (ch === 32 || ch === 9 || ch === 10 || ch === 13 || ch === 0xFEFF) continue;
+      return ch === 123 /* { */ || ch === 91 /* [ */;
+    }
+    return false;
   }
 
   private getHeaderValueCaseInsensitive(headers: Record<string, string>, headerName: string): string | undefined {
