@@ -84,10 +84,18 @@ export class ResponseActions {
     }
   }
 
-  public updateVisibility(response: ApiResponse | null, activeTab: string, isJsonResponse: boolean): void {
-    const shouldShow = activeTab === 'body' && response && isJsonResponse;
+  public updateVisibility(response: ApiResponse | null, activeTab: string, isJsonResponse: boolean, isXmlResponse: boolean = false): void {
+    const shouldShow = activeTab === 'body' && response && (isJsonResponse || isXmlResponse);
     if (shouldShow) {
       this.showForJsonResponse();
+      // Export, Collapse, Expand are JSON-tree-only features
+      const exportBtn = this.actionsContainer?.querySelector<HTMLElement>('#export-btn');
+      const collapseBtn = this.actionsContainer?.querySelector<HTMLElement>('#collapse-btn');
+      const expandBtn = this.actionsContainer?.querySelector<HTMLElement>('#expand-btn');
+      const display = isJsonResponse ? '' : 'none';
+      if (exportBtn) exportBtn.style.display = display;
+      if (collapseBtn) collapseBtn.style.display = display;
+      if (expandBtn) expandBtn.style.display = display;
     } else {
       this.hide();
     }

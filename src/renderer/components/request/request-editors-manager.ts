@@ -1,4 +1,4 @@
-import { ApiRequest } from '../../../shared/types';
+import { ApiRequest, SoapCerts } from '../../../shared/types';
 import { RequestEditorsConfig, EditorType } from '../../types/request-types';
 import { RequestEditorFactory } from './editors/RequestEditorFactory';
 import { RequestEditorState } from './editors/RequestEditorState';
@@ -11,6 +11,7 @@ import { AuthConfigManager } from './AuthConfigManager';
 import { OAuth2Manager } from './OAuth2Manager';
 import { VariableResolver } from './VariableResolver';
 import { UIHelpers } from './UIHelpers';
+import { SoapCertsManager } from './SoapCertsManager';
 
 export class RequestEditorsManager {
   private factory!: RequestEditorFactory;
@@ -28,6 +29,7 @@ export class RequestEditorsManager {
   private oauth2Manager!: OAuth2Manager;
   private variableResolver!: VariableResolver;
   private uiHelpers!: UIHelpers;
+  private soapCertsManager!: SoapCertsManager;
   private isContentTypeSyncEnabled = true;
 
   constructor(onRequestUpdate: (updates: Partial<ApiRequest>) => void) {
@@ -98,6 +100,10 @@ export class RequestEditorsManager {
       (auth) => this.onRequestUpdate({ auth: auth as any }),
       this.oauth2Manager,
       this.uiHelpers
+    );
+
+    this.soapCertsManager = new SoapCertsManager(
+      (soapCerts) => this.onRequestUpdate({ soapCerts })
     );
 
     this.setupEventListeners();
@@ -299,6 +305,20 @@ export class RequestEditorsManager {
     this.authConfigManager.load(auth, collectionId);
   }
 
+  setupCertsEditor(): void {
+    // SoapCertsManager renders on demand; no persistent setup needed
+  }
+
+  loadCerts(certs: SoapCerts): void {
+    const container = document.getElementById('auth-section');
+    if (!container) return;
+    this.soapCertsManager.render(container, certs);
+  }
+
+  clearCerts(): void {
+    this.soapCertsManager.clear();
+  }
+
   private updateRowVisualState(checkbox: HTMLInputElement): void {
     const row = checkbox.closest('.kv-row');
     if (row) {
@@ -319,6 +339,7 @@ export class RequestEditorsManager {
     this.paramsManager.clear();
     this.headersManager.clear();
     this.authConfigManager.clear();
+    this.soapCertsManager.clear();
 
     // Clear OAuth UI elements when switching tabs to prevent data leaking
     this.uiHelpers.toggleOAuthStatus(false);

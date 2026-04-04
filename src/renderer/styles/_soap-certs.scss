@@ -1,0 +1,398 @@
+// SOAP Certificates Tab Styles
+// mTLS / TLS certificate configuration for SOAP requests
+
+.soap-certs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+// ── Mode toggle bar (JKS | PEM) ──────────────────────────────────────────────
+
+.soap-certs__mode-bar {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  width: fit-content;
+  margin-bottom: 4px;
+}
+
+.soap-certs__mode-btn {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: none;
+  padding: 5px 16px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  & + & {
+    border-left: 1px solid var(--border-color);
+  }
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background: rgba(var(--primary-color-rgb), 0.15);
+    color: var(--primary-color);
+  }
+}
+
+.soap-certs__mode-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// ── Shared field blocks ──────────────────────────────────────────────────────
+
+.soap-certs__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.soap-certs__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.soap-certs__toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.soap-certs__toggle-btn {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background: rgba(var(--primary-color-rgb), 0.15);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+}
+
+.soap-certs__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.soap-certs__textarea {
+  width: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--primary-color-rgb), 0.02) 0%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  resize: vertical;
+  min-height: 72px;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.15);
+  }
+}
+
+.soap-certs__file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.soap-certs__file-path {
+  flex: 1;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soap-certs__browse-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary-color);
+  }
+}
+
+.soap-certs__clear-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.soap-certs__passphrase {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--primary-color-rgb), 0.02) 0%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  width: 100%;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.15);
+  }
+}
+
+.soap-certs__note {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: rgba(var(--primary-color-rgb), 0.04);
+  border: 1px solid rgba(var(--primary-color-rgb), 0.12);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+
+.soap-certs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.soap-certs__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.soap-certs__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.soap-certs__toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.soap-certs__toggle-btn {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background: rgba(var(--primary-color-rgb), 0.15);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+}
+
+.soap-certs__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.soap-certs__textarea {
+  width: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--primary-color-rgb), 0.02) 0%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  resize: vertical;
+  min-height: 72px;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.15);
+  }
+}
+
+.soap-certs__file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.soap-certs__file-path {
+  flex: 1;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soap-certs__browse-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--primary-color);
+  }
+}
+
+.soap-certs__clear-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.soap-certs__passphrase {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--primary-color-rgb), 0.02) 0%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  width: 100%;
+  box-sizing: border-box;
+
+  &::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.15);
+  }
+}
+
+.soap-certs__note {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: rgba(var(--primary-color-rgb), 0.04);
+  border: 1px solid rgba(var(--primary-color-rgb), 0.12);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 0;
+  line-height: 1.5;
+}

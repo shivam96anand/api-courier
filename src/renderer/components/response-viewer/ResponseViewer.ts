@@ -1,6 +1,7 @@
 import { ApiResponse, RequestMode } from '../../../shared/types';
 import { ResponseViewerConfig } from '../../types/response-types';
 import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
+import { MonacoXmlEditor } from '../request/MonacoXmlEditor';
 import { JsonViewerUtilities } from '../json-viewer/utilities';
 
 export class ResponseViewer {
@@ -9,7 +10,8 @@ export class ResponseViewer {
 
   private container: HTMLElement;
   private monacoEditor: MonacoJsonEditor | null = null;
-  private currentFormatter: 'json' | 'plain' | null = null;
+  private monacoXmlEditor: MonacoXmlEditor | null = null;
+  private currentFormatter: 'json' | 'xml' | 'plain' | null = null;
   private parsedJsonData: unknown | null = null;
   private detectedJsonBody = false;
   private currentSoapFault = false;
@@ -143,7 +145,7 @@ export class ResponseViewer {
         const formattedXml = this.prettyPrintXml(xmlParseResult.document);
         const hasSoapFault = this.hasSoapFault(xmlParseResult.document);
         this.setupXmlView(bodyElement, formattedXml, hasSoapFault);
-        this.currentFormatter = 'plain';
+        this.currentFormatter = 'xml';
         this.parsedJsonData = null;
         this.detectedJsonBody = false;
         this.currentSoapFault = hasSoapFault;
@@ -230,6 +232,7 @@ export class ResponseViewer {
 
     const wrapper = document.createElement('div');
     wrapper.className = `xml-response-wrapper${hasSoapFault ? ' has-soap-fault' : ''}`;
+    wrapper.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;min-height:0;';
 
     if (hasSoapFault) {
       const banner = document.createElement('div');
@@ -238,21 +241,20 @@ export class ResponseViewer {
       wrapper.appendChild(banner);
     }
 
-    const preElement = document.createElement('pre');
-    preElement.className = `xml-response${hasSoapFault ? ' soap-fault' : ''}`;
-    const codeElement = document.createElement('code');
-
-    if (hasSoapFault) {
-      codeElement.innerHTML = this.highlightSoapFault(xml);
-    } else {
-      codeElement.textContent = xml;
-    }
-
-    preElement.appendChild(codeElement);
-    wrapper.appendChild(preElement);
+    const editorContainer = document.createElement('div');
+    editorContainer.id = 'response-monaco-xml-container';
+    editorContainer.style.cssText = 'flex:1;min-height:0;width:100%;';
+    wrapper.appendChild(editorContainer);
 
     container.innerHTML = '';
     container.appendChild(wrapper);
+
+    this.monacoXmlEditor = new MonacoXmlEditor({
+      container: editorContainer,
+      value: xml,
+      onChange: () => { /* read-only */ },
+      readOnly: true,
+    });
   }
 
   private async setupJsonViewer(container: HTMLElement, jsonData: any, _responseSize?: number): Promise<boolean> {
@@ -680,6 +682,10 @@ export class ResponseViewer {
     return this.currentFormatter === 'json';
   }
 
+  public isXmlBody(): boolean {
+    return this.currentFormatter === 'xml';
+  }
+
   public getParsedJson(): unknown | null {
     return this.parsedJsonData;
   }
@@ -951,6 +957,10 @@ export class ResponseViewer {
     if (this.monacoEditor) {
       this.monacoEditor.dispose();
       this.monacoEditor = null;
+    }
+    if (this.monacoXmlEditor) {
+      this.monacoXmlEditor.dispose();
+      this.monacoXmlEditor = null;
     }
   }
 }

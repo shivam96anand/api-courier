@@ -1,5 +1,6 @@
 import { addVariableTooltips, detectVariables } from './variable-helper';
 import { MonacoJsonEditor } from './MonacoJsonEditor';
+import { MonacoXmlEditor } from './MonacoXmlEditor';
 import { setupAutocomplete } from './variable-autocomplete';
 
 type BodyType = 'none' | 'json' | 'raw' | 'form-urlencoded';
@@ -21,6 +22,7 @@ export class RequestBodyEditor {
   private folderVars: any;
   private highlightOverlay: HTMLDivElement | null = null;
   private monacoEditor: MonacoJsonEditor | null = null;
+  private monacoXmlEditor: MonacoXmlEditor | null = null;
   private forcedContentType?: string;
   private readonly formatContentTypes: Record<BodyFormat, string> = {
     json: 'application/json',
@@ -158,6 +160,9 @@ export class RequestBodyEditor {
         if (this.monacoEditor) {
           this.monacoEditor.scrollToTop();
         }
+        if (this.monacoXmlEditor) {
+          this.monacoXmlEditor.scrollToTop();
+        }
 
         // Also reset textarea scroll position for consistency
         const textarea = this.container.querySelector('#request-body') as HTMLTextAreaElement;
@@ -226,18 +231,58 @@ export class RequestBodyEditor {
     }, 100);
   }
 
+  private switchToMonacoXmlEditor(initialValue: string = ''): void {
+    const monacoContainer = this.container.querySelector('#monaco-json-editor') as HTMLElement;
+    const textarea = this.container.querySelector('#request-body') as HTMLTextAreaElement;
+    const overlay = this.container.querySelector('#syntax-highlight-overlay') as HTMLElement;
+
+    if (!monacoContainer) return;
+
+    // Dispose existing editors
+    if (this.monacoEditor) {
+      this.monacoEditor.dispose();
+      this.monacoEditor = null;
+    }
+    if (this.monacoXmlEditor) {
+      this.monacoXmlEditor.dispose();
+      this.monacoXmlEditor = null;
+    }
+
+    const valueToSet = initialValue || textarea?.value || '';
+
+    if (textarea) textarea.style.display = 'none';
+    if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+    monacoContainer.style.display = 'block';
+
+    this.monacoXmlEditor = new MonacoXmlEditor({
+      container: monacoContainer,
+      value: valueToSet,
+      onChange: (value) => {
+        if (textarea) textarea.value = value;
+        this.handleBodyContentChange();
+      },
+    });
+
+    setTimeout(() => { this.monacoXmlEditor?.focus(); }, 100);
+  }
+
   private switchToTextareaEditor(): void {
     const monacoContainer = this.container.querySelector('#monaco-json-editor') as HTMLElement;
     const textarea = this.container.querySelector('#request-body') as HTMLTextAreaElement;
 
-    // Dispose Monaco editor if active
+    // Dispose Monaco JSON editor if active
     if (this.monacoEditor) {
-      // Get the current value before disposing
       const currentValue = this.monacoEditor.getValue();
       this.monacoEditor.dispose();
       this.monacoEditor = null;
+      if (textarea) textarea.value = currentValue;
+    }
 
-      // Update textarea with Monaco's value
+    // Dispose Monaco XML editor if active
+    if (this.monacoXmlEditor) {
+      const currentValue = this.monacoXmlEditor.getValue();
+      this.monacoXmlEditor.dispose();
+      this.monacoXmlEditor = null;
       if (textarea) textarea.value = currentValue;
     }
 
@@ -292,6 +337,10 @@ export class RequestBodyEditor {
         // Use Monaco editor for JSON
         const currentValue = bodyEditor.value.trim() || '{\n  \n}';
         this.switchToMonacoEditor(currentValue);
+      } else if (this.currentFormat === 'xml') {
+        // Use Monaco editor for XML
+        const currentValue = bodyEditor.value.trim() || '';
+        this.switchToMonacoXmlEditor(currentValue);
       } else {
         // Use textarea for other formats
         this.switchToTextareaEditor();
@@ -453,6 +502,9 @@ export class RequestBodyEditor {
     if (inferredFormat === 'json' && this.monacoEditor) {
       // Monaco editor is active for JSON
       this.monacoEditor.setValue(body.content);
+    } else if (inferredFormat === 'xml' && this.monacoXmlEditor) {
+      // Monaco editor is active for XML
+      this.monacoXmlEditor.setValue(body.content);
     } else if (bodyEditor) {
       // Textarea for other formats
       bodyEditor.value = body.content;
@@ -468,7 +520,11 @@ export class RequestBodyEditor {
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement;
 
     // Get content from Monaco editor if active, otherwise from textarea
-    const content = this.monacoEditor ? this.monacoEditor.getValue() : (bodyEditor?.value || '');
+    const content = this.monacoEditor
+      ? this.monacoEditor.getValue()
+      : this.monacoXmlEditor
+        ? this.monacoXmlEditor.getValue()
+        : (bodyEditor?.value || '');
 
     return {
       type: this.currentBodyType,
@@ -479,10 +535,14 @@ export class RequestBodyEditor {
   }
 
   public clear(): void {
-    // Dispose Monaco editor if active
+    // Dispose Monaco editors if active
     if (this.monacoEditor) {
       this.monacoEditor.dispose();
       this.monacoEditor = null;
+    }
+    if (this.monacoXmlEditor) {
+      this.monacoXmlEditor.dispose();
+      this.monacoXmlEditor = null;
     }
 
     const bodyTypeSelect = this.container.querySelector('#body-type-select') as HTMLSelectElement;
@@ -502,16 +562,24 @@ export class RequestBodyEditor {
       this.monacoEditor.focus();
       return;
     }
+    if (this.monacoXmlEditor) {
+      this.monacoXmlEditor.focus();
+      return;
+    }
 
     const bodyEditor = this.container.querySelector('#request-body') as HTMLTextAreaElement | null;
     bodyEditor?.focus();
   }
 
   public destroy(): void {
-    // Cleanup Monaco editor
+    // Cleanup Monaco editors
     if (this.monacoEditor) {
       this.monacoEditor.dispose();
       this.monacoEditor = null;
+    }
+    if (this.monacoXmlEditor) {
+      this.monacoXmlEditor.dispose();
+      this.monacoXmlEditor = null;
     }
   }
 
@@ -530,6 +598,10 @@ export class RequestBodyEditor {
         // Switch to Monaco editor for JSON
         const currentValue = bodyEditor.value.trim() || '{\n  \n}';
         this.switchToMonacoEditor(currentValue);
+      } else if (format === 'xml') {
+        // Switch to Monaco editor for XML
+        const currentValue = bodyEditor.value.trim() || '';
+        this.switchToMonacoXmlEditor(currentValue);
       } else {
         // Switch to textarea for other formats
         this.switchToTextareaEditor();

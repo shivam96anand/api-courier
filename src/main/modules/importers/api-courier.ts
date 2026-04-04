@@ -47,7 +47,11 @@ function reassignCollectionIds(
   if (out.request) {
     const newRequestId = generateId();
     idMap.set(out.request.id, newRequestId);
-    out.request = { ...out.request, id: newRequestId };
+    // Also remap collectionId so folder variable resolution works after import
+    const remappedCollectionId = out.request.collectionId
+      ? (idMap.get(out.request.collectionId) ?? out.request.collectionId)
+      : undefined;
+    out.request = { ...out.request, id: newRequestId, collectionId: remappedCollectionId };
   }
 
   if (out.type === 'folder' && out.children && out.children.length > 0) {

@@ -1,4 +1,4 @@
-import { Collection, Environment, Globals } from '../../../shared/types';
+import { ApiRequest, Collection, Environment, Globals, SoapCerts } from '../../../shared/types';
 import { CollectionsDialogs } from './collections-dialogs';
 import { showExportDialog } from './export-dialog';
 
@@ -377,12 +377,35 @@ export class CollectionsOperations {
     }
   }
 
+  private sanitizeRequestForExport(request: ApiRequest | undefined): ApiRequest | undefined {
+    if (!request) return undefined;
+    if (!request.soapCerts) return request;
+
+    // Strip sensitive fields: passwords and cert/key binary content.
+    // Keep mode, source type, and file path hints so users know what to re-upload.
+    const sc = request.soapCerts;
+    const sanitizedCerts: SoapCerts = { mode: sc.mode };
+
+    if (sc.keystoreSource) sanitizedCerts.keystoreSource = sc.keystoreSource;
+    if (sc.keystoreFilePath) sanitizedCerts.keystoreFilePath = sc.keystoreFilePath;
+    if (sc.truststoreSource) sanitizedCerts.truststoreSource = sc.truststoreSource;
+    if (sc.truststoreFilePath) sanitizedCerts.truststoreFilePath = sc.truststoreFilePath;
+
+    // PEM mode: keep source type and file path hints only
+    if (sc.clientCert?.filePath) sanitizedCerts.clientCert = { source: sc.clientCert.source, content: '', filePath: sc.clientCert.filePath };
+    if (sc.clientKey?.filePath)  sanitizedCerts.clientKey  = { source: sc.clientKey.source,  content: '', filePath: sc.clientKey.filePath };
+    if (sc.caCert?.filePath)     sanitizedCerts.caCert     = { source: sc.caCert.source,     content: '', filePath: sc.caCert.filePath };
+    if (sc.pfx?.filePath)        sanitizedCerts.pfx        = { source: sc.pfx.source,        content: '', filePath: sc.pfx.filePath };
+
+    return { ...request, soapCerts: sanitizedCerts };
+  }
+
   private buildExportData(collection: Collection): any {
     const data: any = {
       id: collection.id,
       name: collection.name,
       type: collection.type,
-      request: collection.request,
+      request: this.sanitizeRequestForExport(collection.request),
       variables: collection.variables,
       children: []
     };

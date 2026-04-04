@@ -40,6 +40,9 @@
 // Authentication components (auth config, OAuth fields)
 @import 'auth';
 
+// SOAP certificate / mTLS configuration
+@import 'soap-certs';
+
 // OAuth token information and status
 @import 'oauth-token';
 

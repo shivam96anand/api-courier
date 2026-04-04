@@ -8,6 +8,7 @@ import * as zlib from 'zlib';
 import { URL } from 'url';
 import { RequestBuilder } from './request-builder';
 import { RequestErrorFormatter } from './request-error-formatter';
+import { parseKeystoreJks, parseTruststoreJks } from './jks-parser';
 
 class RequestManager {
   private activeRequests = new Map<string, { req: http.ClientRequest; reject: (err: Error) => void }>();
@@ -139,6 +140,36 @@ class RequestManager {
           method: updatedRequest.method,
           headers: cleanHeaders,
         };
+
+        // Build mTLS agent for SOAP requests with cert config
+        if (isHttps && updatedRequest.soapCerts) {
+          const sc = updatedRequest.soapCerts;
+          const agentOptions: https.AgentOptions = {};
+
+          if (!sc.mode || sc.mode === 'jks') {
+            // JKS mode — parse on the fly using jks-js
+            if (sc.keystoreJks && sc.keystorePassword) {
+              const ks = parseKeystoreJks(sc.keystoreJks, sc.keystorePassword);
+              if (ks.cert) agentOptions.cert = ks.cert;
+              if (ks.key) agentOptions.key = ks.key;
+            }
+            if (sc.truststoreJks && sc.truststorePassword) {
+              const ts = parseTruststoreJks(sc.truststoreJks, sc.truststorePassword);
+              if (ts.ca) agentOptions.ca = ts.ca;
+            }
+          } else {
+            // PEM mode
+            if (sc.clientCert?.content) agentOptions.cert = sc.clientCert.content;
+            if (sc.clientKey?.content) agentOptions.key = sc.clientKey.content;
+            if (sc.caCert?.content) agentOptions.ca = sc.caCert.content;
+            if (sc.pfx?.content) agentOptions.pfx = Buffer.from(sc.pfx.content, 'base64');
+            if (sc.passphrase) agentOptions.passphrase = sc.passphrase;
+          }
+
+          if (Object.keys(agentOptions).length > 0) {
+            options.agent = new https.Agent(agentOptions);
+          }
+        }
 
         const req = httpModule.request(options, (res) => {
           this.handleResponse(res, startTime, safeResolve);

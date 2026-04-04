@@ -88,7 +88,7 @@ export class ResponseManager {
   private handleTabChange(tab: string): void {
     this.state.activeTab = tab;
     this.viewer.switchTab(tab);
-    this.actions.updateVisibility(this.state.currentResponse, tab, this.viewer.isJsonBody());
+    this.actions.updateVisibility(this.state.currentResponse, tab, this.viewer.isJsonBody(), this.viewer.isXmlBody());
   }
 
   private listenToResponses(): void {
@@ -213,7 +213,8 @@ export class ResponseManager {
       this.actions.updateVisibility(
         this.state.currentResponse,
         this.state.activeTab,
-        this.viewer.isJsonBody()
+        this.viewer.isJsonBody(),
+        this.viewer.isXmlBody()
       );
     });
   }
@@ -262,7 +263,7 @@ export class ResponseManager {
     this.viewer.setRequestId(this.currentRequestId);
     await this.viewer.displayResponse(response, requestMode);
     this.tabs.updateTabs(response);
-    this.actions.updateVisibility(response, this.state.activeTab, this.viewer.isJsonBody());
+    this.actions.updateVisibility(response, this.state.activeTab, this.viewer.isJsonBody(), this.viewer.isXmlBody());
   }
 
   getCurrentResponse(): ApiResponse | null {

@@ -56,7 +56,7 @@ module.exports = {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
     }),
     new MonacoWebpackPlugin({
-      languages: ['json'],
+      languages: ['json', 'xml'],
       features: ['bracketMatching', 'folding', 'find', 'format'],
     }),
   ],

@@ -24,6 +24,31 @@ export interface SoapRequestConfig {
   action?: string;
 }
 
+export interface SoapCertEntry {
+  source: 'text' | 'file';
+  content: string; // PEM text for certs/keys, base64 for PFX/P12 binary
+  filePath?: string; // display only
+}
+
+export interface SoapCerts {
+  mode: 'jks' | 'pem';
+  // JKS mode
+  keystoreJks?: string;        // base64-encoded .jks binary
+  keystoreSource?: 'text' | 'file';
+  keystorePassword?: string;
+  keystoreFilePath?: string;   // display only (file mode)
+  truststoreJks?: string;      // base64-encoded .jks binary
+  truststoreSource?: 'text' | 'file';
+  truststorePassword?: string;
+  truststoreFilePath?: string; // display only (file mode)
+  // PEM mode
+  clientCert?: SoapCertEntry;
+  clientKey?: SoapCertEntry;
+  caCert?: SoapCertEntry;
+  pfx?: SoapCertEntry;        // base64-encoded binary
+  passphrase?: string;
+}
+
 export interface ApiRequest {
   id: string;
   name: string;
@@ -42,6 +67,7 @@ export interface ApiRequest {
     config: Record<string, string>;
   };
   soap?: SoapRequestConfig;
+  soapCerts?: SoapCerts;
   variables?: Record<string, string>; // request-local variables
   collectionId?: string; // track which collection/folder this request belongs to
 }

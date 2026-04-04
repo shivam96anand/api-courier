@@ -403,8 +403,14 @@ export class RequestManager {
       this.editorsManager.loadBody(normalizedRequest.body);
     }
 
-    if (normalizedRequest.auth) {
-      this.editorsManager.loadAuth(normalizedRequest.auth, collectionId);
+    if (mode === 'soap') {
+      this.editorsManager.loadCerts(normalizedRequest.soapCerts ?? {});
+    } else {
+      this.editorsManager.clearCerts();
+      this.editorsManager.loadAuth(
+        normalizedRequest.auth ?? { type: 'none', config: {} },
+        collectionId
+      );
     }
 
     this.dataManager.setCurrentRequest(normalizedRequest);
@@ -428,6 +434,12 @@ export class RequestManager {
         switchBtn.textContent = 'Switch to SOAP';
         switchBtn.title = 'Switch to SOAP';
       }
+    }
+
+    // Rename the Auth tab label based on mode
+    const authTabBtn = document.querySelector('.tab[data-section="auth"]') as HTMLElement | null;
+    if (authTabBtn) {
+      authTabBtn.textContent = mode === 'soap' ? 'Certs' : 'Auth';
     }
 
     const methodSelect = document.getElementById('request-method') as HTMLSelectElement | null;

@@ -100,16 +100,13 @@ export class OAuth2UIRenderer {
             <span class="token-status" id="oauth-token-status">No token</span>
           </div>
           <div class="token-info-content">
-            <div class="token-row" style="margin-bottom: 10px;">
+            <div class="token-row">
               <span class="token-label">Access Token:</span>
               <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
                 <code id="oauth-access-token-display" class="token-value" style="flex: 1; font-size: 12px;">No token</code>
                 <button type="button" class="copy-token-btn" id="copy-access-token" title="Copy token"></button>
+                <span class="token-value" id="oauth-token-expiry" style="font-size: 12px; white-space: nowrap;">No expiration</span>
               </div>
-            </div>
-            <div class="token-row">
-              <span class="token-label">Expires:</span>
-              <span class="token-value" id="oauth-token-expiry" style="font-size: 12px;">No expiration</span>
             </div>
           </div>
         </div>

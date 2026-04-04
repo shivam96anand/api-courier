@@ -23,6 +23,7 @@ export const IPC_CHANNELS = {
   // File operations channels
   FILE_OPEN_DIALOG: 'file:open-dialog',
   FILE_READ_CONTENT: 'file:read-content',
+  FILE_READ_BINARY: 'file:read-binary',
 
   // Import channels
   IMPORT_PARSE_PREVIEW: 'import:parse-preview',

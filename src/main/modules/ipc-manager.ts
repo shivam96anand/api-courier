@@ -216,6 +216,15 @@ class IpcManager {
       }
     });
 
+    ipcMain.handle(IPC_CHANNELS.FILE_READ_BINARY, async (_, filePath: string) => {
+      try {
+        const content = readFileSync(filePath).toString('base64');
+        return { success: true, content, filePath };
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to read file');
+      }
+    });
+
     // Import IPC handlers
     ipcMain.handle(IPC_CHANNELS.IMPORT_PARSE_PREVIEW, async (_, fileContent: string) => {
       try {
