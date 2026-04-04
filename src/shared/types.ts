@@ -444,3 +444,30 @@ export interface MockServerStatusChangedEvent {
   isRunning: boolean;
   error?: string;
 }
+
+// ─── cURL Tab types ─────────────────────────────────────────────────────────
+
+export interface CurlExecuteRequest {
+  id: string;
+  rawCommand: string;
+}
+
+export interface CurlExecuteResponse {
+  id: string;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+  time: number;
+  size: number;
+  parsed: CurlParsed;
+  error?: string;
+}
+
+export interface CurlParsed {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body?: string;
+  flags: string[];
+}

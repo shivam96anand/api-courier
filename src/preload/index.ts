@@ -75,6 +75,10 @@ const IPC_CHANNELS = {
   MOCKSERVER_TOGGLE_ROUTE: 'mockserver:toggle-route',
   MOCKSERVER_PICK_FILE: 'mockserver:pick-file',
   MOCKSERVER_STATUS_CHANGED: 'mockserver:status-changed',
+
+  // cURL channels
+  CURL_EXECUTE: 'curl:execute',
+  CURL_CANCEL: 'curl:cancel',
 } as const;
 
 // Define types inline to avoid import issues
@@ -537,6 +541,13 @@ const apiCourierAPI = {
       ipcRenderer.on(IPC_CHANNELS.MOCKSERVER_STATUS_CHANGED, (_, event) => callback(event));
       return () => ipcRenderer.removeAllListeners(IPC_CHANNELS.MOCKSERVER_STATUS_CHANGED);
     },
+  },
+
+  curl: {
+    execute: (request: { id: string; rawCommand: string }): Promise<any> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CURL_EXECUTE, request),
+    cancel: (requestId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CURL_CANCEL, requestId),
   },
 };
 

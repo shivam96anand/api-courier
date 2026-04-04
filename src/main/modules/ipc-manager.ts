@@ -9,6 +9,7 @@ import { loadTestExporter } from './loadtest-export';
 import { oauthManager } from './oauth';
 import { aiEngine } from './ai-engine';
 import { mockServerManager } from './mock-server-manager';
+import { executeCurl, cancelCurl } from './curl-executor';
 import {
   Collection,
   ApiRequest,
@@ -26,6 +27,7 @@ import {
   MockRouteUpdateParams,
   MockRouteDeleteParams,
   MockRouteToggleParams,
+  CurlExecuteRequest,
 } from '../../shared/types';
 import { randomUUID } from 'crypto';
 import { detectAndParse, generatePreview, parseJsonFile, ImportPreview } from './importers';
@@ -533,6 +535,15 @@ class IpcManager {
           error: error instanceof Error ? error.message : 'Failed to open file dialog',
         };
       }
+    });
+
+    // ─── cURL handlers ────────────────────────────────────────────────
+    ipcMain.handle(IPC_CHANNELS.CURL_EXECUTE, async (_, request: CurlExecuteRequest) => {
+      return await executeCurl(request);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.CURL_CANCEL, (_, requestId: string) => {
+      return cancelCurl(requestId);
     });
   }
 }

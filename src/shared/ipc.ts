@@ -72,6 +72,10 @@ export const IPC_CHANNELS = {
   MOCKSERVER_TOGGLE_ROUTE: 'mockserver:toggle-route',
   MOCKSERVER_PICK_FILE: 'mockserver:pick-file',
   MOCKSERVER_STATUS_CHANGED: 'mockserver:status-changed',
+
+  // cURL channels
+  CURL_EXECUTE: 'curl:execute',
+  CURL_CANCEL: 'curl:cancel',
 } as const;
 
 export type IpcChannelKey = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

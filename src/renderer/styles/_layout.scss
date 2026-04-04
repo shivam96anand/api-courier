@@ -228,7 +228,7 @@
 
 .sidebar {
   width: 70px;
-  background: linear-gradient(145deg, var(--bg-secondary) 0%, rgba(45, 45, 45, 0.8) 100%);
+  background: var(--bg-primary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -241,7 +241,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%, rgba(0, 0, 0, 0.05) 100%);
+    background: linear-gradient(180deg, rgba(var(--primary-color-rgb), 0.04) 0%, transparent 40%);
     pointer-events: none;
   }
 }
@@ -357,7 +357,7 @@
     border-color: var(--primary-light);
     transform: translateX(6px);
     box-shadow:
-      0 8px 24px rgba(37, 99, 235, 0.3),
+      0 8px 24px rgba(var(--primary-color-rgb), 0.3),
       0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 
     &::before {

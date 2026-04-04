@@ -19,6 +19,7 @@ import { JsonViewerTab } from './components/JsonViewerTab';
 import { JsonCompareTabManager } from './components/JsonCompareTab';
 import { AskAiTab } from './components/AskAiTab';
 import { NotepadManager } from './components/NotepadManager';
+import { CurlToolManager } from './components/CurlToolManager';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
 import { EnvironmentManager } from './components/environments/environment-manager';
@@ -47,6 +48,7 @@ class ApiCourierRenderer {
   private jsonCompareTab: JsonCompareTabManager;
   private askAiTab: AskAiTab;
   private notepadManager: NotepadManager;
+  private curlToolManager: CurlToolManager;
   private themeManager: ThemeManager;
   private environmentManager: EnvironmentManager;
   private importManager: ImportManager;
@@ -76,6 +78,7 @@ class ApiCourierRenderer {
     this.jsonCompareTab = new JsonCompareTabManager();
     this.askAiTab = new AskAiTab(askAiContainer);
     this.notepadManager = new NotepadManager(document.getElementById('notepad-tab'));
+    this.curlToolManager = new CurlToolManager();
   }
 
   async initialize(): Promise<void> {
@@ -100,6 +103,7 @@ class ApiCourierRenderer {
     this.environmentManager.initialize();
     this.backupManager.initialize();
     this.askAiTab.initialize();
+    this.curlToolManager.initialize();
     resizeManager.initialize();
 
     // Parallelize independent async initializations
