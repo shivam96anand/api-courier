@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS Hardened Runtime entitlements for API Courier.
+
+  These are the minimum required entitlements for an Electron app to run
+  under macOS Hardened Runtime (required for notarization).
+
+  com.apple.security.cs.allow-jit
+    Required by Electron's V8 JavaScript engine to use the JIT compiler.
+
+  com.apple.security.cs.allow-unsigned-executable-memory
+    Required by Electron for some Node.js native modules.
+
+  com.apple.security.cs.disable-library-validation
+    Allows Electron to load third-party dylibs (e.g. native Node addons).
+
+  com.apple.security.network.client
+    Allows outbound network connections (HTTP/HTTPS API requests).
+
+  com.apple.security.files.user-selected.read-write
+    Allows reading/writing files the user explicitly selects via open/save dialogs.
+-->
+<plist version="1.0">
+  <dict>
+    <!-- Electron / V8 JIT -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- Electron renderer / Node addons -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Third-party native modules -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- Outbound network (HTTP requests, auto-updater, local LLM) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- File access (import/export collections, certs) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+  </dict>
+</plist>

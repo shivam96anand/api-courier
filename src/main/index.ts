@@ -4,6 +4,7 @@ import { storeManager } from './modules/store-manager';
 import { ipcManager } from './modules/ipc-manager';
 import { aiEngine } from './modules/ai-engine';
 import { mockServerManager } from './modules/mock-server-manager';
+import { updateManager } from './modules/update-manager';
 
 if (process.env.NODE_ENV !== 'development') {
   console.log = () => {};
@@ -25,6 +26,7 @@ class ApiCourierApp {
 
     storeManager.startAutoBackup();
     ipcManager.initialize();
+    updateManager.initialize();
     this.createWindow();
     this.setupEventHandlers();
   }
@@ -65,6 +67,7 @@ class ApiCourierApp {
     await storeManager.flush();
     storeManager.stopAutoBackup();
     await aiEngine.flush();
+    updateManager.destroy();
     console.log('Database flushed successfully');
     windowManager.closeAllWindows();
   }
@@ -74,6 +77,7 @@ class ApiCourierApp {
     await storeManager.flush();
     storeManager.stopAutoBackup();
     await aiEngine.flush();
+    updateManager.destroy();
     app.quit();
   }
 }

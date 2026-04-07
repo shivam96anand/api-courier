@@ -10,6 +10,7 @@ import { oauthManager } from './oauth';
 import { aiEngine } from './ai-engine';
 import { mockServerManager } from './mock-server-manager';
 import { executeCurl, cancelCurl } from './curl-executor';
+import { updateManager } from './update-manager';
 import {
   Collection,
   ApiRequest,
@@ -272,25 +273,8 @@ class IpcManager {
         // Add imported collections to root level
         const updatedCollections = [...state.collections];
         if (preview.rootFolder) {
-          // If the root folder has children and no request (it's a wrapper folder),
-          // add its children directly instead of the wrapper
-          if (
-            preview.rootFolder.type === 'folder' &&
-            preview.rootFolder.children &&
-            preview.rootFolder.children.length > 0 &&
-            !preview.rootFolder.request
-          ) {
-            // Flatten each child and add to collections
-            preview.rootFolder.children.forEach(child => {
-              const { parentId, ...childWithoutParent } = child;
-              const flattened = flattenCollection(childWithoutParent as Collection);
-              updatedCollections.push(...flattened);
-            });
-          } else {
-            // Flatten and add the folder
-            const flattened = flattenCollection(preview.rootFolder);
-            updatedCollections.push(...flattened);
-          }
+          const flattened = flattenCollection(preview.rootFolder);
+          updatedCollections.push(...flattened);
         }
 
         // Add imported environments
@@ -544,6 +528,11 @@ class IpcManager {
 
     ipcMain.handle(IPC_CHANNELS.CURL_CANCEL, (_, requestId: string) => {
       return cancelCurl(requestId);
+    });
+
+    // ─── Auto-updater handler ─────────────────────────────────────────
+    ipcMain.handle(IPC_CHANNELS.UPDATE_INSTALL, () => {
+      updateManager.installAndRestart();
     });
   }
 }

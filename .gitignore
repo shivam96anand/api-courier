@@ -3,7 +3,11 @@ node_modules/
 
 # Build output
 dist/
-build/
+
+# Packaged release output (electron-builder)
+release/
+*.dmg
+*.pkg
 
 # Logs
 logs
@@ -40,16 +44,27 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
+# Environment variable files — NEVER commit real secrets
 .env
+.env.local
+.env.*.local
+# .env.example is intentionally NOT ignored (it's a template, no real values)
 
-# Database
+# Certificates (never commit private keys)
+*.p12
+*.p8
+*.pem
+*.key
+
+# Database / user data
 *.db
 *.sqlite
 database.json
 
 # macOS
 .DS_Store
+.DS_Store?
+._*
 
 # Windows
 Thumbs.db
@@ -58,6 +73,10 @@ ehthumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Temporary build directory used by electron-builder's keychain step
+build.keychain
+
 *.swp
 *.swo
 

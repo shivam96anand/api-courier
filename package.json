@@ -17,9 +17,13 @@
     "test": "vitest",
     "clean": "rm -rf dist",
     "rebuild": "npm run clean && npm run build",
-    "fresh": "npm run rebuild && npm start"
+    "fresh": "npm run rebuild && npm start",
+    "dist": "npm run build && electron-builder --mac",
+    "dist:unsigned": "npm run build && electron-builder --mac --config.mac.identity=null",
+    "release": "npm run build && electron-builder --mac --publish always"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
@@ -30,6 +34,7 @@
     "concurrently": "^8.0.0",
     "css-loader": "^6.8.0",
     "electron": "^26.0.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^8.0.0",
     "eslint-plugin-prettier": "^5.0.0",
     "html-webpack-plugin": "^5.5.0",
@@ -58,6 +63,7 @@
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.0",
     "@mui/material": "^5.15.0",
+    "electron-updater": "^6.8.3",
     "jks-js": "^1.1.6",
     "jsondiffpatch": "^0.5.0",
     "monaco-editor": "^0.52.0",
@@ -74,5 +80,57 @@
     "insomnia",
     "rest",
     "electron"
-  ]
+  ],
+  "build": {
+    "appId": "com.apicourier.app",
+    "productName": "API Courier",
+    "copyright": "Copyright © 2024 API Courier Team",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "shivam96anand",
+        "repo": "api-courier"
+      }
+    ],
+    "afterSign": "scripts/notarize.js",
+
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
+  }
 }

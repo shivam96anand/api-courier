@@ -16,8 +16,8 @@ import {
 import { AI_SYSTEM_PROMPT } from './ai-system-prompt';
 import { randomUUID } from 'crypto';
 
-const LLM_BASE_URL = 'http://localhost:9999';
-const LLM_MODEL = 'qwen2.5-7b-instruct';
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? 'http://localhost:9999';
+const LLM_MODEL = process.env.LLM_MODEL ?? 'qwen2.5-7b-instruct';
 
 class AiEngine {
   private sessionsPath: string;

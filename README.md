@@ -245,7 +245,125 @@ This will:
 3. Changes to renderer will hot-reload automatically
 4. Changes to main/preload require restart (Cmd/Ctrl+R in dev tools)
 
-## Architecture
+---
+
+## Building for Distribution (macOS)
+
+### Quick local build (unsigned, no secrets needed)
+
+```bash
+npm run dist:unsigned
+```
+
+Produces a `.dmg` and `.zip` in `release/`.  The app will be blocked by
+Gatekeeper, but is useful for local smoke-testing the packaged build.
+
+### Signed local build
+
+Copy `.env.example` → `.env` and fill in your Apple credentials, then:
+
+```bash
+npm run dist
+```
+
+### Releasing to GitHub
+
+Tag commits with a semver tag — the CI pipeline takes over from there:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+---
+
+## macOS Signing & Notarization
+
+### Prerequisites
+
+| What | Where to get it |
+|------|----------------|
+| Developer ID Application certificate (`.p12`) | Xcode → Settings → Accounts, or [developer.apple.com](https://developer.apple.com/account/resources/certificates) |
+| App Store Connect API Key (`.p8` + Key ID + Issuer ID) | [appstoreconnect.apple.com/access/api](https://appstoreconnect.apple.com/access/api) |
+| Apple Team ID | [developer.apple.com/account](https://developer.apple.com/account) → Membership |
+
+### Local setup
+
+```bash
+cp .env.example .env
+# Edit .env and fill in:
+#   CSC_LINK            (base64 of your .p12: base64 -i cert.p12)
+#   CSC_KEY_PASSWORD    (password for the .p12)
+#   APPLE_TEAM_ID
+#   APPLE_API_KEY_ID
+#   APPLE_API_ISSUER
+#   APPLE_API_KEY       (paste full .p8 content)
+```
+
+The notarization hook (`scripts/notarize.js`) reads these variables
+automatically.  It skips silently when the variables are absent so
+unsigned / dev builds still work.
+
+### CI setup (GitHub Actions)
+
+Add the following **repository secrets** at *Settings → Secrets → Actions*:
+
+| Secret | Description |
+|--------|-------------|
+| `CSC_LINK` | `base64 -i MyCert.p12` output |
+| `CSC_KEY_PASSWORD` | Password for the `.p12` |
+| `APPLE_TEAM_ID` | 10-char team ID |
+| `APPLE_API_KEY_ID` | App Store Connect key ID |
+| `APPLE_API_ISSUER` | App Store Connect issuer UUID |
+| `APPLE_API_KEY` | Full `.p8` file contents (multi-line secret) |
+| `GH_TOKEN` | PAT with `contents: write` (or leave blank to use `GITHUB_TOKEN`) |
+
+Push a version tag to trigger the release pipeline:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+---
+
+## Auto-Updates
+
+API Courier uses `electron-updater` with a GitHub Releases provider.
+
+- Updates are checked 10 s after launch, then every 4 h.
+- In **dev mode** (`npm run dev`) updating is disabled — no side-effects.
+- Once a new tag is published via CI, users on the previous version will be
+  notified and prompted to install the update.
+
+The renderer receives these IPC events from the main process:
+
+| IPC event | Payload |
+|-----------|---------|
+| `update:available` | `{ version }` |
+| `update:download-progress` | `{ percent, bytesPerSecond, transferred, total }` |
+| `update:downloaded` | `{ version }` |
+| `update:error` | `{ message }` |
+
+Call `window.apiCourier.update.install()` (once exposed in preload) to quit
+and install the downloaded update.
+
+---
+
+## Release Process (step-by-step)
+
+1. Bump the version: `npm version patch` (or `minor` / `major`)
+2. Push commit + tag: `git push && git push --tags`
+3. CI builds, signs, notarizes, and creates a GitHub Release automatically.
+4. Release artifacts available in `release/`:
+   - `API Courier-<version>-x64.dmg` (Intel)
+   - `API Courier-<version>-arm64.dmg` (Apple Silicon)
+   - `API Courier-<version>-x64.zip` (for auto-update)
+   - `API Courier-<version>-arm64.zip`
+   - `latest-mac.yml` (auto-update manifest)
+
+---
+
+
 
 API Courier is built with **security-first architecture** following Electron security best practices:
 

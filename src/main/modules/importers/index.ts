@@ -113,21 +113,6 @@ export function generatePreview(importResult: ImportResult): ImportPreview {
     const counts = countCollectionItems(importResult.rootFolder);
     summary.folders = counts.folders;
     summary.requests = counts.requests;
-
-    // If the root folder is a wrapper with children, show the children names instead
-    if (
-      importResult.rootFolder.type === 'folder' &&
-      importResult.rootFolder.children &&
-      importResult.rootFolder.children.length > 0 &&
-      !importResult.rootFolder.request
-    ) {
-      // Show names of actual collections that will be imported
-      const childNames = importResult.rootFolder.children.map(c => c.name).join(', ');
-      previewName = `${importResult.rootFolder.children.length} collections: ${childNames}`;
-
-      // Don't count the wrapper folder itself
-      summary.folders = counts.folders - 1;
-    }
   }
 
   const preview: ImportPreview = {
