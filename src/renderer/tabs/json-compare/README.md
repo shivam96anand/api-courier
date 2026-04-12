@@ -1,6 +1,6 @@
 # JSON Compare Feature
 
-A production-ready JSON comparison tool integrated into API Courier.
+A production-ready JSON comparison tool integrated into Restbro.
 
 ## Features
 

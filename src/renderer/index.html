@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:*;">
-    <title>API Courier</title>
+    <title>Restbro</title>
 </head>
 <body>
     <div id="app">
@@ -13,7 +13,7 @@
                 <!-- Environment selector will be inserted here by EnvironmentManager -->
             </div>
             <div class="header-center">
-                <div class="app-title">API Courier</div>
+                <div class="app-title">Restbro</div>
             </div>
             <div class="header-right">
                 <button id="backup-button" class="backup-button" title="Time Machine">Time Machine</button>
@@ -219,6 +219,7 @@
                                     <div id="curl-section" class="section">
                                         <div class="curl-section-toolbar">
                                             <button id="copy-curl-command" class="curl-copy-btn" title="Copy cURL command">Copy</button>
+                                            <button id="open-in-curl-tool" class="open-in-curl-btn" title="Open in cURL Tool">Open in cURL</button>
                                         </div>
                                         <textarea
                                           id="curl-command-output"

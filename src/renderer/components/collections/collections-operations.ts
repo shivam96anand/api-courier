@@ -271,7 +271,7 @@ export class CollectionsOperations {
 
   /**
    * Shows export dialog and downloads a single JSON file with selected collections,
-   * environments, and optionally globals (api-courier-export format).
+   * environments, and optionally globals (restbro-export format).
    */
   async showExportDialog(): Promise<void> {
     const state = await window.apiCourier.store.get();
@@ -304,7 +304,7 @@ export class CollectionsOperations {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `api-courier-export-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `restbro-export-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -335,13 +335,13 @@ export class CollectionsOperations {
 
     const collectionExport = {
       info: {
-        name: 'API Courier Export',
+        name: 'Restbro Export',
         schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
       },
       item: rootItems
     };
 
-    this.downloadJson('api-courier-collection', collectionExport);
+    this.downloadJson('restbro-collection', collectionExport);
 
     const environments = Array.isArray(state.environments) ? state.environments : [];
     environments.forEach((env) => {
@@ -357,7 +357,7 @@ export class CollectionsOperations {
         values,
         _postman_variable_scope: 'environment'
       };
-      this.downloadJson(`api-courier-env-${env.name || env.id}`, envExport);
+      this.downloadJson(`restbro-env-${env.name || env.id}`, envExport);
     });
 
     const globals = state.globals?.variables || {};
@@ -368,12 +368,12 @@ export class CollectionsOperations {
     }));
     if (globalValues.length > 0) {
       const globalsExport = {
-        id: 'api-courier-globals',
+        id: 'restbro-globals',
         name: 'Globals',
         values: globalValues,
         _postman_variable_scope: 'globals'
       };
-      this.downloadJson('api-courier-globals', globalsExport);
+      this.downloadJson('restbro-globals', globalsExport);
     }
   }
 

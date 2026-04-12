@@ -1,6 +1,6 @@
-# API Courier — Repo Instructions (Claude/Copilot)
+# Restbro — Repo Instructions (Claude/Copilot)
 
-API Courier is a secure Electron desktop app for API testing (Postman/Insomnia-like) with Collections, History, Environments/Globals, OAuth2, Load Testing, JSON tools, Notepad, and Ask-AI.
+Restbro is a secure Electron desktop app for API testing (Postman/Insomnia-like) with Collections, History, Environments/Globals, OAuth2, Load Testing, JSON tools, Notepad, and Ask-AI.
 
 ## Non-negotiables (hard rules)
 - Keep Electron security: `nodeIntegration:false`, `contextIsolation:true`, `sandbox:true` (see `src/main/modules/window-manager.ts`).

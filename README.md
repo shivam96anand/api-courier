@@ -1,10 +1,10 @@
-# API Courier
+# Restbro
 
-A modern, professional API testing tool built with Electron, TypeScript, and modern web technologies. API Courier is a secure, feature-rich desktop application that provides comprehensive API testing, automation, and development tools — all in one place.
+A modern, professional API testing tool built with Electron, TypeScript, and modern web technologies. Restbro is a secure, feature-rich desktop application that provides comprehensive API testing, automation, and development tools — all in one place.
 
 ## Overview
 
-API Courier combines the best features of tools like Postman and Insomnia with powerful additions like load testing, mock servers, AI assistance, and advanced JSON tools. Built with security-first architecture and enterprise-grade practices, API Courier is designed for developers who need a reliable, fast, and comprehensive API testing solution.
+Restbro combines the best features of tools like Postman and Insomnia with powerful additions like load testing, mock servers, AI assistance, and advanced JSON tools. Built with security-first architecture and enterprise-grade practices, Restbro is designed for developers who need a reliable, fast, and comprehensive API testing solution.
 
 ## Key Features
 
@@ -197,7 +197,7 @@ API Courier combines the best features of tools like Postman and Insomnia with p
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd api-courier
+   cd restbro
    ```
 
 2. **Install dependencies**:
@@ -328,7 +328,7 @@ git tag v1.0.0 && git push origin v1.0.0
 
 ## Auto-Updates
 
-API Courier uses `electron-updater` with a GitHub Releases provider.
+Restbro uses `electron-updater` with a GitHub Releases provider.
 
 - Updates are checked 10 s after launch, then every 4 h.
 - In **dev mode** (`npm run dev`) updating is disabled — no side-effects.
@@ -355,17 +355,17 @@ and install the downloaded update.
 2. Push commit + tag: `git push && git push --tags`
 3. CI builds, signs, notarizes, and creates a GitHub Release automatically.
 4. Release artifacts available in `release/`:
-   - `API Courier-<version>-x64.dmg` (Intel)
-   - `API Courier-<version>-arm64.dmg` (Apple Silicon)
-   - `API Courier-<version>-x64.zip` (for auto-update)
-   - `API Courier-<version>-arm64.zip`
+   - `Restbro-<version>-x64.dmg` (Intel)
+   - `Restbro-<version>-arm64.dmg` (Apple Silicon)
+   - `Restbro-<version>-x64.zip` (for auto-update)
+   - `Restbro-<version>-arm64.zip`
    - `latest-mac.yml` (auto-update manifest)
 
 ---
 
 
 
-API Courier is built with **security-first architecture** following Electron security best practices:
+Restbro is built with **security-first architecture** following Electron security best practices:
 
 ### Security Model
 
@@ -593,7 +593,7 @@ src/
 
 ## Contributing
 
-API Courier follows **enterprise-grade development practices**:
+Restbro follows **enterprise-grade development practices**:
 
 ### Code Quality Standards
 - **TypeScript**: Strict mode, no `any` except at boundaries

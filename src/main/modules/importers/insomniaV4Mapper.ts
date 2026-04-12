@@ -18,7 +18,7 @@ import {
 } from './insomniaTypes';
 
 /**
- * Maps an Insomnia V4 export to API Courier format
+ * Maps an Insomnia V4 export to Restbro format
  */
 export function mapInsomniaV4Export(resources: InsomniaResource[]): {
   rootFolder: Collection;

@@ -1,5 +1,5 @@
 /**
- * Variable Resolution Engine for API Courier
+ * Variable Resolution Engine for Restbro
  * Resolves {{variable}} placeholders in URLs, headers, params, and body content
  *
  * Precedence: Request Local > Active Environment > Folder (ancestor chain) > Globals

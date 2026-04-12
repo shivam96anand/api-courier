@@ -45,7 +45,7 @@ export interface ImportPreview {
  * Detects the type of import file and parses it
  */
 export function detectAndParse(jsonData: any): ImportResult {
-  // Detect API Courier native export first
+  // Detect Restbro native export first
   if (isApiCourierExport(jsonData)) {
     const { rootFolder, environments, globals } = mapApiCourierExport(jsonData);
     return {

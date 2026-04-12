@@ -6,7 +6,7 @@ import { Collection, ApiRequest, Environment } from '../../../shared/types';
 import { generateId, mapHttpMethod, mapAuth, sanitizeName } from './mappers';
 
 /**
- * Maps Insomnia V5 format to API Courier format
+ * Maps Insomnia V5 format to Restbro format
  */
 export function mapInsomniaV5Export(data: any): {
   rootFolder: Collection;

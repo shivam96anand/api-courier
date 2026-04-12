@@ -176,6 +176,14 @@ export class CurlToolManager {
         this.execute();
       }
     });
+
+    // Open-in-curl-tool: navigate here and pre-fill command
+    document.addEventListener('open-in-curl-tool', (e: Event) => {
+      const { curlCommand } = (e as CustomEvent<{ curlCommand: string }>).detail;
+      const navBtn = document.querySelector('[data-tab="curl-tool"]') as HTMLElement | null;
+      navBtn?.click();
+      if (input) input.value = curlCommand;
+    });
   }
 
   private async execute(): Promise<void> {

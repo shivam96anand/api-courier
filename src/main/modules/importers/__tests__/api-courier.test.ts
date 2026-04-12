@@ -62,7 +62,7 @@ describe('importers/api-courier', () => {
       const result = mapApiCourierExport(exportData);
 
       expect(result.rootFolder.type).toBe('folder');
-      expect(result.rootFolder.name).toBe('API Courier Export');
+      expect(result.rootFolder.name).toBe('Restbro Export');
       expect(result.rootFolder.children).toHaveLength(1);
       expect(result.rootFolder.children![0].name).toBe('Folder');
       expect(result.rootFolder.children![0].id).not.toBe('f1');
@@ -141,7 +141,7 @@ describe('importers/api-courier', () => {
       const importResult = detectAndParse(json);
 
       expect(importResult.kind).toBe('api-courier-export');
-      expect(importResult.name).toBe('API Courier Export');
+      expect(importResult.name).toBe('Restbro Export');
       expect(importResult.rootFolder?.children).toHaveLength(1);
       expect(importResult.environments).toHaveLength(1);
       expect(importResult.globals?.variables?.apiKey).toBe('xxx');

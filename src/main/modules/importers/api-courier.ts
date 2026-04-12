@@ -1,5 +1,5 @@
 /**
- * API Courier native export format importer
+ * Restbro native export format importer
  */
 
 import { Collection, Environment, Globals } from '../../../shared/types';
@@ -66,7 +66,7 @@ function reassignCollectionIds(
 }
 
 /**
- * Maps API Courier export to ImportResult shape. Assigns new IDs to avoid conflicts.
+ * Maps Restbro export to ImportResult shape. Assigns new IDs to avoid conflicts.
  */
 export function mapApiCourierExport(data: ApiCourierExportData): {
   rootFolder: Collection;
@@ -78,7 +78,7 @@ export function mapApiCourierExport(data: ApiCourierExportData): {
 
   const rootFolder: Collection = {
     id: generateId(),
-    name: 'API Courier Export',
+    name: 'Restbro Export',
     type: 'folder',
     children: collections.map((c) => reassignCollectionIds(c, idMap, undefined)),
     createdAt: new Date(),

@@ -61,6 +61,13 @@ export class RequestDataManager {
       });
     }
 
+    const openInCurlBtn = document.getElementById('open-in-curl-tool');
+    if (openInCurlBtn) {
+      openInCurlBtn.addEventListener('click', async () => {
+        await this.openInCurlTool();
+      });
+    }
+
     this.scheduleCurlPreviewUpdate();
   }
 
@@ -227,6 +234,25 @@ export class RequestDataManager {
       console.error('Failed to copy cURL:', error);
       this.uiHelpers.showToast('Failed to copy cURL');
     }
+  }
+
+  private async openInCurlTool(): Promise<void> {
+    if (!this.currentRequest) {
+      this.uiHelpers.showToast('No request to open');
+      return;
+    }
+
+    let curlCommand = this.getCurlOutputElement()?.value?.trim() || '';
+    if (!curlCommand) {
+      curlCommand = (await this.buildCurlForCurrentRequest()) || '';
+    }
+
+    if (!curlCommand) {
+      this.uiHelpers.showToast('Request URL is empty');
+      return;
+    }
+
+    document.dispatchEvent(new CustomEvent('open-in-curl-tool', { detail: { curlCommand } }));
   }
 
   private async sendRequest(): Promise<void> {

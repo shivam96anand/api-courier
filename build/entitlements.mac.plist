@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  macOS Hardened Runtime entitlements for API Courier.
+  macOS Hardened Runtime entitlements for Restbro.
 
   These are the minimum required entitlements for an Electron app to run
   under macOS Hardened Runtime (required for notarization).

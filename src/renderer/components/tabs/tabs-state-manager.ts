@@ -46,7 +46,7 @@ export class TabsStateManager {
       url: '',
       params: {},
       headers: {
-        'User-Agent': 'API-Courier/1.0',
+        'User-Agent': 'Restbro/1.0',
         'Accept-Encoding': 'gzip'
       },
     };

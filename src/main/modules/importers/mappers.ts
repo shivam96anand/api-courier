@@ -1,5 +1,5 @@
 /**
- * Shared mapping utilities for converting Postman/Insomnia data to API Courier format
+ * Shared mapping utilities for converting Postman/Insomnia data to Restbro format
  */
 
 import { randomBytes } from 'crypto';
@@ -23,7 +23,7 @@ export function mapHttpMethod(method?: string): 'GET' | 'POST' | 'PUT' | 'PATCH'
 }
 
 /**
- * Maps Postman/Insomnia auth to API Courier auth format
+ * Maps Postman/Insomnia auth to Restbro auth format
  */
 export function mapAuth(authConfig: any): { type: 'none' | 'basic' | 'bearer' | 'api-key' | 'oauth2'; config: Record<string, string> } {
   if (!authConfig || !authConfig.type || authConfig.type === 'noauth') {

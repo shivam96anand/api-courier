@@ -26,7 +26,7 @@ export class CollectionsDialogs {
           method: 'GET',
           url: '',
           headers: {
-            'User-Agent': 'API-Courier/1.0',
+            'User-Agent': 'Restbro/1.0',
             'Accept-Encoding': 'gzip'
           },
           params: {},

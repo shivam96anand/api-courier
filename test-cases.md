@@ -1,8 +1,8 @@
-# API Courier — Test Cases Implementation Plan
+# Restbro — Test Cases Implementation Plan
 
 ## Overview
 
-This document is the complete, actionable guide for implementing test coverage across the API Courier codebase. The goal is a stable regression suite that catches breaking changes before they reach production.
+This document is the complete, actionable guide for implementing test coverage across the Restbro codebase. The goal is a stable regression suite that catches breaking changes before they reach production.
 
 **Test runner:** Vitest v1  
 **Config:** `vitest.config.ts` (environment: `node`, globals: `true`)  

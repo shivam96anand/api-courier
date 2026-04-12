@@ -20,6 +20,7 @@ import { JsonCompareTabManager } from './components/JsonCompareTab';
 import { AskAiTab } from './components/AskAiTab';
 import { NotepadManager } from './components/NotepadManager';
 import { CurlToolManager } from './components/CurlToolManager';
+import { UpdateNotificationManager } from './components/update-notification-manager';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
 import { EnvironmentManager } from './components/environments/environment-manager';
@@ -54,6 +55,7 @@ class ApiCourierRenderer {
   private importManager: ImportManager;
   private backupManager: BackupManager;
   private themeOnboarding: ThemeOnboarding;
+  private updateNotificationManager: UpdateNotificationManager;
 
   constructor() {
     this.themeManager = new ThemeManager();
@@ -65,6 +67,7 @@ class ApiCourierRenderer {
     this.importManager = new ImportManager(this.handleImportComplete.bind(this));
     this.backupManager = new BackupManager();
     this.themeOnboarding = new ThemeOnboarding(this.themeManager);
+    this.updateNotificationManager = new UpdateNotificationManager();
 
     // Get container elements for managers that require them
     const responseContainer = document.getElementById('response-area') || document.body;
@@ -104,6 +107,7 @@ class ApiCourierRenderer {
     this.backupManager.initialize();
     this.askAiTab.initialize();
     this.curlToolManager.initialize();
+    this.updateNotificationManager.initialize();
     resizeManager.initialize();
 
     // Parallelize independent async initializations
