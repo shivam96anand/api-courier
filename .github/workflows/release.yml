@@ -105,8 +105,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
           # Code signing (electron-builder reads these automatically)
+          # CSC_IDENTITY_AUTO_DISCOVERY=false prevents electron-builder from
+          # resolving an empty CSC_LINK to the working directory and failing.
+          # Signing only happens when CSC_LINK is explicitly set.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' && 'true' || 'false' }}
           # Notarization (scripts/notarize.js reads these)
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}

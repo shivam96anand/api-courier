@@ -1,0 +1,34 @@
+# .github/workflows/notify-website.yml
+#
+# Pings the RestBro website to bust its ISR cache whenever a new
+# GitHub Release is published, so download links update immediately.
+#
+# Required repository secrets (Settings → Secrets → Actions):
+#   WEBSITE_REVALIDATE_URL    — Full URL to the revalidation endpoint
+#                               e.g. https://restbro.com/api/revalidate
+#   WEBSITE_REVALIDATE_SECRET — Shared secret matching REVALIDATE_SECRET
+#                               on the website (set in Vercel env vars)
+
+name: Notify Website of Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger website revalidation
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.WEBSITE_REVALIDATE_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.WEBSITE_REVALIDATE_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "Response status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Warning: Website revalidation returned status $HTTP_STATUS"
+            # Non-blocking — the site will self-heal within revalidateInterval (300s)
+          fi
