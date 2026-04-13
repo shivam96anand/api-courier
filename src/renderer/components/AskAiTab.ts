@@ -177,31 +177,10 @@ export class AskAiTab {
   }
 
   private render(): void {
-    const activeSession = this.getActiveSession();
-
     this.container.innerHTML = `
-      <div class="ask-ai-layout">
-        <aside class="ask-ai-sidebar">
-          <div class="sidebar-header">
-            <h3>Conversations</h3>
-            <button class="btn-new-session" title="New Chat">${iconHtml('plus')}</button>
-          </div>
-          <div class="sessions-search">
-            <input type="text" placeholder="Search conversations..." value="${escapeHtml(this.state.searchQuery)}" />
-          </div>
-          <div class="sessions-list">
-            ${renderSessionsList(this.state)}
-          </div>
-        </aside>
-        <main class="ask-ai-main">
-          ${renderEngineStatusBanner(this.state)}
-          ${activeSession ? renderContextPanel(activeSession, this.state) : ''}
-          <div class="chat-area">
-            ${activeSession ? renderChatMessages(activeSession, this.state) : renderWelcome()}
-          </div>
-          ${renderQuickSuggestions(activeSession)}
-          ${renderInputArea(this.state)}
-        </main>
+      <div class="coming-soon">
+        <h2>Ask AI</h2>
+        <p>Coming Soon...</p>
       </div>
     `;
   }
