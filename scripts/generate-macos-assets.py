@@ -32,6 +32,8 @@ ICONSET_FILES = [
 
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     for candidate in (
+        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/Supplemental/Helvetica Neue.ttc",
         "/System/Library/Fonts/Helvetica.ttc",
         "/System/Library/Fonts/Supplemental/Arial.ttf",
     ):
@@ -117,49 +119,30 @@ def make_background(size: tuple[int, int], output_path: Path, dpi: tuple[int, in
     width, height = size
     scale = width / 660
 
-    base = Image.new("RGBA", size, (11, 11, 15, 255))
-    pixels = base.load()
-    center_x = width / 2
-    center_y = height * 0.52
-    max_distance = (center_x**2 + center_y**2) ** 0.5
+    base = Image.new("RGBA", size, (255, 255, 255, 255))
 
-    for y in range(height):
-        top_mix = y / max(height - 1, 1)
-        top_r = int(10 + (24 - 10) * top_mix)
-        top_g = int(9 + (14 - 9) * top_mix)
-        top_b = int(16 + (22 - 16) * top_mix)
-        for x in range(width):
-            dx = x - center_x
-            dy = y - center_y
-            radial = max(0.0, 1.0 - ((dx * dx + dy * dy) ** 0.5) / max_distance)
-            pixels[x, y] = (
-                min(255, int(top_r + 26 * radial)),
-                min(255, int(top_g + 5 * radial)),
-                min(255, int(top_b + 24 * radial)),
-                255,
-            )
-
-    glow = Image.new("RGBA", size, (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    glow_draw.ellipse(
+    vignette = Image.new("RGBA", size, (0, 0, 0, 0))
+    vignette_draw = ImageDraw.Draw(vignette)
+    vignette_draw.rounded_rectangle(
         (
-            width * 0.18,
-            height * 0.12,
-            width * 0.82,
-            height * 0.94,
+            int(12 * scale),
+            int(12 * scale),
+            width - int(12 * scale),
+            height - int(12 * scale),
         ),
-        fill=(120, 10, 70, 70),
+        radius=int(20 * scale),
+        outline=(32, 35, 40, 255),
+        width=max(1, int(2 * scale)),
     )
-    glow = glow.filter(ImageFilter.GaussianBlur(int(46 * scale)))
-    base.alpha_composite(glow)
+    base.alpha_composite(vignette)
 
     arrow = Image.new("RGBA", size, (0, 0, 0, 0))
     arrow_draw = ImageDraw.Draw(arrow)
-    arrow_y = int(height * 0.49)
+    arrow_y = int(height * 0.43)
     arrow_start = int(width * 0.40)
     arrow_end = int(width * 0.61)
     arrow_thickness = max(6, int(8 * scale))
-    arrow_color = (255, 24, 138, 255)
+    arrow_color = (20, 22, 26, 255)
     arrow_draw.rounded_rectangle(
         (
             arrow_start,
@@ -178,15 +161,12 @@ def make_background(size: tuple[int, int], output_path: Path, dpi: tuple[int, in
         ),
         fill=arrow_color,
     )
-
-    arrow_glow = arrow.filter(ImageFilter.GaussianBlur(int(14 * scale)))
-    base.alpha_composite(arrow_glow)
     base.alpha_composite(arrow)
 
     footer = Image.new("RGBA", size, (0, 0, 0, 0))
     footer_draw = ImageDraw.Draw(footer)
-    footer_font = load_font(max(15, int(18 * scale)))
-    footer_text = "Drag Restbro to Applications to install"
+    footer_font = load_font(max(18, int(20 * scale)))
+    footer_text = "Drag RestBro to Applications to install"
     text_box = footer_draw.textbbox((0, 0), footer_text, font=footer_font)
     text_width = text_box[2] - text_box[0]
     text_height = text_box[3] - text_box[1]
@@ -194,7 +174,7 @@ def make_background(size: tuple[int, int], output_path: Path, dpi: tuple[int, in
         ((width - text_width) / 2, height - text_height - int(34 * scale)),
         footer_text,
         font=footer_font,
-        fill=(118, 112, 134, 220),
+        fill=(47, 52, 62, 255),
     )
     base.alpha_composite(footer)
 
