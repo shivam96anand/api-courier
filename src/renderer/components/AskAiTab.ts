@@ -179,8 +179,16 @@ export class AskAiTab {
   private render(): void {
     this.container.innerHTML = `
       <div class="coming-soon">
-        <h2>Ask AI</h2>
-        <p>Coming Soon...</p>
+        <div class="coming-soon__icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10"/>
+            <path d="M12 6v6l4 2"/>
+            <path d="M18 2v4h4"/>
+          </svg>
+        </div>
+        <h2 class="coming-soon__title">AI Assistant</h2>
+        <p class="coming-soon__subtitle">Coming soon</p>
+        <p class="coming-soon__desc">Analyse requests, debug responses, and get context-aware suggestions — all without leaving the app.</p>
       </div>
     `;
   }
