@@ -173,11 +173,6 @@ if [[ -z "$DMG_PATH" ]]; then
 fi
 ok "DMG (electron-builder): $DMG_PATH"
 
-# Save DMG title for later rebuild after stapling
-DMG_TITLE=$(node -p "require('./package.json').build.dmg.title
-  .replace('\${productName}', require('./package.json').build.productName)
-  .replace('\${version}', require('./package.json').version)")
-
 # Locate ZIP (optional)
 ZIP_PATH=$(find "$RELEASE_DIR" -maxdepth 1 -name "*.zip" | head -1)
 if [[ -n "$ZIP_PATH" ]]; then
@@ -244,9 +239,6 @@ notarize_artifact() {
   ok "$artifact_name notarized"
 }
 
-# Notarize DMG (primary)
-notarize_artifact "$DMG_PATH"
-
 # Notarize ZIP if present
 if [[ -n "$ZIP_PATH" ]]; then
   notarize_artifact "$ZIP_PATH"
@@ -288,20 +280,34 @@ fi
 
 # ── Rebuild DMG from the stapled .app ────────────────────────────
 # DMG stapling is unreliable on Apple Silicon (synthetic cdHash issues).
-# Instead, we rebuild the DMG to contain the stapled .app.
-# Gatekeeper checks the .app inside — which IS stapled.
-echo "  Rebuilding DMG with stapled .app..."
+# Rebuild the installer DMG from the stapled .app using electron-builder's
+# DMG target so the Finder layout, background, and Applications symlink are
+# preserved.
+echo "  Rebuilding DMG with stapled .app and Finder layout..."
 DMG_BASENAME=$(basename "$DMG_PATH")
-DMG_TMP="$RELEASE_DIR/.tmp-stapled-${DMG_BASENAME}"
-hdiutil create \
-  -volname "$DMG_TITLE" \
-  -srcfolder "$APP_PATH" \
-  -ov \
-  -fs HFS+ \
-  -format UDZO \
-  "$DMG_TMP"
-mv -f "$DMG_TMP" "$DMG_PATH"
-ok "DMG rebuilt with stapled .app"
+DMG_REBUILD_DIR="$PROJECT_DIR/.tmp-dmg-rebuild"
+
+rm -rf "$DMG_REBUILD_DIR"
+
+npx electron-builder \
+  --prepackaged "$APP_PATH" \
+  --mac dmg \
+  --publish never \
+  -c.directories.output="$DMG_REBUILD_DIR"
+
+REBUILT_DMG=$(find "$DMG_REBUILD_DIR" -maxdepth 1 -name "*.dmg" | head -1)
+if [[ -z "$REBUILT_DMG" ]]; then
+  rm -rf "$DMG_REBUILD_DIR"
+  die "Rebuilt DMG not found in $DMG_REBUILD_DIR"
+fi
+
+mv -f "$REBUILT_DMG" "$DMG_PATH"
+rm -rf "$DMG_REBUILD_DIR"
+ok "DMG rebuilt with stapled .app and Finder layout"
+
+echo ""
+echo "  Notarizing final DMG..."
+notarize_artifact "$DMG_PATH"
 
 # ─── Step 8: Final verification ──────────────────────────────────
 step "[8/8] Final verification (post-notarization)..."

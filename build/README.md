@@ -6,8 +6,24 @@ This directory contains static resources used during the packaging step (`electr
 
 | File | Description |
 |------|-------------|
-| `icon.icns` | App icon for macOS (1024×1024 px recommended, auto-resized). Generate from a PNG with `iconutil` or tools like `electron-icon-builder`. |
+| `icon-source.png` | Square master artwork used to generate the rounded macOS icon. |
+| `icon.png` | Rounded 1024×1024 macOS icon source used to build `icon.icns`. |
+| `icon.icns` | App icon for macOS. Regenerated automatically by `scripts/generate-macos-assets.py`. |
+| `dmg-background.png` | Standard-DPI DMG background. Keep this decorative only; Finder renders the real app and Applications icons. |
+| `dmg-background@2x.png` | Retina DMG background at 2× size and 144 DPI. |
 | `entitlements.mac.plist` | Hardened Runtime entitlements — already provided. |
+
+## Regenerating macOS Assets
+
+```bash
+python3 scripts/generate-macos-assets.py
+```
+
+Notes:
+
+- The script regenerates `icon.png`, `icon.icns`, `dmg-background.png`, and `dmg-background@2x.png`.
+- The DMG background should not contain the app icon, Applications folder, or their labels. Finder overlays those automatically.
+- macOS does not auto-round app icons. The rounded shape must be part of `icon.png` / `icon.icns`.
 
 ## Generating icon.icns
 
