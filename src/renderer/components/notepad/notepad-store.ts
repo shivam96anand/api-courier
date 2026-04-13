@@ -195,4 +195,15 @@ export class NotepadStore {
       this.persistTimer = null;
     }, 300);
   }
+
+  /**
+   * Immediately persist current state, cancelling any pending debounced write.
+   */
+  flushPersist(): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
+    window.apiCourier.store.set({ notepad: this.state });
+  }
 }

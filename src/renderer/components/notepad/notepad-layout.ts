@@ -98,6 +98,15 @@ export function buildNotepadLayout(
     dirtyModal: container.querySelector('#notepad-dirty-modal') as HTMLElement,
   };
 
+  // Click on empty space in tab area opens a new tab
+  const tabsArea = container.querySelector('.notepad-tabs-area') as HTMLElement;
+  tabsArea?.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target === tabsArea || target.id === 'notepad-tab-strip') {
+      callbacks.onAddTab();
+    }
+  });
+
   // Attach button event listeners
   container
     .querySelector('#np-zoom-out')

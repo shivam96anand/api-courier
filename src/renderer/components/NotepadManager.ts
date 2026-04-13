@@ -102,11 +102,9 @@ export class NotepadManager {
       })
     );
 
-    window.addEventListener('beforeunload', (event) => {
-      if (this.store.getState().tabs.some((t) => t.isDirty)) {
-        event.preventDefault();
-        event.returnValue = '';
-      }
+    window.addEventListener('beforeunload', () => {
+      // Flush any pending persist so dirty content is saved before close
+      this.store.flushPersist();
     });
 
     document.addEventListener('click', (e) => {

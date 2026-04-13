@@ -232,4 +232,11 @@ class ApiCourierRenderer {
 document.addEventListener('DOMContentLoaded', async () => {
   const app = new ApiCourierRenderer();
   await app.initialize();
+
+  // Remove loading overlay with a smooth fade
+  const overlay = document.getElementById('app-loading-overlay');
+  if (overlay) {
+    overlay.classList.add('fade-out');
+    overlay.addEventListener('transitionend', () => overlay.remove());
+  }
 });

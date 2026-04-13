@@ -8,8 +8,33 @@
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:*;"
     />
     <title>Restbro</title>
+    <style>
+      #app-loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.3s ease;
+      }
+      #app-loading-overlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #app-loading-overlay .loader-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 22px;
+        font-weight: 600;
+        color: #ffffff;
+        letter-spacing: 0.5px;
+        opacity: 0.85;
+      }
+    </style>
   </head>
   <body>
+    <div id="app-loading-overlay"><span class="loader-title">Restbro</span></div>
     <div id="app">
       <header class="app-header">
         <div class="header-left">

@@ -51,8 +51,12 @@ class ApiCourierApp {
     app.on('before-quit', async (event) => {
       if (!this.isQuitting) {
         event.preventDefault();
-        await this.gracefulShutdown();
         this.isQuitting = true;
+        try {
+          await this.gracefulShutdown();
+        } catch (error) {
+          console.error('Error during graceful shutdown:', error);
+        }
         app.quit();
       }
     });
@@ -66,7 +70,6 @@ class ApiCourierApp {
     await aiEngine.flush();
     updateManager.destroy();
     console.log('Database flushed successfully');
-    windowManager.closeAllWindows();
   }
 
   private async quit(): Promise<void> {
