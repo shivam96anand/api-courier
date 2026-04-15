@@ -99,7 +99,7 @@ ok "Build complete"
 # ─── Step 3: Package with electron-builder ────────────────────────
 step "[3/4] Packaging Windows installer..."
 
-npx electron-builder --win --config.win.sign=false
+CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win
 ok "Windows installer packaged"
 
 # ─── Step 4: Verify artifacts ─────────────────────────────────────
