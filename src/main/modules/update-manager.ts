@@ -124,7 +124,9 @@ class UpdateManager {
 
     autoUpdater.on('download-progress', (progress) => {
       // Silent — no UI shown to user
-      console.log(`[updater] Download progress: ${Math.round(progress.percent)}%`);
+      console.log(
+        `[updater] Download progress: ${Math.round(progress.percent)}%`
+      );
     });
 
     autoUpdater.on('update-downloaded', (info: UpdateInfo) => {

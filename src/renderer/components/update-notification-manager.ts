@@ -77,9 +77,7 @@ export class UpdateNotificationManager {
       });
     };
 
-    popup
-      .querySelector('#update-popup-ok')
-      ?.addEventListener('click', dismiss);
+    popup.querySelector('#update-popup-ok')?.addEventListener('click', dismiss);
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) dismiss();
     });

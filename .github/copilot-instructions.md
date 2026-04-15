@@ -71,3 +71,12 @@ Restbro is a secure Electron desktop app for API testing (Postman/Insomnia-like)
 - TypeScript-first; avoid `any` except at strict boundaries (parsing/untrusted input).
 - Add `vitest` tests for pure logic when feasible.
 - Must pass `npm run build` and lint/format before commit.
+
+## Pre-finalization checklist (MANDATORY)
+Before marking any task as complete, run the full CI pipeline locally and fix all failures:
+```bash
+npm run lint          # Must have 0 errors (warnings are OK)
+npm run build         # Must compile with no errors
+npm test              # All unit tests must pass
+```
+Do **not** commit or present work as done until all three commands pass cleanly.

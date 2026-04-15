@@ -15,9 +15,7 @@ export interface RestbroExportData {
   globals?: Globals;
 }
 
-export function isRestbroExport(
-  data: unknown
-): data is RestbroExportData {
+export function isRestbroExport(data: unknown): data is RestbroExportData {
   return (
     typeof data === 'object' &&
     data !== null &&

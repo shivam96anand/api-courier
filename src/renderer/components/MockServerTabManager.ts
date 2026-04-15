@@ -125,11 +125,9 @@ export class MockServerTabManager {
   }
 
   private setupIpcListeners(): void {
-    this.statusCleanup = window.restbro.mockServer.onStatusChanged(
-      (event) => {
-        this.handleStatusChanged(event);
-      }
-    );
+    this.statusCleanup = window.restbro.mockServer.onStatusChanged((event) => {
+      this.handleStatusChanged(event);
+    });
   }
 
   private async loadServers(): Promise<void> {

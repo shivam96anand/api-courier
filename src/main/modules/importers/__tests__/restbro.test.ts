@@ -5,15 +5,15 @@ import { detectAndParse, generatePreview } from '../index';
 describe('importers/restbro', () => {
   describe('isRestbroExport', () => {
     it('returns true for object with type restbro-export and collection', () => {
-      expect(
-        isRestbroExport({ type: 'restbro-export', collection: {} })
-      ).toBe(true);
+      expect(isRestbroExport({ type: 'restbro-export', collection: {} })).toBe(
+        true
+      );
     });
 
     it('returns true for object with type restbro-export and collections array', () => {
-      expect(
-        isRestbroExport({ type: 'restbro-export', collections: [] })
-      ).toBe(true);
+      expect(isRestbroExport({ type: 'restbro-export', collections: [] })).toBe(
+        true
+      );
     });
 
     it('returns true for legacy api-courier-export type (backward compat)', () => {
@@ -32,9 +32,7 @@ describe('importers/restbro', () => {
     });
 
     it('returns false when type is not restbro-export or api-courier-export', () => {
-      expect(isRestbroExport({ type: 'postman', collection: {} })).toBe(
-        false
-      );
+      expect(isRestbroExport({ type: 'postman', collection: {} })).toBe(false);
     });
 
     it('returns false when neither collection nor collections present', () => {

@@ -138,13 +138,17 @@ export class MonacoJsonEditor {
     // Re-apply theme after first render to ensure bracket colorization is correct
     requestAnimationFrame(() => {
       this.updateMonacoTheme();
-      this.editor?.updateOptions({ bracketPairColorization: { enabled: false } });
+      this.editor?.updateOptions({
+        bracketPairColorization: { enabled: false },
+      });
     });
 
     // Listen for theme changes
     const handleThemeChange = () => {
       this.updateMonacoTheme();
-      this.editor?.updateOptions({ bracketPairColorization: { enabled: false } });
+      this.editor?.updateOptions({
+        bracketPairColorization: { enabled: false },
+      });
     };
     document.addEventListener('theme-changed', handleThemeChange);
   }
