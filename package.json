@@ -1,6 +1,6 @@
 {
   "name": "restbro",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A modern API testing tool similar to Postman and Insomnia",
   "main": "dist/main/main/index.js",
   "scripts": {
@@ -111,7 +111,7 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "artifactName": "${productName}-${version}-universal-mac.${ext}",
+      "artifactName": "${productName}-${version}-mac.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -137,7 +137,7 @@
     "dmg": {
       "sign": false,
       "title": "RestBro",
-      "artifactName": "${productName}-${version}-universal.${ext}",
+      "artifactName": "${productName}-${version}.${ext}",
       "background": "build/dmg-background.png",
       "contents": [
         { "x": 180, "y": 170, "type": "file" },
