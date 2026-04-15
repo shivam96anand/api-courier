@@ -39,8 +39,8 @@ for REPO in "${REPOS[@]}"; do
   },
   "bypass_actors": [
     {
-      "actor_id": $USER_ID,
-      "actor_type": "User",
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
       "bypass_mode": "always"
     }
   ],
