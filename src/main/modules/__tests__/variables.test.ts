@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildFolderVars,
+  composeFinalRequest,
   resolveKeyValueArray,
   resolveObject,
+  resolveParamsOrHeaders,
   resolveTemplate,
   scanUnresolvedVars,
 } from '../variables';
@@ -221,6 +223,106 @@ describe('variables.ts', () => {
 
     it('returns an empty array for strings without placeholders', () => {
       expect(scanUnresolvedVars('plain text')).toEqual([]);
+    });
+  });
+
+  describe('resolveParamsOrHeaders', () => {
+    it('resolves an array of KeyValuePairs', () => {
+      expect(
+        resolveParamsOrHeaders(
+          [{ key: '{{k}}', value: '{{v}}', enabled: true }],
+          { requestVars: { k: 'Host', v: 'example.com' } }
+        )
+      ).toEqual([{ key: 'Host', value: 'example.com', enabled: true }]);
+    });
+
+    it('resolves a Record<string, string>', () => {
+      expect(
+        resolveParamsOrHeaders({ '{{k}}': '{{v}}' }, {
+          requestVars: { k: 'Host', v: 'example.com' },
+        })
+      ).toEqual({ Host: 'example.com' });
+    });
+
+    it('returns empty object for undefined input', () => {
+      expect(resolveParamsOrHeaders(undefined)).toEqual({});
+    });
+  });
+
+  describe('composeFinalRequest', () => {
+    it('resolves all variable placeholders in a request', () => {
+      const request = {
+        url: 'https://{{host}}/{{path}}',
+        params: { page: '{{page}}' },
+        headers: { Authorization: 'Bearer {{token}}' },
+        body: { type: 'json', content: '{"name":"{{name}}"}' },
+        variables: {},
+      };
+
+      const env = { variables: { host: 'api.example.com', path: 'users', token: 'abc123' } };
+      const globals = { variables: { page: '1', name: 'John' } };
+
+      const result = composeFinalRequest(request, env, globals);
+
+      expect(result.url).toBe('https://api.example.com/users');
+      expect(result.headers).toEqual({ Authorization: 'Bearer abc123' });
+      expect(result.body?.content).toBe('{"name":"John"}');
+    });
+
+    it('applies variable precedence: request > env > folder > global', () => {
+      const request = {
+        url: '{{shared}}',
+        params: {},
+        headers: {},
+        variables: { shared: 'from-request' },
+      };
+
+      const env = { variables: { shared: 'from-env' } };
+      const globals = { variables: { shared: 'from-global' } };
+      const folderVars = { shared: 'from-folder' };
+
+      const result = composeFinalRequest(request, env, globals, folderVars);
+      expect(result.url).toBe('from-request');
+    });
+
+    it('resolves auth config variables', () => {
+      const request = {
+        url: 'https://api.example.com',
+        params: {},
+        headers: {},
+        auth: {
+          type: 'bearer',
+          config: { token: '{{token}}' },
+        },
+      };
+
+      const env = { variables: { token: 'resolved-token' } };
+      const result = composeFinalRequest(request, env);
+      expect(result.auth.config.token).toBe('resolved-token');
+    });
+
+    it('returns body unchanged when content is empty', () => {
+      const request = {
+        url: 'https://api.example.com',
+        params: {},
+        headers: {},
+        body: { type: 'none', content: '' },
+      };
+
+      const result = composeFinalRequest(request);
+      expect(result.body?.content).toBe('');
+    });
+
+    it('handles request with no env, globals, or folder vars', () => {
+      const request = {
+        url: 'https://api.example.com/static',
+        params: {},
+        headers: { Accept: 'application/json' },
+      };
+
+      const result = composeFinalRequest(request);
+      expect(result.url).toBe('https://api.example.com/static');
+      expect(result.headers).toEqual({ Accept: 'application/json' });
     });
   });
 });
