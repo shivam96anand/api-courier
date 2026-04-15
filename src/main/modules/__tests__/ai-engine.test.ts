@@ -280,4 +280,92 @@ describe('ai-engine.ts', () => {
       expect(writeFileSync).toHaveBeenCalled();
     });
   });
+
+  describe('session title generation', () => {
+    it('generates title from URL path for request context', () => {
+      const context: AiContext = {
+        request: {
+          id: 'r2',
+          name: 'Long Path',
+          method: 'POST',
+          url: 'https://api.example.com/very/long/path/to/resource',
+          headers: [],
+        },
+      };
+      const session = aiEngine.createSession(context);
+      expect(session.title).toContain('POST');
+      // Clean up
+      aiEngine.deleteSession(session.id);
+    });
+
+    it('handles invalid URL in request context gracefully', () => {
+      const context: AiContext = {
+        request: {
+          id: 'r3',
+          name: 'Bad URL',
+          method: 'GET',
+          url: 'not-a-valid-url',
+          headers: [],
+        },
+      };
+      const session = aiEngine.createSession(context);
+      expect(session.title).toContain('GET');
+      aiEngine.deleteSession(session.id);
+    });
+  });
+
+  describe('sendMessage — LLM error responses', () => {
+    it('handles non-ok LLM response', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        text: vi.fn().mockResolvedValue('Internal Server Error'),
+      };
+      vi.mocked(net.fetch).mockResolvedValue(mockResponse);
+
+      const session = aiEngine.createSession();
+      const result = await aiEngine.sendMessage({
+        sessionId: session.id,
+        message: 'Hello',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('LLM request failed');
+      aiEngine.deleteSession(session.id);
+    });
+
+    it('adds messages to session history on success', async () => {
+      const mockResponse = {
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          choices: [{ message: { content: 'AI reply' } }],
+        }),
+        text: vi.fn(),
+      };
+      vi.mocked(net.fetch).mockResolvedValue(mockResponse);
+
+      const session = aiEngine.createSession();
+      await aiEngine.sendMessage({
+        sessionId: session.id,
+        message: 'Test message',
+      });
+
+      const updated = aiEngine.getSessions().sessions.find(s => s.id === session.id);
+      expect(updated!.messages).toHaveLength(2); // user + assistant
+      expect(updated!.messages[0].role).toBe('user');
+      expect(updated!.messages[1].role).toBe('assistant');
+      aiEngine.deleteSession(session.id);
+    });
+  });
+
+  describe('updateSession — context updates', () => {
+    it('updates session context', () => {
+      const session = aiEngine.createSession();
+      const newContext: AiContext = { fileName: 'updated.json' };
+      const updated = aiEngine.updateSession(session.id, { context: newContext });
+      expect(updated).not.toBeNull();
+      expect(updated!.context).toEqual(newContext);
+      aiEngine.deleteSession(session.id);
+    });
+  });
 });

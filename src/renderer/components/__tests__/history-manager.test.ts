@@ -125,4 +125,38 @@ describe('HistoryManager', () => {
       expect(result!.request.id).toBe('target');
     });
   });
+
+  describe('addToHistory — dedup and edge cases', () => {
+    it('clones request to avoid reference issues', () => {
+      const req = makeRequest({ id: 'ref-test' });
+      const res = makeResponse();
+      hm.addToHistory(req, res);
+
+      // Mutating the original should not affect history
+      req.url = 'https://mutated.com';
+      expect(hm.getHistory()[0].request.url).toBe('https://example.com');
+    });
+
+    it('generates unique IDs for history items', () => {
+      hm.addToHistory(makeRequest({ id: 'a' }), makeResponse());
+      hm.addToHistory(makeRequest({ id: 'b' }), makeResponse());
+      const ids = hm.getHistory().map(h => h.id);
+      expect(new Set(ids).size).toBe(2);
+    });
+
+    it('sanitizes response before storing', () => {
+      const longBody = 'x'.repeat(500);
+      hm.addToHistory(makeRequest(), makeResponse({ body: longBody }));
+      // sanitizeResponseForPersistence is mocked to slice to 100 chars
+      expect(hm.getHistory()[0].response.body!.length).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe('initialize', () => {
+    it('sets up event listeners', () => {
+      hm.initialize();
+      expect(document.addEventListener).toHaveBeenCalledWith('response-received', expect.any(Function));
+      expect(document.addEventListener).toHaveBeenCalledWith('tab-closed-with-response', expect.any(Function));
+    });
+  });
 });

@@ -105,9 +105,16 @@ vi.mock('../importers', () => ({
   parseJsonFile: vi.fn().mockReturnValue({}),
 }));
 
-import { ipcMain } from 'electron';
+import { ipcMain, dialog, shell } from 'electron';
 import { storeManager } from '../store-manager';
 import { requestManager } from '../request-manager';
+import { loadTestEngine } from '../loadtest-engine';
+import { loadTestExporter } from '../loadtest-export';
+import { oauthManager } from '../oauth';
+import { aiEngine } from '../ai-engine';
+import { mockServerManager } from '../mock-server-manager';
+import { executeCurl, cancelCurl } from '../curl-executor';
+import { updateManager } from '../update-manager';
 import { ipcManager } from '../ipc-manager';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import { Collection, AppState } from '../../../shared/types';
@@ -518,6 +525,350 @@ describe('ipc-manager.ts', () => {
 
       expect(requestManager.cancelRequest).toHaveBeenCalledWith('req-1');
       expect(result).toBe(true);
+    });
+  });
+
+  describe('loadtest handlers', () => {
+    it('loadtest:start delegates to loadTestEngine.startLoadTest', async () => {
+      const handler = getHandler(IPC_CHANNELS.LOADTEST_START)!;
+      const config = { rpm: 60, durationSec: 10, target: { kind: 'adhoc', method: 'GET', url: 'http://example.com' } };
+      const result = await handler({}, config);
+      expect(loadTestEngine.startLoadTest).toHaveBeenCalledWith(config);
+      expect(result).toEqual({ runId: 'run-1' });
+    });
+
+    it('loadtest:start wraps errors', async () => {
+      vi.mocked(loadTestEngine.startLoadTest).mockRejectedValueOnce(new Error('bad config'));
+      const handler = getHandler(IPC_CHANNELS.LOADTEST_START)!;
+      await expect(handler({}, {})).rejects.toThrow('bad config');
+    });
+
+    it('loadtest:cancel delegates to loadTestEngine.cancelLoadTest', async () => {
+      const handler = getHandler(IPC_CHANNELS.LOADTEST_CANCEL)!;
+      const result = await handler({}, { runId: 'run-1' });
+      expect(loadTestEngine.cancelLoadTest).toHaveBeenCalledWith('run-1');
+    });
+
+    it('loadtest:export-csv delegates to loadTestExporter', async () => {
+      const handler = getHandler(IPC_CHANNELS.LOADTEST_EXPORT_CSV)!;
+      const result = await handler({}, { runId: 'run-1' });
+      expect(loadTestExporter.exportCsv).toHaveBeenCalledWith('run-1');
+      expect(result).toEqual({ success: true });
+    });
+
+    it('loadtest:export-pdf delegates to loadTestExporter', async () => {
+      const handler = getHandler(IPC_CHANNELS.LOADTEST_EXPORT_PDF)!;
+      const summary = { runId: 'run-1', totalPlanned: 10 };
+      const result = await handler({}, { runId: 'run-1', summary });
+      expect(loadTestExporter.exportPdf).toHaveBeenCalledWith('run-1', summary);
+      expect(result).toEqual({ success: true });
+    });
+  });
+
+  describe('oauth handlers', () => {
+    it('oauth:start-flow delegates to oauthManager.startFlow', async () => {
+      const handler = getHandler(IPC_CHANNELS.OAUTH_START_FLOW)!;
+      const config = { grantType: 'client_credentials', clientId: 'id', tokenUrl: 'http://token' };
+      const result = await handler({}, config);
+      expect(oauthManager.startFlow).toHaveBeenCalledWith(config);
+      expect(result).toEqual({ success: true });
+    });
+
+    it('oauth:start-flow wraps errors', async () => {
+      vi.mocked(oauthManager.startFlow).mockRejectedValueOnce(new Error('auth error'));
+      const handler = getHandler(IPC_CHANNELS.OAUTH_START_FLOW)!;
+      await expect(handler({}, {})).rejects.toThrow('auth error');
+    });
+
+    it('oauth:refresh-token delegates to oauthManager.refreshToken', async () => {
+      const handler = getHandler(IPC_CHANNELS.OAUTH_REFRESH_TOKEN)!;
+      const result = await handler({}, { refreshToken: 'tok' });
+      expect(oauthManager.refreshToken).toHaveBeenCalled();
+      expect(result).toEqual({ success: true });
+    });
+
+    it('oauth:get-token-info delegates to oauthManager.getTokenInfo', () => {
+      const handler = getHandler(IPC_CHANNELS.OAUTH_GET_TOKEN_INFO)!;
+      const result = handler({}, { accessToken: 'tok' });
+      expect(oauthManager.getTokenInfo).toHaveBeenCalled();
+      expect(result).toEqual({ isValid: true });
+    });
+  });
+
+  describe('environment / state handlers', () => {
+    it('collections-state:get returns collectionsUIState from store', () => {
+      vi.mocked(storeManager.getState).mockReturnValue(
+        createState({ collectionsUIState: { expandedFolderIds: ['f1'] } } as any)
+      );
+      const handler = getHandler(IPC_CHANNELS.COLLECTIONS_STATE_GET)!;
+      const result = handler();
+      expect(result).toEqual({ expandedFolderIds: ['f1'] });
+    });
+
+    it('collections-state:get returns default when absent', () => {
+      vi.mocked(storeManager.getState).mockReturnValue(createState());
+      const handler = getHandler(IPC_CHANNELS.COLLECTIONS_STATE_GET)!;
+      const result = handler();
+      expect(result).toEqual({ expandedFolderIds: [] });
+    });
+
+    it('collections-state:set delegates to storeManager', () => {
+      const handler = getHandler(IPC_CHANNELS.COLLECTIONS_STATE_SET)!;
+      handler({}, { expandedFolderIds: ['f1'] });
+      expect(storeManager.setState).toHaveBeenCalledWith({ collectionsUIState: { expandedFolderIds: ['f1'] } });
+    });
+
+    it('jsonviewer-state:get returns jsonViewerUIState from store', () => {
+      vi.mocked(storeManager.getState).mockReturnValue(
+        createState({ jsonViewerUIState: { expandedNodesByRequest: { r1: ['n1'] }, requestAccessOrder: ['r1'] } } as any)
+      );
+      const handler = getHandler(IPC_CHANNELS.JSONVIEWER_STATE_GET)!;
+      const result = handler();
+      expect(result.expandedNodesByRequest).toEqual({ r1: ['n1'] });
+    });
+
+    it('jsonviewer-state:set delegates to storeManager', () => {
+      const handler = getHandler(IPC_CHANNELS.JSONVIEWER_STATE_SET)!;
+      const uiState = { expandedNodesByRequest: {}, requestAccessOrder: [] };
+      handler({}, uiState);
+      expect(storeManager.setState).toHaveBeenCalledWith({ jsonViewerUIState: uiState });
+    });
+  });
+
+  describe('backup handlers', () => {
+    it('backup:list returns backups from storeManager', () => {
+      const handler = getHandler(IPC_CHANNELS.BACKUP_LIST)!;
+      const result = handler();
+      expect(storeManager.listBackups).toHaveBeenCalledWith(5);
+      expect(result).toEqual([]);
+    });
+
+    it('backup:restore delegates to storeManager', async () => {
+      const handler = getHandler(IPC_CHANNELS.BACKUP_RESTORE)!;
+      await handler({}, 'backup-1');
+      expect(storeManager.restoreBackup).toHaveBeenCalledWith('backup-1');
+    });
+  });
+
+  describe('AI handlers', () => {
+    it('ai:get-sessions delegates to aiEngine', () => {
+      const handler = getHandler(IPC_CHANNELS.AI_GET_SESSIONS)!;
+      const result = handler();
+      expect(aiEngine.getSessions).toHaveBeenCalled();
+    });
+
+    it('ai:create-session delegates to aiEngine', () => {
+      const handler = getHandler(IPC_CHANNELS.AI_CREATE_SESSION)!;
+      const result = handler({}, { request: { id: 'r1' } });
+      expect(aiEngine.createSession).toHaveBeenCalled();
+      expect(result).toEqual({ id: 'session-1' });
+    });
+
+    it('ai:delete-session delegates to aiEngine', () => {
+      const handler = getHandler(IPC_CHANNELS.AI_DELETE_SESSION)!;
+      handler({}, 'session-1');
+      expect(aiEngine.deleteSession).toHaveBeenCalledWith('session-1');
+    });
+
+    it('ai:update-session delegates to aiEngine', () => {
+      const handler = getHandler(IPC_CHANNELS.AI_UPDATE_SESSION)!;
+      handler({}, 'session-1', { title: 'New Title' });
+      expect(aiEngine.updateSession).toHaveBeenCalledWith('session-1', { title: 'New Title' });
+    });
+
+    it('ai:check-engine delegates to aiEngine', async () => {
+      const handler = getHandler(IPC_CHANNELS.AI_CHECK_ENGINE)!;
+      const result = await handler();
+      expect(aiEngine.checkEngine).toHaveBeenCalled();
+      expect(result).toEqual({ available: true });
+    });
+  });
+
+  describe('mock server handlers', () => {
+    it('mockserver:list delegates to mockServerManager', () => {
+      const handler = getHandler(IPC_CHANNELS.MOCKSERVER_LIST)!;
+      handler();
+      expect(mockServerManager.list).toHaveBeenCalled();
+    });
+
+    it('mockserver:create delegates to mockServerManager', () => {
+      const handler = getHandler(IPC_CHANNELS.MOCKSERVER_CREATE_SERVER)!;
+      handler({}, { name: 'Test' });
+      expect(mockServerManager.createServer).toHaveBeenCalledWith({ name: 'Test' });
+    });
+
+    it('mockserver:update delegates to mockServerManager', () => {
+      const handler = getHandler(IPC_CHANNELS.MOCKSERVER_UPDATE_SERVER)!;
+      handler({}, { serverId: 's1', name: 'Updated' });
+      expect(mockServerManager.updateServer).toHaveBeenCalledWith({ serverId: 's1', name: 'Updated' });
+    });
+
+    it('mockserver:delete delegates to mockServerManager', () => {
+      const handler = getHandler(IPC_CHANNELS.MOCKSERVER_DELETE_SERVER)!;
+      handler({}, 'server-1');
+      expect(mockServerManager.deleteServer).toHaveBeenCalledWith('server-1');
+    });
+
+    it('mockserver:start delegates to mockServerManager', async () => {
+      const handler = getHandler(IPC_CHANNELS.MOCKSERVER_START_SERVER)!;
+      await handler({}, 'server-1');
+      expect(mockServerManager.startServer).toHaveBeenCalledWith('server-1');
+    });
+
+    it('mockserver:stop delegates to mockServerManager', async () => {
+      const handler = getHandler(IPC_CHANNELS.MOCKSERVER_STOP_SERVER)!;
+      await handler({}, 'server-1');
+      expect(mockServerManager.stopServer).toHaveBeenCalledWith('server-1');
+    });
+
+    it('route CRUD delegates to mockServerManager', () => {
+      getHandler(IPC_CHANNELS.MOCKSERVER_ADD_ROUTE)!({}, { serverId: 's1' });
+      expect(mockServerManager.addRoute).toHaveBeenCalled();
+
+      getHandler(IPC_CHANNELS.MOCKSERVER_UPDATE_ROUTE)!({}, { serverId: 's1', routeId: 'r1' });
+      expect(mockServerManager.updateRoute).toHaveBeenCalled();
+
+      getHandler(IPC_CHANNELS.MOCKSERVER_DELETE_ROUTE)!({}, { serverId: 's1', routeId: 'r1' });
+      expect(mockServerManager.deleteRoute).toHaveBeenCalled();
+
+      getHandler(IPC_CHANNELS.MOCKSERVER_TOGGLE_ROUTE)!({}, { serverId: 's1', routeId: 'r1' });
+      expect(mockServerManager.toggleRoute).toHaveBeenCalled();
+    });
+  });
+
+  describe('curl handlers', () => {
+    it('curl:execute delegates to executeCurl', async () => {
+      const handler = getHandler(IPC_CHANNELS.CURL_EXECUTE)!;
+      const result = await handler({}, { command: 'curl http://example.com' });
+      expect(executeCurl).toHaveBeenCalled();
+      expect(result).toEqual({ id: 'curl-1', status: 200 });
+    });
+
+    it('curl:cancel delegates to cancelCurl', () => {
+      const handler = getHandler(IPC_CHANNELS.CURL_CANCEL)!;
+      const result = handler({}, 'req-1');
+      expect(cancelCurl).toHaveBeenCalledWith('req-1');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('update handler', () => {
+    it('update:install delegates to updateManager', () => {
+      const handler = getHandler(IPC_CHANNELS.UPDATE_INSTALL)!;
+      handler();
+      expect(updateManager.installAndRestart).toHaveBeenCalled();
+    });
+  });
+
+  describe('open-external handler', () => {
+    it('delegates to shell.openExternal', async () => {
+      const handler = getHandler(IPC_CHANNELS.OPEN_EXTERNAL)!;
+      await handler({}, 'https://example.com');
+      expect(shell.openExternal).toHaveBeenCalledWith('https://example.com');
+    });
+
+    it('does nothing for empty URL', async () => {
+      const handler = getHandler(IPC_CHANNELS.OPEN_EXTERNAL)!;
+      await handler({}, '');
+      expect(shell.openExternal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('file operation handlers', () => {
+    it('file:open-dialog returns file paths or canceled', async () => {
+      const handler = getHandler(IPC_CHANNELS.FILE_OPEN_DIALOG)!;
+      const result = await handler();
+      expect(result).toHaveProperty('canceled');
+      expect(result).toHaveProperty('filePaths');
+    });
+
+    it('file:read-content reads file and returns content', async () => {
+      const handler = getHandler(IPC_CHANNELS.FILE_READ_CONTENT)!;
+      const result = await handler({}, '/tmp/test.json');
+      expect(result.success).toBe(true);
+      expect(result.content).toBe('file-content');
+    });
+
+    it('file:read-binary reads file as base64', async () => {
+      const handler = getHandler(IPC_CHANNELS.FILE_READ_BINARY)!;
+      const result = await handler({}, '/tmp/test.bin');
+      expect(result.success).toBe(true);
+      expect(result.filePath).toBe('/tmp/test.bin');
+    });
+  });
+
+  describe('import handlers', () => {
+    it('import:parse-preview returns parsed preview', async () => {
+      const handler = getHandler(IPC_CHANNELS.IMPORT_PARSE_PREVIEW)!;
+      const result = await handler({}, '{"info":{"schema":"postman"}}');
+      expect(result).toHaveProperty('success');
+    });
+
+    it('import:commit merges imported collections into state', async () => {
+      vi.mocked(storeManager.getState).mockReturnValue(createState());
+      const handler = getHandler(IPC_CHANNELS.IMPORT_COMMIT)!;
+      const preview = {
+        rootFolder: {
+          id: 'root',
+          name: 'Import',
+          type: 'folder' as const,
+          children: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        environments: [],
+      };
+      const result = await handler({}, preview);
+      expect(result.success).toBe(true);
+      expect(storeManager.setState).toHaveBeenCalled();
+    });
+  });
+
+  describe('notepad handlers', () => {
+    it('notepad:save-file saves content to file', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_SAVE_FILE)!;
+      const result = await handler({}, {
+        filePath: '/tmp/test.txt',
+        content: 'Hello World',
+      });
+      expect(result).toHaveProperty('canceled');
+    });
+
+    it('notepad:open-file opens dialog and reads file', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_OPEN_FILE)!;
+      const result = await handler();
+      expect(result).toHaveProperty('filePath');
+    });
+
+    it('notepad:read-file reads file content', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_READ_FILE)!;
+      const result = await handler({}, '/tmp/test.txt');
+      expect(result.content).toBe('file-content');
+    });
+
+    it('notepad:reveal shows item in folder', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_REVEAL)!;
+      const result = await handler({}, '/tmp/test.txt');
+      expect(result).toBe(true);
+    });
+
+    it('notepad:reveal returns false for empty path', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_REVEAL)!;
+      const result = await handler({}, '');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('ai:send-message handler', () => {
+    it('delegates to aiEngine.sendMessage with stream callback', async () => {
+      const handler = getHandler(IPC_CHANNELS.AI_SEND_MESSAGE)!;
+      const mockEvent = { sender: { send: vi.fn() } };
+      const result = await handler(mockEvent, {
+        sessionId: 'session-1',
+        message: 'Hello',
+      });
+      expect(aiEngine.sendMessage).toHaveBeenCalled();
+      expect(result).toHaveProperty('requestId');
     });
   });
 });

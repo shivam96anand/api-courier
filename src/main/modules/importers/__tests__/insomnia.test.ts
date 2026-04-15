@@ -178,4 +178,105 @@ describe('insomnia.ts', () => {
       );
     });
   });
+
+  describe('mapInsomniaExport — V5 edge cases', () => {
+    it('maps V5 folder variables', () => {
+      const v5Data = {
+        type: 'insomnia.exportv5',
+        name: 'Env Test',
+        collection: [
+          {
+            name: 'FolderWithVars',
+            environment: { baseUrl: 'http://localhost:3000' },
+            children: [
+              {
+                name: 'Get Data',
+                method: 'GET',
+                url: '{{baseUrl}}/data',
+              },
+            ],
+          },
+        ],
+      };
+
+      const { rootFolder } = mapInsomniaExport(v5Data);
+      const folder = rootFolder.name === 'FolderWithVars'
+        ? rootFolder
+        : rootFolder.children?.find((c) => c.name === 'FolderWithVars') ?? rootFolder;
+      expect(folder.variables).toEqual({ baseUrl: 'http://localhost:3000' });
+    });
+
+    it('maps V5 form-urlencoded body', () => {
+      const v5Data = {
+        type: 'insomnia.exportv5',
+        collection: [
+          {
+            name: 'Form Request',
+            method: 'POST',
+            url: 'https://example.com/form',
+            body: {
+              mimeType: 'application/x-www-form-urlencoded',
+              params: [
+                { name: 'username', value: 'admin' },
+                { name: 'password', value: 'secret' },
+              ],
+            },
+          },
+        ],
+      };
+
+      const { rootFolder } = mapInsomniaExport(v5Data);
+      const req = (rootFolder.children?.[0] ?? rootFolder).request!;
+      expect(req.body?.type).toBe('form-urlencoded');
+      expect(req.body?.content).toContain('username=admin');
+    });
+
+    it('maps V5 multipart body', () => {
+      const v5Data = {
+        type: 'insomnia.exportv5',
+        collection: [
+          {
+            name: 'Multipart',
+            method: 'POST',
+            url: 'https://example.com/upload',
+            body: {
+              mimeType: 'multipart/form-data',
+              params: [
+                { name: 'file', value: 'data' },
+              ],
+            },
+          },
+        ],
+      };
+
+      const { rootFolder } = mapInsomniaExport(v5Data);
+      const req = (rootFolder.children?.[0] ?? rootFolder).request!;
+      expect(req.body?.type).toBe('form-data');
+    });
+
+    it('maps V5 request with headers', () => {
+      const v5Data = {
+        type: 'insomnia.exportv5',
+        collection: [
+          {
+            name: 'With Headers',
+            method: 'GET',
+            url: 'https://example.com',
+            headers: [
+              { name: 'Accept', value: 'application/json' },
+              { name: 'X-Custom', value: 'test', disabled: false },
+              { name: 'Disabled', value: 'skip', disabled: true },
+            ],
+          },
+        ],
+      };
+
+      const { rootFolder } = mapInsomniaExport(v5Data);
+      const req = (rootFolder.children?.[0] ?? rootFolder).request!;
+      expect(req.headers).toEqual({
+        'Accept': 'application/json',
+        'X-Custom': 'test',
+      });
+    });
+  });
 });

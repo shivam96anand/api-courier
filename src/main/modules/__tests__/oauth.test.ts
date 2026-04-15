@@ -258,4 +258,110 @@ describe('oauth.ts', () => {
       expect(result.data!.accessToken).toBe('device-access-token');
     });
   });
+
+  describe('client_credentials — credentials in body vs header', () => {
+    it('sends client_secret in body when credentials=body', async () => {
+      const mockResponse = {
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          access_token: 'body-token',
+          expires_in: 3600,
+          token_type: 'Bearer',
+        }),
+        text: vi.fn(),
+      };
+      vi.mocked(net.fetch).mockResolvedValue(mockResponse);
+
+      const config = createConfig({
+        grantType: 'client_credentials',
+        credentials: 'body',
+      } as any);
+
+      const result = await oauthManager.startFlow(config);
+      expect(result.success).toBe(true);
+
+      const fetchCall = vi.mocked(net.fetch).mock.calls[0];
+      const bodyStr = fetchCall[1]?.body as string;
+      expect(bodyStr).toContain('client_secret=');
+      // Should NOT have Authorization header
+      const headers = fetchCall[1]?.headers as Record<string, string>;
+      expect(headers['Authorization']).toBeUndefined();
+    });
+
+    it('sends Authorization header by default (credentials=headers)', async () => {
+      const mockResponse = {
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          access_token: 'header-token',
+          expires_in: 3600,
+          token_type: 'Bearer',
+        }),
+        text: vi.fn(),
+      };
+      vi.mocked(net.fetch).mockResolvedValue(mockResponse);
+
+      const config = createConfig({ grantType: 'client_credentials' });
+
+      const result = await oauthManager.startFlow(config);
+      expect(result.success).toBe(true);
+
+      const fetchCall = vi.mocked(net.fetch).mock.calls[0];
+      const headers = fetchCall[1]?.headers as Record<string, string>;
+      expect(headers['Authorization']).toContain('Basic ');
+    });
+  });
+
+  describe('refreshToken — error states', () => {
+    it('returns error on network failure', async () => {
+      vi.mocked(net.fetch).mockRejectedValue(new Error('Network error'));
+
+      const config = createConfig({ refreshToken: 'valid-refresh' });
+      const result = await oauthManager.refreshToken(config);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Network error');
+    });
+
+    it('preserves new refresh_token from response', async () => {
+      const mockResponse = {
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          access_token: 'new-access',
+          refresh_token: 'rotated-refresh',
+          expires_in: 3600,
+          token_type: 'Bearer',
+        }),
+        text: vi.fn(),
+      };
+      vi.mocked(net.fetch).mockResolvedValue(mockResponse);
+
+      const config = createConfig({ refreshToken: 'old-refresh' });
+      const result = await oauthManager.refreshToken(config);
+      expect(result.success).toBe(true);
+      expect(result.data!.refreshToken).toBe('rotated-refresh');
+    });
+  });
+
+  describe('getTokenInfo — edge cases', () => {
+    it('returns expiresIn: 0 for just-expired token', () => {
+      const justPast = new Date(Date.now() - 1000).toISOString();
+      const config = createConfig({
+        accessToken: 'expired-token',
+        expiresAt: justPast,
+      });
+      const info = oauthManager.getTokenInfo(config);
+      expect(info.isValid).toBe(false);
+      expect(info.expiresIn).toBe(0);
+    });
+
+    it('returns isValid true for token expiring far in the future', () => {
+      const farFuture = new Date(Date.now() + 86400 * 1000).toISOString();
+      const config = createConfig({
+        accessToken: 'long-lived-token',
+        expiresAt: farFuture,
+      });
+      const info = oauthManager.getTokenInfo(config);
+      expect(info.isValid).toBe(true);
+      expect(info.expiresIn!).toBeGreaterThan(86000);
+    });
+  });
 });

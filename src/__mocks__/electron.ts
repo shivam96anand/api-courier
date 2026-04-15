@@ -46,6 +46,7 @@ export const dialog = {
 
 export const shell = {
   openExternal: vi.fn().mockResolvedValue(undefined),
+  showItemInFolder: vi.fn(),
 };
 
 export const contextBridge = {

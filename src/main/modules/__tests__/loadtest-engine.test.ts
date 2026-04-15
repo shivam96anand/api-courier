@@ -200,4 +200,110 @@ describe('loadtest-engine.ts', () => {
       expect(storedConfig!.durationSec).toBe(5);
     });
   });
+
+  describe('cancellation timing', () => {
+    it('cancel mid-run stops further scheduling and emits summary', async () => {
+      const summaryEvents: LoadTestSummary[] = [];
+      engine.on('summary', (summary: LoadTestSummary) => {
+        summaryEvents.push(summary);
+      });
+
+      const config = createConfig({ rpm: 600, durationSec: 10 });
+      const { runId } = await engine.startLoadTest(config);
+
+      // Advance a bit, then cancel
+      await vi.advanceTimersByTimeAsync(500);
+      const cancelResult = await engine.cancelLoadTest(runId);
+      expect(cancelResult.ok).toBe(true);
+
+      // Advance enough for summary to be emitted
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(summaryEvents.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('error handling in requests', () => {
+    it('counts failed requests as errors in summary', async () => {
+      // Make all requests fail
+      vi.mocked(requestManager.sendRequest).mockRejectedValue(new Error('Connection refused'));
+
+      const summaryEvents: LoadTestSummary[] = [];
+      engine.on('summary', (summary: LoadTestSummary) => {
+        summaryEvents.push(summary);
+      });
+
+      const config = createConfig({ rpm: 60, durationSec: 1 });
+      await engine.startLoadTest(config);
+
+      // Advance enough for request dispatch, failure, and summary
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(summaryEvents.length).toBeGreaterThanOrEqual(1);
+      // Take the last summary (after all requests completed)
+      const lastSummary = summaryEvents[summaryEvents.length - 1];
+      expect(lastSummary.error).toBeGreaterThan(0);
+    });
+
+    it('handles mixed success and failure responses', async () => {
+      let callCount = 0;
+      vi.mocked(requestManager.sendRequest).mockImplementation(async () => {
+        callCount++;
+        if (callCount % 2 === 0) {
+          return {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: {},
+            body: 'error',
+            time: 100,
+            size: 5,
+            timestamp: Date.now(),
+          };
+        }
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          body: '{}',
+          time: 50,
+          size: 2,
+          timestamp: Date.now(),
+        };
+      });
+
+      const summaryEvents: LoadTestSummary[] = [];
+      engine.on('summary', (summary: LoadTestSummary) => {
+        summaryEvents.push(summary);
+      });
+
+      const config = createConfig({ rpm: 120, durationSec: 1 });
+      await engine.startLoadTest(config);
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(summaryEvents.length).toBeGreaterThanOrEqual(1);
+      const summary = summaryEvents[0];
+      expect(summary.codeCounts).toBeDefined();
+    });
+  });
+
+  describe('progress reporting', () => {
+    it('progress contains correct fields', async () => {
+      const progressEvents: LoadTestProgressTick[] = [];
+      engine.on('progress', (tick: LoadTestProgressTick) => {
+        progressEvents.push(tick);
+      });
+
+      const config = createConfig({ rpm: 60, durationSec: 2 });
+      const { runId } = await engine.startLoadTest(config);
+
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(progressEvents.length).toBeGreaterThanOrEqual(1);
+      const tick = progressEvents[0];
+      expect(tick.runId).toBe(runId);
+      expect(typeof tick.sent).toBe('number');
+      expect(typeof tick.completed).toBe('number');
+      expect(typeof tick.inFlight).toBe('number');
+    });
+  });
 });

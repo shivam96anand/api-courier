@@ -323,4 +323,50 @@ describe('TabsStateManager', () => {
       expect(tsm.getActiveTab()).toBeUndefined();
     });
   });
+
+  describe('closeTab — edge cases', () => {
+    it('activates the previous tab when last tab in list is closed', () => {
+      tsm.createNewTab();
+      tsm.createNewTab();
+      tsm.createNewTab();
+      const tabs = tsm.getTabs();
+      // Active is last tab (tab 3)
+      tsm.closeTab(tabs[2].id);
+      // Should activate the new last tab (tab 2)
+      expect(tsm.getActiveTabId()).toBe(tabs[1].id);
+    });
+
+    it('handles closing a non-active tab without switching', () => {
+      tsm.createNewTab();
+      tsm.createNewTab();
+      const tabs = tsm.getTabs();
+      const activeId = tsm.getActiveTabId();
+      // Close the first (non-active) tab
+      tsm.closeTab(tabs[0].id);
+      expect(tsm.getActiveTabId()).toBe(activeId);
+    });
+  });
+
+  describe('updateTabByRequestId', () => {
+    it('updates tab matching requestId without marking modified by default', () => {
+      const req = makeRequest({ id: 'target-req' });
+      tsm.openRequestInTab(req);
+      tsm.updateTabByRequestId('target-req', { name: 'Updated via requestId' });
+      expect(tsm.getTabs()[0].name).toBe('Updated via requestId');
+      expect(tsm.getTabs()[0].isModified).toBe(false);
+    });
+
+    it('does nothing when requestId not found', () => {
+      tsm.createNewTab();
+      tsm.updateTabByRequestId('nonexistent', { name: 'Nope' });
+      expect(tsm.getTabs()[0].name).not.toBe('Nope');
+    });
+  });
+
+  describe('updateActiveTab — no active tab', () => {
+    it('does nothing when no active tab exists', () => {
+      tsm.updateActiveTab({ name: 'Ghost' });
+      expect(tsm.getTabs()).toHaveLength(0);
+    });
+  });
 });

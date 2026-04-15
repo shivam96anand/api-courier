@@ -409,4 +409,49 @@ describe('request-builder.ts', () => {
       });
     });
   });
+
+  describe('buildBody — additional formats', () => {
+    it('returns multipart/form-data content type for form-data', () => {
+      const result = RequestBuilder.buildBody(
+        createRequest({ body: { type: 'form-data', content: 'field1=value1' } })
+      );
+      expect(result.contentType).toBe('multipart/form-data');
+      expect(result.bodyData).toBe('field1=value1');
+    });
+
+    it('respects explicit contentType override', () => {
+      const result = RequestBuilder.buildBody(
+        createRequest({
+          body: { type: 'raw', content: '<xml/>', contentType: 'application/xml' },
+        })
+      );
+      expect(result.contentType).toBe('application/xml');
+    });
+
+    it('infers yaml content type from format', () => {
+      const result = RequestBuilder.buildBody(
+        createRequest({
+          body: { type: 'raw', content: 'key: value', format: 'yaml' },
+        })
+      );
+      expect(result.contentType).toBe('application/x-yaml');
+    });
+  });
+
+  describe('buildUrlWithParams — edge cases', () => {
+    it('handles URL with both query and hash', () => {
+      const url = RequestBuilder.buildUrlWithParams(
+        'https://example.com/path?existing=1#section',
+        { added: '2' }
+      );
+      expect(url).toContain('existing=1');
+      expect(url).toContain('added=2');
+      expect(url).toContain('#section');
+    });
+
+    it('handles empty URL', () => {
+      const url = RequestBuilder.buildUrlWithParams('', { key: 'val' });
+      expect(url).toContain('key=val');
+    });
+  });
 });
