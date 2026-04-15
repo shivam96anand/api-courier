@@ -25,6 +25,11 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 
+# Compiled build artifacts in shared/
+src/shared/*.js
+src/shared/*.js.map
+src/shared/*.d.ts
+
 # nyc test coverage
 .nyc_output
 

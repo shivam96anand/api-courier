@@ -38,6 +38,7 @@
     "@types/react-window": "^1.8.8",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "concurrently": "^8.0.0",
     "css-loader": "^6.8.0",
     "electron": "^26.0.0",
@@ -46,7 +47,6 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.0.0",
     "html-webpack-plugin": "^5.5.0",
-    "jest": "^29.0.0",
     "monaco-editor-webpack-plugin": "^7.1.1",
     "prettier": "^3.0.0",
     "sass": "^1.66.0",
@@ -140,17 +140,31 @@
       "artifactName": "${productName}-${version}.${ext}",
       "background": "build/dmg-background.png",
       "contents": [
-        { "x": 180, "y": 170, "type": "file" },
-        { "x": 480, "y": 170, "type": "link", "path": "/Applications" }
+        {
+          "x": 180,
+          "y": 170,
+          "type": "file"
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
       ],
-      "window": { "width": 660, "height": 400 },
+      "window": {
+        "width": 660,
+        "height": 400
+      },
       "iconSize": 100
     },
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.png",
