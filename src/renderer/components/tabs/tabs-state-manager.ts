@@ -357,6 +357,28 @@ export class TabsStateManager {
     }
   }
 
+  reorderTab(
+    sourceTabId: string,
+    targetTabId: string,
+    dropBefore: boolean
+  ): void {
+    const sourceIndex = this.tabs.findIndex((t) => t.id === sourceTabId);
+    const targetIndex = this.tabs.findIndex((t) => t.id === targetTabId);
+    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return;
+
+    const [removed] = this.tabs.splice(sourceIndex, 1);
+    let insertIndex = this.tabs.findIndex((t) => t.id === targetTabId);
+    if (insertIndex === -1) {
+      this.tabs.push(removed);
+    } else {
+      if (!dropBefore) insertIndex++;
+      this.tabs.splice(insertIndex, 0, removed);
+    }
+
+    this.onNotifyTabChange();
+    this.saveState();
+  }
+
   private generateId(): string {
     return Math.random().toString(36).substr(2, 9);
   }

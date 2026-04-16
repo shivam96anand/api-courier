@@ -97,7 +97,6 @@ export class ResponseActions {
       activeTab === 'body' && response && (isJsonResponse || isXmlResponse);
     if (shouldShow) {
       this.showForJsonResponse();
-      // Export, Collapse, Expand are JSON-tree-only features
       const exportBtn =
         this.actionsContainer?.querySelector<HTMLElement>('#export-btn');
       const collapseBtn =

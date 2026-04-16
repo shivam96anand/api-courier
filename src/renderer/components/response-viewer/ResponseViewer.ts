@@ -17,6 +17,8 @@ export class ResponseViewer {
   private currentSoapFault = false;
   private currentRequestId: string = 'default';
   private currentResponseTimestamp: number | null = null;
+  private rawViewMode = false;
+  private currentRawBody: string | null = null;
   private lastResponseTimestamps: Map<string, number> = new Map();
   private largeJsonPrettySelections: Map<string, number> = new Map();
   private monacoViewStateSelections: Map<
@@ -115,6 +117,14 @@ export class ResponseViewer {
       this.container.appendChild(section);
     }
 
+    const cookiesSection = this.container.querySelector('#response-cookies');
+    if (!cookiesSection) {
+      const section = document.createElement('div');
+      section.id = 'response-cookies';
+      section.className = 'response-section';
+      this.container.appendChild(section);
+    }
+
     const metaSection = this.container.querySelector('#response-meta');
     if (!metaSection) {
       const section = document.createElement('div');
@@ -149,6 +159,7 @@ export class ResponseViewer {
 
     await this.updateResponseBody(response, requestMode);
     this.updateResponseHeaders(response);
+    this.updateResponseCookies(response);
     this.updateResponseMeta(response);
   }
 
@@ -176,6 +187,33 @@ export class ResponseViewer {
       this.getHeaderValueCaseInsensitive(response.headers, 'content-type') ||
       '';
     this.currentSoapFault = false;
+
+    // Image preview
+    if (this.isImageContentType(contentType) && response.body) {
+      this.setupImageView(bodyElement, response.body, contentType);
+      this.currentFormatter = 'plain';
+      this.parsedJsonData = null;
+      this.detectedJsonBody = false;
+      this.updateSoapFaultBadge(false);
+      this.emitModeChanged();
+      return;
+    }
+
+    // HTML preview
+    if (
+      this.isHtmlContentType(contentType) &&
+      response.body &&
+      response.status < 400
+    ) {
+      this.setupHtmlPreview(bodyElement, response.body);
+      this.currentFormatter = 'plain';
+      this.parsedJsonData = null;
+      this.detectedJsonBody = false;
+      this.updateSoapFaultBadge(false);
+      this.emitModeChanged();
+      return;
+    }
+
     const isXmlMode =
       requestMode === 'soap' || this.isXmlContentType(contentType);
     if (isXmlMode) {
@@ -625,6 +663,137 @@ export class ResponseViewer {
     headersElement.appendChild(table);
   }
 
+  private updateResponseCookies(response: ApiResponse): void {
+    const cookiesElement = document.getElementById('response-cookies');
+    if (!cookiesElement) return;
+
+    const cookies = this.parseCookies(response.headers);
+    if (cookies.length === 0) {
+      cookiesElement.innerHTML =
+        '<div class="response-placeholder">No cookies in response</div>';
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.fontSize = '12px';
+
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    const cols = ['Name', 'Value', 'Domain', 'Path', 'Expires', 'HttpOnly', 'Secure', 'SameSite'];
+    cols.forEach((col) => {
+      const th = document.createElement('th');
+      th.style.cssText = 'text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary);';
+      th.textContent = col;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    cookies.forEach((cookie) => {
+      const row = document.createElement('tr');
+      const values = [
+        cookie.name,
+        cookie.value,
+        cookie.domain || '',
+        cookie.path || '',
+        cookie.expires || '',
+        cookie.httpOnly ? '✓' : '',
+        cookie.secure ? '✓' : '',
+        cookie.sameSite || '',
+      ];
+      values.forEach((val) => {
+        const td = document.createElement('td');
+        td.style.cssText = 'padding: 8px; border-bottom: 1px solid var(--border-color); word-break: break-word; max-width: 200px;';
+        td.textContent = val;
+        row.appendChild(td);
+      });
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+
+    cookiesElement.innerHTML = '';
+    cookiesElement.appendChild(table);
+  }
+
+  private parseCookies(headers: Record<string, string>): Array<{
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+    expires?: string;
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite?: string;
+  }> {
+    const cookies: Array<{
+      name: string;
+      value: string;
+      domain?: string;
+      path?: string;
+      expires?: string;
+      httpOnly: boolean;
+      secure: boolean;
+      sameSite?: string;
+    }> = [];
+
+    for (const [key, value] of Object.entries(headers)) {
+      if (key.toLowerCase() !== 'set-cookie') continue;
+      // set-cookie values might be comma-separated (but also dates have commas)
+      // Split carefully: only split on commas followed by a cookie name=value pattern
+      const cookieStrings = value.split(/,(?=\s*[^;=\s]+=[^;]*)/).map(s => s.trim());
+      for (const cookieStr of cookieStrings) {
+        const parts = cookieStr.split(';').map(p => p.trim());
+        if (parts.length === 0) continue;
+        const nameVal = parts[0];
+        const eqIdx = nameVal.indexOf('=');
+        if (eqIdx === -1) continue;
+
+        const cookie: {
+          name: string;
+          value: string;
+          domain?: string;
+          path?: string;
+          expires?: string;
+          httpOnly: boolean;
+          secure: boolean;
+          sameSite?: string;
+        } = {
+          name: nameVal.slice(0, eqIdx).trim(),
+          value: nameVal.slice(eqIdx + 1).trim(),
+          httpOnly: false,
+          secure: false,
+        };
+
+        for (let i = 1; i < parts.length; i++) {
+          const attr = parts[i];
+          const attrLower = attr.toLowerCase();
+          if (attrLower === 'httponly') {
+            cookie.httpOnly = true;
+          } else if (attrLower === 'secure') {
+            cookie.secure = true;
+          } else {
+            const attrEq = attr.indexOf('=');
+            if (attrEq !== -1) {
+              const attrName = attr.slice(0, attrEq).trim().toLowerCase();
+              const attrVal = attr.slice(attrEq + 1).trim();
+              if (attrName === 'domain') cookie.domain = attrVal;
+              else if (attrName === 'path') cookie.path = attrVal;
+              else if (attrName === 'expires') cookie.expires = attrVal;
+              else if (attrName === 'samesite') cookie.sameSite = attrVal;
+            }
+          }
+        }
+
+        cookies.push(cookie);
+      }
+    }
+
+    return cookies;
+  }
+
   private updateResponseMeta(response: ApiResponse): void {
     const statusEl = document.getElementById('meta-status');
     const timeEl = document.getElementById('meta-time');
@@ -847,6 +1016,12 @@ export class ResponseViewer {
     if (headersElement) {
       headersElement.innerHTML =
         '<div class="response-placeholder">No response headers</div>';
+    }
+
+    const cookiesElement = document.getElementById('response-cookies');
+    if (cookiesElement) {
+      cookiesElement.innerHTML =
+        '<div class="response-placeholder">No cookies in response</div>';
     }
 
     // Reset individual meta chips without destroying them
@@ -1123,6 +1298,132 @@ export class ResponseViewer {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  private isImageContentType(contentType: string): boolean {
+    return /^image\/(png|jpe?g|gif|webp|svg\+xml|bmp|ico|x-icon)/i.test(
+      contentType.trim()
+    );
+  }
+
+  private isHtmlContentType(contentType: string): boolean {
+    return /\btext\/html\b/i.test(contentType);
+  }
+
+  private setupImageView(
+    container: HTMLElement,
+    body: string,
+    contentType: string
+  ): void {
+    this.disposeMonaco();
+    this.parsedJsonData = null;
+
+    container.innerHTML = '';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText =
+      'display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:16px;overflow:auto;background:var(--bg-primary);';
+
+    const img = document.createElement('img');
+    const mimeType = contentType.split(';')[0].trim();
+
+    // Detect if body is base64 encoded binary
+    const isBase64 = /^[A-Za-z0-9+/\n\r]+=*$/.test(body.trim());
+    if (isBase64) {
+      img.src = `data:${mimeType};base64,${body.replace(/\s/g, '')}`;
+    } else if (mimeType.includes('svg')) {
+      const blob = new Blob([body], { type: mimeType });
+      img.src = URL.createObjectURL(blob);
+    } else {
+      // Binary data represented as string - try to create a data URI
+      const base64 = btoa(
+        body
+          .split('')
+          .map((c) => String.fromCharCode(c.charCodeAt(0) & 0xff))
+          .join('')
+      );
+      img.src = `data:${mimeType};base64,${base64}`;
+    }
+
+    img.style.cssText =
+      'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;';
+    img.alt = 'Response image';
+
+    wrapper.appendChild(img);
+    container.appendChild(wrapper);
+  }
+
+  private setupHtmlPreview(container: HTMLElement, body: string): void {
+    this.disposeMonaco();
+    this.parsedJsonData = null;
+
+    container.innerHTML = '';
+
+    const toolbar = document.createElement('div');
+    toolbar.style.cssText =
+      'display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border-color);background:var(--bg-secondary);';
+
+    let showingPreview = true;
+
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'response-action-btn active';
+    previewBtn.textContent = 'Preview';
+
+    const sourceBtn = document.createElement('button');
+    sourceBtn.className = 'response-action-btn';
+    sourceBtn.textContent = 'Source';
+
+    toolbar.appendChild(previewBtn);
+    toolbar.appendChild(sourceBtn);
+
+    const contentArea = document.createElement('div');
+    contentArea.style.cssText = 'flex:1;min-height:0;overflow:auto;';
+
+    const renderPreview = (): void => {
+      contentArea.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('sandbox', 'allow-same-origin');
+      iframe.style.cssText =
+        'width:100%;height:100%;border:none;background:white;';
+      contentArea.appendChild(iframe);
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        iframeDoc.open();
+        iframeDoc.write(body);
+        iframeDoc.close();
+      }
+    };
+
+    const renderSource = (): void => {
+      contentArea.innerHTML = '';
+      const pre = this.buildPlainTextElement(body);
+      contentArea.appendChild(pre);
+    };
+
+    previewBtn.addEventListener('click', () => {
+      if (showingPreview) return;
+      showingPreview = true;
+      previewBtn.classList.add('active');
+      sourceBtn.classList.remove('active');
+      renderPreview();
+    });
+
+    sourceBtn.addEventListener('click', () => {
+      if (!showingPreview) return;
+      showingPreview = false;
+      sourceBtn.classList.add('active');
+      previewBtn.classList.remove('active');
+      renderSource();
+    });
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText =
+      'display:flex;flex-direction:column;width:100%;height:100%;';
+    wrapper.appendChild(toolbar);
+    wrapper.appendChild(contentArea);
+
+    container.appendChild(wrapper);
+    renderPreview();
   }
 
   public destroy(): void {

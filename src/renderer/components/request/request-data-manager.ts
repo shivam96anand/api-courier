@@ -4,6 +4,13 @@ import { UIHelpers } from './UIHelpers';
 import { buildCurlCommand } from './curl-builder';
 import { resolveRequestVariables } from './request-variable-resolver';
 import { OAuthTokenManager } from './oauth-token-manager';
+import {
+  generateCodeSnippet,
+  CODE_LANGUAGES,
+  CodeLanguage,
+  CodeGenRequest,
+} from '../../../shared/code-generators';
+import { buildHeaders, buildBody, buildUrlWithParams, buildAuthQueryParams } from './request-builder-utils';
 
 export class RequestDataManager {
   private currentRequest: ApiRequest | null = null;
@@ -16,6 +23,9 @@ export class RequestDataManager {
   private uiHelpers = new UIHelpers();
   private curlPreviewUpdateTimeout?: number;
   private curlPreviewRenderToken = 0;
+  private codePreviewUpdateTimeout?: number;
+  private codePreviewRenderToken = 0;
+  private selectedCodeLanguage: CodeLanguage | 'curl' = 'curl';
   private requestMode: RequestMode = 'rest';
   private isCurrentRequestValid = true;
   private currentInvalidReason = '';
@@ -60,7 +70,11 @@ export class RequestDataManager {
     const copyBtn = document.getElementById('copy-curl-command');
     if (copyBtn) {
       copyBtn.addEventListener('click', async () => {
-        await this.copyCurlFromTab();
+        if (this.selectedCodeLanguage === 'curl') {
+          await this.copyCurlFromTab();
+        } else {
+          await this.copyCodeSnippet();
+        }
       });
     }
 
@@ -71,7 +85,40 @@ export class RequestDataManager {
       });
     }
 
+    // Populate language dropdown with cURL + code languages
+    const langSelect = document.getElementById('code-language-select') as HTMLSelectElement | null;
+    if (langSelect) {
+      langSelect.innerHTML = '<option value="curl" selected>cURL</option>';
+      const optGroup = document.createElement('optgroup');
+      optGroup.label = 'Other Languages';
+      CODE_LANGUAGES.forEach((lang) => {
+        const opt = document.createElement('option');
+        opt.value = lang.id;
+        opt.textContent = lang.label;
+        optGroup.appendChild(opt);
+      });
+      langSelect.appendChild(optGroup);
+      langSelect.value = 'curl';
+      this.selectedCodeLanguage = 'curl';
+
+      langSelect.addEventListener('change', () => {
+        this.selectedCodeLanguage = langSelect.value as CodeLanguage | 'curl';
+        const openBtn = document.getElementById('open-in-curl-tool') as HTMLButtonElement | null;
+        if (openBtn) {
+          const isCurl = langSelect.value === 'curl';
+          openBtn.disabled = !isCurl;
+          openBtn.style.opacity = isCurl ? '' : '0.4';
+          openBtn.style.pointerEvents = isCurl ? '' : 'none';
+        }
+        this.scheduleUnifiedPreviewUpdate();
+      });
+    }
+
     this.scheduleCurlPreviewUpdate();
+  }
+
+  setupCodeTab(): void {
+    // Merged into setupCurlTab — no-op for backward compatibility
   }
 
   setupCancelButton(): void {
@@ -139,7 +186,7 @@ export class RequestDataManager {
     if (!this.currentRequest) return;
 
     this.currentRequest = { ...this.currentRequest, ...updates };
-    this.scheduleCurlPreviewUpdate();
+    this.scheduleUnifiedPreviewUpdate();
 
     const event = new CustomEvent('request-updated', {
       detail: { request: this.currentRequest, requestMode: this.requestMode },
@@ -148,13 +195,53 @@ export class RequestDataManager {
   }
 
   private scheduleCurlPreviewUpdate(): void {
+    this.scheduleUnifiedPreviewUpdate();
+  }
+
+  private scheduleCodePreviewUpdate(): void {
+    this.scheduleUnifiedPreviewUpdate();
+  }
+
+  private scheduleUnifiedPreviewUpdate(): void {
     if (this.curlPreviewUpdateTimeout) {
       window.clearTimeout(this.curlPreviewUpdateTimeout);
     }
-
     this.curlPreviewUpdateTimeout = window.setTimeout(() => {
-      void this.renderCurlPreview();
+      void this.renderUnifiedPreview();
     }, 120);
+  }
+
+  private async renderUnifiedPreview(): Promise<void> {
+    const curlOutput = this.getCurlOutputElement();
+    if (!curlOutput) return;
+
+    if (!this.currentRequest) {
+      curlOutput.value = '';
+      return;
+    }
+
+    if (this.selectedCodeLanguage === 'curl' || !this.selectedCodeLanguage) {
+      await this.renderCurlPreview();
+    } else {
+      await this.renderCodePreviewInCurl();
+    }
+  }
+
+  private async renderCodePreviewInCurl(): Promise<void> {
+    const output = this.getCurlOutputElement();
+    if (!output) return;
+    if (!this.currentRequest) { output.value = ''; return; }
+
+    const renderToken = ++this.codePreviewRenderToken;
+    try {
+      const codeReq = await this.buildCodeGenRequest();
+      if (renderToken !== this.codePreviewRenderToken) return;
+      if (!codeReq) { output.value = ''; return; }
+      output.value = generateCodeSnippet(this.selectedCodeLanguage as CodeLanguage, codeReq);
+    } catch {
+      if (renderToken !== this.codePreviewRenderToken) return;
+      output.value = '';
+    }
   }
 
   private getCurlOutputElement(): HTMLTextAreaElement | null {
@@ -214,6 +301,49 @@ export class RequestDataManager {
       if (renderToken !== this.curlPreviewRenderToken) return;
       console.error('Failed to render cURL preview:', error);
       curlOutput.value = '';
+    }
+  }
+
+  private async buildCodeGenRequest(): Promise<CodeGenRequest | null> {
+    if (!this.currentRequest || !this.currentRequest.url?.trim()) return null;
+    const requestSnapshot = this.cloneRequestForCurl(this.currentRequest);
+    const resolved = await resolveRequestVariables(requestSnapshot);
+    const headers = buildHeaders(resolved);
+    const { bodyData, contentType } = buildBody(resolved);
+
+    if (contentType && !Object.keys(headers).some(k => k.toLowerCase() === 'content-type')) {
+      headers['Content-Type'] = contentType;
+    }
+
+    const url = buildUrlWithParams(
+      resolved.url,
+      resolved.params,
+      buildAuthQueryParams(resolved)
+    );
+
+    return {
+      method: resolved.method || 'GET',
+      url,
+      headers,
+      body: bodyData || undefined,
+      contentType: contentType || undefined,
+    };
+  }
+
+  private async copyCodeSnippet(): Promise<void> {
+    const output = this.getCurlOutputElement();
+    const text = output?.value?.trim();
+    if (!text) {
+      this.uiHelpers.showToast('No code snippet to copy');
+      return;
+    }
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+      }
+      this.uiHelpers.showToast('Code copied to clipboard');
+    } catch {
+      this.uiHelpers.showToast('Failed to copy code');
     }
   }
 

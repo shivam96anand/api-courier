@@ -110,6 +110,18 @@
     align-items: center;
     justify-content: center;
   }
+
+  &.dragging {
+    opacity: 0.4;
+  }
+
+  &.drag-over-left {
+    border-left: 2px solid var(--primary-color);
+  }
+
+  &.drag-over-right {
+    border-right: 2px solid var(--primary-color);
+  }
 }
 
 // ── Response toolbar ──

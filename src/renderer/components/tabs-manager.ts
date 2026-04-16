@@ -35,6 +35,7 @@ export class TabsManager {
     this.eventHandler.setupTabEvents();
     this.eventHandler.setupEventListeners();
     this.setupKeyboardShortcuts();
+    this.setupTabReorderListener();
     this.renderer.renderTabs(
       this.stateManager.getTabs(),
       this.stateManager.getActiveTabId()
@@ -44,6 +45,17 @@ export class TabsManager {
   private isApiTabActive(): boolean {
     const apiTab = document.getElementById('api-tab');
     return apiTab?.classList.contains('active') ?? false;
+  }
+
+  private setupTabReorderListener(): void {
+    document.addEventListener('tab-reorder', ((e: CustomEvent) => {
+      const { sourceTabId, targetTabId, dropBefore } = e.detail;
+      this.stateManager.reorderTab(sourceTabId, targetTabId, dropBefore);
+      this.renderer.renderTabs(
+        this.stateManager.getTabs(),
+        this.stateManager.getActiveTabId()
+      );
+    }) as EventListener);
   }
 
   private setupKeyboardShortcuts(): void {

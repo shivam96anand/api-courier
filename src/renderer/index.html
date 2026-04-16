@@ -335,10 +335,13 @@
 
                     <div id="curl-section" class="section">
                       <div class="curl-section-toolbar">
+                        <select id="code-language-select" class="code-language-select">
+                          <option value="curl" selected>cURL</option>
+                        </select>
                         <button
                           id="copy-curl-command"
                           class="curl-copy-btn"
-                          title="Copy cURL command"
+                          title="Copy command"
                         >
                           Copy
                         </button>
@@ -355,7 +358,7 @@
                         class="curl-output"
                         spellcheck="false"
                         readonly
-                        aria-label="Generated cURL command"
+                        aria-label="Generated command"
                         placeholder="cURL command will appear here"
                       >
                       </textarea>
@@ -405,6 +408,9 @@
                   </div>
                   <div id="response-headers" class="response-section">
                     <div class="response-placeholder">No response headers</div>
+                  </div>
+                  <div id="response-cookies" class="response-section">
+                    <div class="response-placeholder">No cookies in response</div>
                   </div>
                 </div>
               </div>

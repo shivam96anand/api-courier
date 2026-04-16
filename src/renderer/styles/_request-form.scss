@@ -316,6 +316,24 @@
 .curl-section-toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-language-select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+  }
 }
 
 .curl-output {

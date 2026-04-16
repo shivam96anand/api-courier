@@ -6,6 +6,7 @@ import { CollectionsOperations } from './collections-operations';
 import { CollectionsStatePersistence } from './collections-state-persistence';
 import { FolderVariablesDialog } from './folder-variables-dialog';
 import { buildFolderVars } from '../request/variable-helper';
+import { collectionRunner } from './collection-runner';
 
 export class CollectionsCore {
   private collections: Collection[] = [];
@@ -235,6 +236,11 @@ export class CollectionsCore {
           label: 'Export Folder',
           icon: 'export',
           action: () => this.operations.exportCollection(collectionId),
+        },
+        {
+          label: 'Run All Requests',
+          icon: 'layers',
+          action: () => collectionRunner.run(collectionId, collection.name),
         },
         { label: '---', action: null }
       );

@@ -86,6 +86,7 @@ export class RequestManager {
     this.dataManager.setupSendButton();
     this.dataManager.setupSwitchToSoapButton();
     this.dataManager.setupCurlTab();
+    this.dataManager.setupCodeTab();
     this.dataManager.setupCancelButton();
     this.dataManager.setupCancelEventListener();
     this.dataManager.setupTabChangeListener();

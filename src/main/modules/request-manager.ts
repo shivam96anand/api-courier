@@ -133,6 +133,8 @@ class RequestManager {
         const followRedirects = settings?.followRedirects ?? true;
         const maxRedirects = settings?.maxRedirects ?? 10;
         const maxResponseSize = settings?.maxResponseSizeBytes ?? 50 * 1024 * 1024;
+        const proxyEnabled = settings?.proxyEnabled ?? false;
+        const proxyUrl = settings?.proxyUrl?.trim() || '';
 
         const executeRequest = (
           targetUrl: string,
@@ -204,6 +206,45 @@ class RequestManager {
 
             if (Object.keys(agentOptions).length > 0) {
               options.agent = new https.Agent(agentOptions);
+            }
+          }
+
+          // Apply HTTP proxy for non-HTTPS (simple proxy) targets
+          if (proxyEnabled && proxyUrl && !isHttps) {
+            try {
+              const proxyParsed = new URL(proxyUrl);
+              options.hostname = proxyParsed.hostname;
+              options.port = parseInt(proxyParsed.port || '80', 10);
+              options.path = targetUrl; // full URL as path for proxy
+            } catch {
+              // ignore invalid proxy URL
+            }
+          }
+
+          // For HTTPS through proxy, use CONNECT tunnel
+          if (proxyEnabled && proxyUrl && isHttps && !options.agent) {
+            try {
+              const proxyParsed = new URL(proxyUrl);
+              this.createProxyTunnel(
+                proxyParsed,
+                parsedUrl,
+                options,
+                updatedRequest,
+                bodyData,
+                requestId,
+                startTime,
+                timeoutMs,
+                safeResolve,
+                safeReject,
+                followRedirects,
+                maxRedirects,
+                redirectCount,
+                maxResponseSize,
+                executeRequest
+              );
+              return;
+            } catch {
+              // fall through to direct connection
             }
           }
 
@@ -302,6 +343,113 @@ class RequestManager {
     this.activeRequests.delete(requestId);
     active.req.destroy(new Error('Request cancelled by user'));
     return true;
+  }
+
+  private createProxyTunnel(
+    proxyParsed: URL,
+    targetParsed: URL,
+    options: http.RequestOptions,
+    updatedRequest: ApiRequest,
+    bodyData: string | Buffer | undefined,
+    requestId: string,
+    startTime: number,
+    timeoutMs: number,
+    safeResolve: (response: ApiResponse) => void,
+    safeReject: (error: Error) => void,
+    followRedirects: boolean,
+    maxRedirects: number,
+    redirectCount: number,
+    maxResponseSize: number,
+    executeRequest: (targetUrl: string, redirectCount: number) => void
+  ): void {
+    const connectReq = http.request({
+      host: proxyParsed.hostname,
+      port: parseInt(proxyParsed.port || '80', 10),
+      method: 'CONNECT',
+      path: `${targetParsed.hostname}:${targetParsed.port || 443}`,
+    });
+
+    connectReq.on('connect', (_res, socket) => {
+      const agent = new https.Agent({ socket });
+      options.agent = agent;
+
+      const req = https.request(options, (res) => {
+        const statusCode = res.statusCode || 0;
+        if (
+          followRedirects &&
+          [301, 302, 303, 307, 308].includes(statusCode) &&
+          res.headers.location
+        ) {
+          if (redirectCount >= maxRedirects) {
+            const endTime = Date.now();
+            const errorBody = JSON.stringify({
+              error: 'Too Many Redirects',
+              message: `Exceeded maximum of ${maxRedirects} redirects`,
+            }, null, 2);
+            safeResolve({
+              status: 0,
+              statusText: 'Too Many Redirects',
+              headers: { 'Content-Type': 'application/json' },
+              body: errorBody,
+              time: endTime - startTime,
+              size: Buffer.byteLength(errorBody),
+              timestamp: endTime,
+            });
+            return;
+          }
+          const redirectUrl = new URL(
+            res.headers.location,
+            `https://${targetParsed.hostname}`
+          ).toString();
+          res.resume();
+          executeRequest(redirectUrl, redirectCount + 1);
+          return;
+        }
+        this.handleResponse(res, startTime, safeResolve, maxResponseSize);
+      });
+
+      req.on('error', (error) => {
+        this.handleRequestError(
+          error,
+          targetParsed.href,
+          startTime,
+          safeResolve
+        );
+      });
+
+      if (timeoutMs > 0) {
+        req.setTimeout(timeoutMs, () => {
+          req.destroy(new Error(`Request timed out after ${timeoutMs / 1000}s`));
+        });
+      }
+
+      this.activeRequests.set(requestId, { req, reject: safeReject });
+
+      if (bodyData && updatedRequest.method !== 'GET') {
+        req.write(bodyData);
+      }
+
+      req.end();
+    });
+
+    connectReq.on('error', (error) => {
+      this.handleRequestError(
+        error,
+        targetParsed.href,
+        startTime,
+        safeResolve
+      );
+    });
+
+    if (timeoutMs > 0) {
+      connectReq.setTimeout(timeoutMs, () => {
+        connectReq.destroy(
+          new Error(`Proxy tunnel timed out after ${timeoutMs / 1000}s`)
+        );
+      });
+    }
+
+    connectReq.end();
   }
 
   private handleResponse(

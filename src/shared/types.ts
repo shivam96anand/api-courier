@@ -169,6 +169,8 @@ export interface RequestSettings {
   followRedirects: boolean; // Whether to follow 3xx redirects
   maxRedirects: number; // Maximum redirect hops
   maxResponseSizeBytes: number; // Max response body size to buffer
+  proxyEnabled?: boolean; // Whether to route through proxy
+  proxyUrl?: string; // Proxy URL e.g. http://proxy.example.com:8080
 }
 
 export interface AppState {

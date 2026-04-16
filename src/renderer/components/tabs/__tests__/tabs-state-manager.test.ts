@@ -369,4 +369,58 @@ describe('TabsStateManager', () => {
       expect(tsm.getTabs()).toHaveLength(0);
     });
   });
+
+  describe('reorderTab', () => {
+    beforeEach(() => {
+      tsm.createNewTab(); // tab A (index 0)
+      tsm.createNewTab(); // tab B (index 1)
+      tsm.createNewTab(); // tab C (index 2)
+      notifyCalls = 0;
+    });
+
+    it('moves a tab before the target when dropBefore is true', () => {
+      const tabs = tsm.getTabs();
+      const [a, b, c] = [tabs[0].id, tabs[1].id, tabs[2].id];
+      // Move C before A
+      tsm.reorderTab(c, a, true);
+      const result = tsm.getTabs().map((t) => t.id);
+      expect(result).toEqual([c, a, b]);
+    });
+
+    it('moves a tab after the target when dropBefore is false', () => {
+      const tabs = tsm.getTabs();
+      const [a, b, c] = [tabs[0].id, tabs[1].id, tabs[2].id];
+      // Move A after C
+      tsm.reorderTab(a, c, false);
+      const result = tsm.getTabs().map((t) => t.id);
+      expect(result).toEqual([b, c, a]);
+    });
+
+    it('does nothing when source equals target', () => {
+      const tabs = tsm.getTabs();
+      const originalOrder = tabs.map((t) => t.id);
+      tsm.reorderTab(tabs[1].id, tabs[1].id, true);
+      expect(tsm.getTabs().map((t) => t.id)).toEqual(originalOrder);
+    });
+
+    it('does nothing when source tab id is invalid', () => {
+      const tabs = tsm.getTabs();
+      const originalOrder = tabs.map((t) => t.id);
+      tsm.reorderTab('nonexistent', tabs[0].id, true);
+      expect(tsm.getTabs().map((t) => t.id)).toEqual(originalOrder);
+    });
+
+    it('notifies on reorder', () => {
+      const tabs = tsm.getTabs();
+      tsm.reorderTab(tabs[2].id, tabs[0].id, true);
+      expect(notifyCalls).toBeGreaterThan(0);
+    });
+
+    it('persists state after reorder', () => {
+      const tabs = tsm.getTabs();
+      tsm.reorderTab(tabs[2].id, tabs[0].id, false);
+      const evt = dispatched.find((e) => e.type === 'tabs-changed');
+      expect(evt).toBeDefined();
+    });
+  });
 });

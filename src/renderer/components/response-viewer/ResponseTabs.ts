@@ -32,7 +32,7 @@ export class ResponseTabs {
     const tabGroup = document.createElement('div');
     tabGroup.className = 'response-toolbar__tabs';
 
-    const tabs = ['body', 'headers'];
+    const tabs = ['body', 'headers', 'cookies'];
     tabs.forEach((tab) => {
       const tabEl = document.createElement('button');
       tabEl.className = `response-toolbar__tab ${tab === this.activeTab ? 'active' : ''}`;
@@ -69,6 +69,7 @@ export class ResponseTabs {
     const labels: Record<string, string> = {
       body: 'Body',
       headers: 'Headers',
+      cookies: 'Cookies',
     };
     return labels[tab] || tab;
   }
@@ -106,6 +107,24 @@ export class ResponseTabs {
       const headerCount = Object.keys(response.headers).length;
       headersTab.setAttribute('data-count', headerCount.toString());
     }
+
+    const cookiesTab = this.tabsContainer.querySelector(
+      '[data-section="cookies"]'
+    );
+    if (cookiesTab && response.headers) {
+      const cookieCount = this.countCookies(response.headers);
+      cookiesTab.setAttribute('data-count', cookieCount.toString());
+    }
+  }
+
+  private countCookies(headers: Record<string, string>): number {
+    let count = 0;
+    for (const [key, value] of Object.entries(headers)) {
+      if (key.toLowerCase() === 'set-cookie') {
+        count += value.split(/,(?=\s*\w+=)/).length;
+      }
+    }
+    return count;
   }
 
   public onTabChange(callback: (tab: string) => void): void {
