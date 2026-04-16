@@ -32,7 +32,13 @@ describe('ai-engine.ts', () => {
     it('loads sessions from file if it exists', async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       const sessions = [
-        { id: 's1', title: 'Test', messages: [], createdAt: 1000, updatedAt: 1000 },
+        {
+          id: 's1',
+          title: 'Test',
+          messages: [],
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
       ];
       vi.mocked(readFile).mockResolvedValue(JSON.stringify(sessions));
 
@@ -41,7 +47,7 @@ describe('ai-engine.ts', () => {
       const state = aiEngine.getSessions();
       expect(state.sessions.length).toBeGreaterThanOrEqual(1);
       // Find our test session
-      const testSession = state.sessions.find(s => s.id === 's1');
+      const testSession = state.sessions.find((s) => s.id === 's1');
       expect(testSession).toBeDefined();
     });
 
@@ -134,7 +140,9 @@ describe('ai-engine.ts', () => {
   describe('updateSession', () => {
     it('updates session title', () => {
       const session = aiEngine.createSession();
-      const updated = aiEngine.updateSession(session.id, { title: 'Updated Title' });
+      const updated = aiEngine.updateSession(session.id, {
+        title: 'Updated Title',
+      });
       expect(updated).not.toBeNull();
       expect(updated!.title).toBe('Updated Title');
     });
@@ -218,7 +226,9 @@ describe('ai-engine.ts', () => {
         message: 'How do I make a GET request?',
       });
 
-      const updated = aiEngine.getSessions().sessions.find(s => s.id === session.id);
+      const updated = aiEngine
+        .getSessions()
+        .sessions.find((s) => s.id === session.id);
       expect(updated!.title).not.toBe('New Chat');
       // Clean up
       aiEngine.deleteSession(session.id);
@@ -236,7 +246,9 @@ describe('ai-engine.ts', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('Connection refused');
       // Messages should be empty (user message was rolled back)
-      const updated = aiEngine.getSessions().sessions.find(s => s.id === session.id);
+      const updated = aiEngine
+        .getSessions()
+        .sessions.find((s) => s.id === session.id);
       expect(updated!.messages.length).toBe(0);
       // Clean up
       aiEngine.deleteSession(session.id);
@@ -350,7 +362,9 @@ describe('ai-engine.ts', () => {
         message: 'Test message',
       });
 
-      const updated = aiEngine.getSessions().sessions.find(s => s.id === session.id);
+      const updated = aiEngine
+        .getSessions()
+        .sessions.find((s) => s.id === session.id);
       expect(updated!.messages).toHaveLength(2); // user + assistant
       expect(updated!.messages[0].role).toBe('user');
       expect(updated!.messages[1].role).toBe('assistant');
@@ -362,7 +376,9 @@ describe('ai-engine.ts', () => {
     it('updates session context', () => {
       const session = aiEngine.createSession();
       const newContext: AiContext = { fileName: 'updated.json' };
-      const updated = aiEngine.updateSession(session.id, { context: newContext });
+      const updated = aiEngine.updateSession(session.id, {
+        context: newContext,
+      });
       expect(updated).not.toBeNull();
       expect(updated!.context).toEqual(newContext);
       aiEngine.deleteSession(session.id);

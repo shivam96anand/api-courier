@@ -119,10 +119,14 @@ describe('store-manager.ts', () => {
 
       await storeManager.initialize();
 
-      storeManager.setState({ environments: [{ id: 'e1', name: 'Staging', variables: {} }] });
+      storeManager.setState({
+        environments: [{ id: 'e1', name: 'Staging', variables: {} }],
+      });
 
       const state = storeManager.getState();
-      expect(state.environments).toEqual([{ id: 'e1', name: 'Staging', variables: {} }]);
+      expect(state.environments).toEqual([
+        { id: 'e1', name: 'Staging', variables: {} },
+      ]);
     });
 
     it('sanitizes tab responses: clamps large body to 5MB', async () => {
@@ -133,13 +137,29 @@ describe('store-manager.ts', () => {
 
       const largeBody = 'x'.repeat(6_000_000);
       storeManager.setState({
-        openTabs: [{
-          id: 'tab1',
-          name: 'Test',
-          request: { id: 'r1', name: 'R1', method: 'GET', url: '/', headers: [] },
-          response: { status: 200, statusText: 'OK', headers: {}, body: largeBody, time: 100, size: 6000000, timestamp: Date.now() },
-          isModified: false,
-        }],
+        openTabs: [
+          {
+            id: 'tab1',
+            name: 'Test',
+            request: {
+              id: 'r1',
+              name: 'R1',
+              method: 'GET',
+              url: '/',
+              headers: [],
+            },
+            response: {
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              body: largeBody,
+              time: 100,
+              size: 6000000,
+              timestamp: Date.now(),
+            },
+            isModified: false,
+          },
+        ],
       });
 
       const state = storeManager.getState();
@@ -153,12 +173,28 @@ describe('store-manager.ts', () => {
       await storeManager.initialize();
 
       storeManager.setState({
-        history: [{
-          id: 'h1',
-          request: { id: 'r1', name: 'R1', method: 'GET', url: '/', headers: [] },
-          response: { status: 200, statusText: 'OK', headers: {}, body: 'some response body', time: 50, size: 100, timestamp: Date.now() },
-          timestamp: new Date(),
-        }],
+        history: [
+          {
+            id: 'h1',
+            request: {
+              id: 'r1',
+              name: 'R1',
+              method: 'GET',
+              url: '/',
+              headers: [],
+            },
+            response: {
+              status: 200,
+              statusText: 'OK',
+              headers: {},
+              body: 'some response body',
+              time: 50,
+              size: 100,
+              timestamp: Date.now(),
+            },
+            timestamp: new Date(),
+          },
+        ],
       });
 
       const state = storeManager.getState();
@@ -185,7 +221,9 @@ describe('store-manager.ts', () => {
   describe('migrations / backward-compat', () => {
     it('file missing environments key gets default empty array', async () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ collections: [] }));
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ collections: [] })
+      );
       vi.mocked(writeFile).mockResolvedValue(undefined);
 
       await storeManager.initialize();
@@ -195,7 +233,9 @@ describe('store-manager.ts', () => {
 
     it('file missing globals key gets default globals', async () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ collections: [] }));
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ collections: [] })
+      );
       vi.mocked(writeFile).mockResolvedValue(undefined);
 
       await storeManager.initialize();
@@ -205,7 +245,9 @@ describe('store-manager.ts', () => {
 
     it('file missing mockServers key gets default mockServers state', async () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ collections: [] }));
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ collections: [] })
+      );
       vi.mocked(writeFile).mockResolvedValue(undefined);
 
       await storeManager.initialize();
@@ -229,18 +271,27 @@ describe('store-manager.ts', () => {
 
       const state = storeManager.getState();
       expect(state.collections).toEqual([{ id: 'c1', name: 'Col' }]);
-      expect(state.environments).toEqual([{ id: 'e1', name: 'Prod', variables: { base: 'url' } }]);
+      expect(state.environments).toEqual([
+        { id: 'e1', name: 'Prod', variables: { base: 'url' } },
+      ]);
       expect(state.globals).toEqual({ variables: { key: 'val' } });
       expect(state.hasCompletedThemeOnboarding).toBe(true);
     });
 
     it('replaces legacy navOrder with default', async () => {
       const legacyNavOrder = [
-        'api', 'json-viewer', 'json-compare', 'notepad',
-        'load-testing', 'mock-server', 'ask-ai',
+        'api',
+        'json-viewer',
+        'json-compare',
+        'notepad',
+        'load-testing',
+        'mock-server',
+        'ask-ai',
       ];
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ navOrder: legacyNavOrder }));
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ navOrder: legacyNavOrder })
+      );
       vi.mocked(writeFile).mockResolvedValue(undefined);
 
       await storeManager.initialize();
@@ -306,7 +357,9 @@ describe('store-manager.ts', () => {
 
       vi.mocked(existsSync).mockReturnValue(false);
 
-      await expect(storeManager.restoreBackup('some-backup.json')).rejects.toThrow('Backup file not found');
+      await expect(
+        storeManager.restoreBackup('some-backup.json')
+      ).rejects.toThrow('Backup file not found');
     });
   });
 });

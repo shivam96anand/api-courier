@@ -90,7 +90,9 @@ describe('NotepadStore', () => {
 
     it('returns the active tab', () => {
       const tab = store.createTab({ title: 'Active' });
-      expect(store.getActiveTab()).toEqual(expect.objectContaining({ id: tab.id }));
+      expect(store.getActiveTab()).toEqual(
+        expect.objectContaining({ id: tab.id })
+      );
     });
   });
 
@@ -129,7 +131,9 @@ describe('NotepadStore', () => {
       const originalUpdatedAt = store.getState().tabs[0].updatedAt;
       vi.advanceTimersByTime(100);
       store.updateTab(tab.id, { title: 'Changed' });
-      expect(store.getState().tabs[0].updatedAt).toBeGreaterThanOrEqual(originalUpdatedAt);
+      expect(store.getState().tabs[0].updatedAt).toBeGreaterThanOrEqual(
+        originalUpdatedAt
+      );
     });
   });
 

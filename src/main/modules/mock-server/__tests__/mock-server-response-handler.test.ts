@@ -225,7 +225,9 @@ describe('mock-server-response-handler.ts', () => {
 
       expect(res.setHeader).toHaveBeenCalledWith('X-Custom', 'test-value');
       // Disabled or empty key headers should not be set
-      const setHeaderCalls = vi.mocked(res.setHeader).mock.calls.map(c => c[0]);
+      const setHeaderCalls = vi
+        .mocked(res.setHeader)
+        .mock.calls.map((c) => c[0]);
       expect(setHeaderCalls).not.toContain('X-Disabled');
     });
   });
@@ -241,7 +243,9 @@ describe('mock-server-response-handler.ts', () => {
         'Content-Type',
         'application/json; charset=utf-8'
       );
-      expect(res.end).toHaveBeenCalledWith(JSON.stringify({ error: 'Not found' }));
+      expect(res.end).toHaveBeenCalledWith(
+        JSON.stringify({ error: 'Not found' })
+      );
     });
   });
 });

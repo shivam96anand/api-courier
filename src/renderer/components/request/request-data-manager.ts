@@ -10,7 +10,12 @@ import {
   CodeLanguage,
   CodeGenRequest,
 } from '../../../shared/code-generators';
-import { buildHeaders, buildBody, buildUrlWithParams, buildAuthQueryParams } from './request-builder-utils';
+import {
+  buildHeaders,
+  buildBody,
+  buildUrlWithParams,
+  buildAuthQueryParams,
+} from './request-builder-utils';
 
 export class RequestDataManager {
   private currentRequest: ApiRequest | null = null;
@@ -86,7 +91,9 @@ export class RequestDataManager {
     }
 
     // Populate language dropdown with cURL + code languages
-    const langSelect = document.getElementById('code-language-select') as HTMLSelectElement | null;
+    const langSelect = document.getElementById(
+      'code-language-select'
+    ) as HTMLSelectElement | null;
     if (langSelect) {
       langSelect.innerHTML = '<option value="curl" selected>cURL</option>';
       const optGroup = document.createElement('optgroup');
@@ -103,7 +110,9 @@ export class RequestDataManager {
 
       langSelect.addEventListener('change', () => {
         this.selectedCodeLanguage = langSelect.value as CodeLanguage | 'curl';
-        const openBtn = document.getElementById('open-in-curl-tool') as HTMLButtonElement | null;
+        const openBtn = document.getElementById(
+          'open-in-curl-tool'
+        ) as HTMLButtonElement | null;
         if (openBtn) {
           const isCurl = langSelect.value === 'curl';
           openBtn.disabled = !isCurl;
@@ -230,14 +239,23 @@ export class RequestDataManager {
   private async renderCodePreviewInCurl(): Promise<void> {
     const output = this.getCurlOutputElement();
     if (!output) return;
-    if (!this.currentRequest) { output.value = ''; return; }
+    if (!this.currentRequest) {
+      output.value = '';
+      return;
+    }
 
     const renderToken = ++this.codePreviewRenderToken;
     try {
       const codeReq = await this.buildCodeGenRequest();
       if (renderToken !== this.codePreviewRenderToken) return;
-      if (!codeReq) { output.value = ''; return; }
-      output.value = generateCodeSnippet(this.selectedCodeLanguage as CodeLanguage, codeReq);
+      if (!codeReq) {
+        output.value = '';
+        return;
+      }
+      output.value = generateCodeSnippet(
+        this.selectedCodeLanguage as CodeLanguage,
+        codeReq
+      );
     } catch {
       if (renderToken !== this.codePreviewRenderToken) return;
       output.value = '';
@@ -311,7 +329,10 @@ export class RequestDataManager {
     const headers = buildHeaders(resolved);
     const { bodyData, contentType } = buildBody(resolved);
 
-    if (contentType && !Object.keys(headers).some(k => k.toLowerCase() === 'content-type')) {
+    if (
+      contentType &&
+      !Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')
+    ) {
       headers['Content-Type'] = contentType;
     }
 

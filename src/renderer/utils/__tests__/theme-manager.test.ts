@@ -157,9 +157,7 @@ describe('ThemeManager', () => {
       const calls = (
         document.documentElement.style.setProperty as ReturnType<typeof vi.fn>
       ).mock.calls;
-      const lightCall = calls.find(
-        (c: string[]) => c[0] === '--primary-light'
-      );
+      const lightCall = calls.find((c: string[]) => c[0] === '--primary-light');
       expect(lightCall).toBeDefined();
       const lightHex = lightCall![1] as string;
       expect(lightHex).toMatch(/^#[0-9a-f]{6}$/i);

@@ -364,7 +364,8 @@ export class TabsStateManager {
   ): void {
     const sourceIndex = this.tabs.findIndex((t) => t.id === sourceTabId);
     const targetIndex = this.tabs.findIndex((t) => t.id === targetTabId);
-    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return;
+    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex)
+      return;
 
     const [removed] = this.tabs.splice(sourceIndex, 1);
     let insertIndex = this.tabs.findIndex((t) => t.id === targetTabId);

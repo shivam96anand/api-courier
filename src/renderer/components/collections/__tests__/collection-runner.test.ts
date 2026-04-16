@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { CollectionRunner } from '../collection-runner';
 import { Collection } from '../../../shared/types';
 
-function makeCollection(
-  overrides: Partial<Collection>
-): Collection {
+function makeCollection(overrides: Partial<Collection>): Collection {
   return {
     id: 'c1',
     name: 'Test',

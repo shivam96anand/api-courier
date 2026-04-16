@@ -9,7 +9,10 @@ vi.mock('../../store-manager', () => ({
   },
 }));
 
-import { getMockServersState, saveMockServersState } from '../mock-server-store';
+import {
+  getMockServersState,
+  saveMockServersState,
+} from '../mock-server-store';
 import { storeManager } from '../../store-manager';
 
 describe('mock-server-store.ts', () => {

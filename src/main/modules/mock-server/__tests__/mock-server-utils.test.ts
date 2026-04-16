@@ -9,9 +9,9 @@ import {
 describe('mock-server-utils.ts', () => {
   describe('redactHeaders', () => {
     it('redacts authorization header', () => {
-      expect(
-        redactHeaders({ Authorization: 'Bearer secret123' })
-      ).toEqual({ Authorization: '[REDACTED]' });
+      expect(redactHeaders({ Authorization: 'Bearer secret123' })).toEqual({
+        Authorization: '[REDACTED]',
+      });
     });
 
     it('redacts headers containing "token" (case-insensitive)', () => {
@@ -97,15 +97,21 @@ describe('mock-server-utils.ts', () => {
 
   describe('matchPath — wildcard', () => {
     it('matches * for a single path segment', () => {
-      expect(matchPath('/api/*/details', '/api/users/details', 'wildcard')).toBe(true);
+      expect(
+        matchPath('/api/*/details', '/api/users/details', 'wildcard')
+      ).toBe(true);
     });
 
     it('does not match * across multiple segments', () => {
-      expect(matchPath('/api/*/details', '/api/users/123/details', 'wildcard')).toBe(false);
+      expect(
+        matchPath('/api/*/details', '/api/users/123/details', 'wildcard')
+      ).toBe(false);
     });
 
     it('matches ** for multiple path segments', () => {
-      expect(matchPath('/api/**', '/api/users/123/details', 'wildcard')).toBe(true);
+      expect(matchPath('/api/**', '/api/users/123/details', 'wildcard')).toBe(
+        true
+      );
     });
 
     it('matches ** in the middle of a pattern', () => {
@@ -119,11 +125,15 @@ describe('mock-server-utils.ts', () => {
 
   describe('matchPath — regex', () => {
     it('matches a regex pattern', () => {
-      expect(matchPath('^/api/users/\\d+$', '/api/users/123', 'regex')).toBe(true);
+      expect(matchPath('^/api/users/\\d+$', '/api/users/123', 'regex')).toBe(
+        true
+      );
     });
 
     it('does not match when regex fails', () => {
-      expect(matchPath('^/api/users/\\d+$', '/api/users/abc', 'regex')).toBe(false);
+      expect(matchPath('^/api/users/\\d+$', '/api/users/abc', 'regex')).toBe(
+        false
+      );
     });
 
     it('falls back to exact match for invalid regex', () => {
@@ -145,9 +155,9 @@ describe('mock-server-utils.ts', () => {
     });
 
     it('increases score with more path segments for exact', () => {
-      expect(getMatchSpecificity('/api/users/details', 'exact')).toBeGreaterThan(
-        getMatchSpecificity('/api/users', 'exact')
-      );
+      expect(
+        getMatchSpecificity('/api/users/details', 'exact')
+      ).toBeGreaterThan(getMatchSpecificity('/api/users', 'exact'));
     });
 
     it('reduces wildcard score for wildcards in pattern', () => {

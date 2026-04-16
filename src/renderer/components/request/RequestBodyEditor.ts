@@ -197,7 +197,12 @@ export class RequestBodyEditor {
     const addBtn = this.container.querySelector('#form-data-add-btn');
     if (addBtn) {
       addBtn.addEventListener('click', () => {
-        this.addFormDataField({ key: '', value: '', type: 'text', enabled: true });
+        this.addFormDataField({
+          key: '',
+          value: '',
+          type: 'text',
+          enabled: true,
+        });
         this.renderFormDataFields();
         this.emitFormDataChange();
       });
@@ -424,7 +429,12 @@ export class RequestBodyEditor {
 
       // Add a default empty row if no fields exist
       if (this.formDataFields.length === 0) {
-        this.formDataFields.push({ key: '', value: '', type: 'text', enabled: true });
+        this.formDataFields.push({
+          key: '',
+          value: '',
+          type: 'text',
+          enabled: true,
+        });
       }
       this.renderFormDataFields();
       this.emitFormDataChange();
@@ -845,7 +855,11 @@ export class RequestBodyEditor {
         this.formDataFields[index].value = '';
         this.formDataFields[index].fileName = undefined;
         this.formDataFields[index].contentType = undefined;
-        this.renderValueField(valueContainer, this.formDataFields[index], index);
+        this.renderValueField(
+          valueContainer,
+          this.formDataFields[index],
+          index
+        );
         this.emitFormDataChange();
       });
 

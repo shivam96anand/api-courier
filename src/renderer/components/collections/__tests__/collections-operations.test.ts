@@ -399,9 +399,7 @@ describe('CollectionsOperations', () => {
     it('adds created collection to internal list', async () => {
       const newCol = makeCollection({ id: 'new-1', name: 'New Folder' });
       // Access the mocked dialogs
-      (ops as any).dialogs.showCreateDialog = vi
-        .fn()
-        .mockResolvedValue(newCol);
+      (ops as any).dialogs.showCreateDialog = vi.fn().mockResolvedValue(newCol);
       ops.setCollections([]);
 
       const result = await ops.showCreateDialog('folder');
@@ -410,9 +408,7 @@ describe('CollectionsOperations', () => {
     });
 
     it('returns null when dialog is cancelled', async () => {
-      (ops as any).dialogs.showCreateDialog = vi
-        .fn()
-        .mockResolvedValue(null);
+      (ops as any).dialogs.showCreateDialog = vi.fn().mockResolvedValue(null);
       ops.setCollections([]);
 
       const result = await ops.showCreateDialog('folder');

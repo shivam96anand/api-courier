@@ -145,18 +145,20 @@ describe('insomnia.ts', () => {
     it('maps V5 collection structure', () => {
       const { rootFolder } = mapInsomniaExport(v5Data);
       // V5 may unwrap single-child root; find the Auth folder
-      const authFolder = rootFolder.name === 'Auth'
-        ? rootFolder
-        : rootFolder.children?.find((c) => c.name === 'Auth') ?? rootFolder;
+      const authFolder =
+        rootFolder.name === 'Auth'
+          ? rootFolder
+          : (rootFolder.children?.find((c) => c.name === 'Auth') ?? rootFolder);
       expect(authFolder.name).toBe('Auth');
       expect(authFolder.type).toBe('folder');
     });
 
     it('maps V5 requests', () => {
       const { rootFolder } = mapInsomniaExport(v5Data);
-      const authFolder = rootFolder.name === 'Auth'
-        ? rootFolder
-        : rootFolder.children?.find((c) => c.name === 'Auth') ?? rootFolder;
+      const authFolder =
+        rootFolder.name === 'Auth'
+          ? rootFolder
+          : (rootFolder.children?.find((c) => c.name === 'Auth') ?? rootFolder);
       const loginReq = authFolder.children![0];
       expect(loginReq.type).toBe('request');
       expect(loginReq.request?.method).toBe('POST');
@@ -200,9 +202,11 @@ describe('insomnia.ts', () => {
       };
 
       const { rootFolder } = mapInsomniaExport(v5Data);
-      const folder = rootFolder.name === 'FolderWithVars'
-        ? rootFolder
-        : rootFolder.children?.find((c) => c.name === 'FolderWithVars') ?? rootFolder;
+      const folder =
+        rootFolder.name === 'FolderWithVars'
+          ? rootFolder
+          : (rootFolder.children?.find((c) => c.name === 'FolderWithVars') ??
+            rootFolder);
       expect(folder.variables).toEqual({ baseUrl: 'http://localhost:3000' });
     });
 
@@ -241,9 +245,7 @@ describe('insomnia.ts', () => {
             url: 'https://example.com/upload',
             body: {
               mimeType: 'multipart/form-data',
-              params: [
-                { name: 'file', value: 'data' },
-              ],
+              params: [{ name: 'file', value: 'data' }],
             },
           },
         ],
@@ -274,7 +276,7 @@ describe('insomnia.ts', () => {
       const { rootFolder } = mapInsomniaExport(v5Data);
       const req = (rootFolder.children?.[0] ?? rootFolder).request!;
       expect(req.headers).toEqual({
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'X-Custom': 'test',
       });
     });

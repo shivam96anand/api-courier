@@ -51,7 +51,9 @@ describe('request-builder.ts', () => {
         ]
       );
 
-      expect(url).toBe('https://api.example.com/users?page=1&missing-value=&sort=name');
+      expect(url).toBe(
+        'https://api.example.com/users?page=1&missing-value=&sort=name'
+      );
     });
 
     it('merges params into existing query strings without duplicating keys', () => {
@@ -439,7 +441,11 @@ describe('request-builder.ts', () => {
     it('respects explicit contentType override', () => {
       const result = RequestBuilder.buildBody(
         createRequest({
-          body: { type: 'raw', content: '<xml/>', contentType: 'application/xml' },
+          body: {
+            type: 'raw',
+            content: '<xml/>',
+            contentType: 'application/xml',
+          },
         })
       );
       expect(result.contentType).toBe('application/xml');
@@ -476,10 +482,17 @@ describe('request-builder.ts', () => {
     it('builds multipart body with text fields', () => {
       const fields: FormDataField[] = [
         { key: 'name', value: 'John', type: 'text', enabled: true },
-        { key: 'email', value: 'john@example.com', type: 'text', enabled: true },
+        {
+          key: 'email',
+          value: 'john@example.com',
+          type: 'text',
+          enabled: true,
+        },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       expect(result.contentType).toContain('multipart/form-data');
@@ -505,7 +518,9 @@ describe('request-builder.ts', () => {
         },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       expect(result.contentType).toContain('multipart/form-data');
@@ -515,12 +530,19 @@ describe('request-builder.ts', () => {
       expect(bodyStr).toContain('name="avatar"; filename="photo.png"');
       expect(bodyStr).toContain('Content-Type: image/png');
       // The buffer should contain the PNG magic bytes
-      expect(bodyBuf.includes(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe(true);
+      expect(bodyBuf.includes(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toBe(
+        true
+      );
     });
 
     it('handles mixed text and file fields', () => {
       const fields: FormDataField[] = [
-        { key: 'description', value: 'My file upload', type: 'text', enabled: true },
+        {
+          key: 'description',
+          value: 'My file upload',
+          type: 'text',
+          enabled: true,
+        },
         {
           key: 'document',
           value: '/tmp/doc.pdf',
@@ -532,7 +554,9 @@ describe('request-builder.ts', () => {
         { key: 'tag', value: 'important', type: 'text', enabled: true },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       const bodyStr = (result.bodyData as Buffer).toString();
@@ -550,7 +574,9 @@ describe('request-builder.ts', () => {
         { key: 'excluded', value: 'no', type: 'text', enabled: false },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       const bodyStr = (result.bodyData as Buffer).toString();
@@ -565,7 +591,9 @@ describe('request-builder.ts', () => {
         { key: 'valid', value: 'ok', type: 'text', enabled: true },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       const bodyStr = (result.bodyData as Buffer).toString();
@@ -586,7 +614,9 @@ describe('request-builder.ts', () => {
         { key: 'name', value: 'still works', type: 'text', enabled: true },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       const bodyStr = (result.bodyData as Buffer).toString();
@@ -607,7 +637,9 @@ describe('request-builder.ts', () => {
         },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       const bodyStr = (result.bodyData as Buffer).toString();
@@ -659,7 +691,9 @@ describe('request-builder.ts', () => {
         { key: 'x', value: 'y', type: 'text', enabled: true },
       ];
       const result = RequestBuilder.buildBody(
-        createRequest({ body: { type: 'form-data', content: '', formDataFields: fields } })
+        createRequest({
+          body: { type: 'form-data', content: '', formDataFields: fields },
+        })
       );
 
       const bodyStr = (result.bodyData as Buffer).toString();

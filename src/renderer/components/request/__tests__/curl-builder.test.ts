@@ -30,9 +30,7 @@ describe('curl-builder.ts', () => {
 
   describe('buildCurlParts', () => {
     it('returns URL and empty headers/body for a simple GET', () => {
-      const { url, headerArgs, bodyArg } = buildCurlParts(
-        makeRequest()
-      );
+      const { url, headerArgs, bodyArg } = buildCurlParts(makeRequest());
       expect(url).toBe('https://api.example.com/users');
       expect(headerArgs).toEqual([]);
       expect(bodyArg).toBeUndefined();
@@ -134,9 +132,7 @@ describe('curl-builder.ts', () => {
     });
 
     it('builds DELETE method correctly', () => {
-      const cmd = buildCurlCommand(
-        makeRequest({ method: 'DELETE' })
-      );
+      const cmd = buildCurlCommand(makeRequest({ method: 'DELETE' }));
       expect(cmd).toContain('-X DELETE');
     });
   });

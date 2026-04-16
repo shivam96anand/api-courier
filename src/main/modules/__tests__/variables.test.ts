@@ -238,9 +238,12 @@ describe('variables.ts', () => {
 
     it('resolves a Record<string, string>', () => {
       expect(
-        resolveParamsOrHeaders({ '{{k}}': '{{v}}' }, {
-          requestVars: { k: 'Host', v: 'example.com' },
-        })
+        resolveParamsOrHeaders(
+          { '{{k}}': '{{v}}' },
+          {
+            requestVars: { k: 'Host', v: 'example.com' },
+          }
+        )
       ).toEqual({ Host: 'example.com' });
     });
 
@@ -259,7 +262,9 @@ describe('variables.ts', () => {
         variables: {},
       };
 
-      const env = { variables: { host: 'api.example.com', path: 'users', token: 'abc123' } };
+      const env = {
+        variables: { host: 'api.example.com', path: 'users', token: 'abc123' },
+      };
       const globals = { variables: { page: '1', name: 'John' } };
 
       const result = composeFinalRequest(request, env, globals);

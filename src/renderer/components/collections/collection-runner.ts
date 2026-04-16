@@ -153,13 +153,15 @@ export class CollectionRunner {
       this.removeDialog();
     });
 
-    dialog.querySelector('.runner-cancel-btn')?.addEventListener('click', () => {
-      if (this.isRunning) {
-        this.cancel();
-      } else {
-        this.removeDialog();
-      }
-    });
+    dialog
+      .querySelector('.runner-cancel-btn')
+      ?.addEventListener('click', () => {
+        if (this.isRunning) {
+          this.cancel();
+        } else {
+          this.removeDialog();
+        }
+      });
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
@@ -172,11 +174,14 @@ export class CollectionRunner {
   private updateProgress(progress: RunnerProgress): void {
     if (!this.dialog) return;
 
-    const pct = progress.total > 0
-      ? Math.round((progress.completed / progress.total) * 100)
-      : 0;
+    const pct =
+      progress.total > 0
+        ? Math.round((progress.completed / progress.total) * 100)
+        : 0;
 
-    const fill = this.dialog.querySelector('.runner-progress-fill') as HTMLElement;
+    const fill = this.dialog.querySelector(
+      '.runner-progress-fill'
+    ) as HTMLElement;
     const text = this.dialog.querySelector('.runner-progress-text');
     const current = this.dialog.querySelector('.runner-current-request');
 
@@ -229,7 +234,9 @@ export class CollectionRunner {
       const isSuccess = status >= 200 && status < 400;
       row.className = isSuccess ? 'runner-row--pass' : 'runner-row--fail';
 
-      const nameText = this.escapeHtml(r.request.name || r.request.url || 'Unnamed');
+      const nameText = this.escapeHtml(
+        r.request.name || r.request.url || 'Unnamed'
+      );
       const statusText = r.error
         ? this.escapeHtml(r.error)
         : `${status} ${r.response?.statusText || ''}`;

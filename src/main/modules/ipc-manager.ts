@@ -290,7 +290,9 @@ class IpcManager {
       IPC_CHANNELS.FILE_READ_CONTENT,
       async (_, filePath: string) => {
         if (!this.approvedFilePaths.has(filePath)) {
-          throw new Error('File access not permitted. Open the file using the file dialog first.');
+          throw new Error(
+            'File access not permitted. Open the file using the file dialog first.'
+          );
         }
         try {
           const content = readFileSync(filePath, 'utf-8');
@@ -307,7 +309,9 @@ class IpcManager {
       IPC_CHANNELS.FILE_READ_BINARY,
       async (_, filePath: string) => {
         if (!this.approvedFilePaths.has(filePath)) {
-          throw new Error('File access not permitted. Open the file using the file dialog first.');
+          throw new Error(
+            'File access not permitted. Open the file using the file dialog first.'
+          );
         }
         try {
           const content = readFileSync(filePath).toString('base64');

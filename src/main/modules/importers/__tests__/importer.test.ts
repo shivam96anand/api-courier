@@ -125,7 +125,8 @@ describe('importers/index.ts', () => {
       const importResult = detectAndParse({
         info: {
           name: 'Preview Test',
-          schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+          schema:
+            'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
         },
         item: [
           {
@@ -159,7 +160,8 @@ describe('importers/index.ts', () => {
       const importResult = detectAndParse({
         info: {
           name: 'Env Test',
-          schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+          schema:
+            'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
         },
         item: [],
         variable: [
@@ -216,7 +218,9 @@ describe('importers/index.ts', () => {
     });
 
     it('throws for invalid JSON and YAML', () => {
-      expect(() => parseJsonFile('}{not valid at all}{')).toThrow('Invalid file format');
+      expect(() => parseJsonFile('}{not valid at all}{')).toThrow(
+        'Invalid file format'
+      );
     });
   });
 });

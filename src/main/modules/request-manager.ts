@@ -132,7 +132,8 @@ class RequestManager {
         const timeoutMs = settings?.defaultTimeoutMs ?? 60000;
         const followRedirects = settings?.followRedirects ?? true;
         const maxRedirects = settings?.maxRedirects ?? 10;
-        const maxResponseSize = settings?.maxResponseSizeBytes ?? 50 * 1024 * 1024;
+        const maxResponseSize =
+          settings?.maxResponseSizeBytes ?? 50 * 1024 * 1024;
         const proxyEnabled = settings?.proxyEnabled ?? false;
         const proxyUrl = settings?.proxyUrl?.trim() || '';
 
@@ -182,7 +183,10 @@ class RequestManager {
             if (!sc.mode || sc.mode === 'jks') {
               // JKS mode — parse on the fly using jks-js
               if (sc.keystoreJks && sc.keystorePassword) {
-                const ks = parseKeystoreJks(sc.keystoreJks, sc.keystorePassword);
+                const ks = parseKeystoreJks(
+                  sc.keystoreJks,
+                  sc.keystorePassword
+                );
                 if (ks.cert) agentOptions.cert = ks.cert;
                 if (ks.key) agentOptions.key = ks.key;
               }
@@ -197,7 +201,8 @@ class RequestManager {
               // PEM mode
               if (sc.clientCert?.content)
                 agentOptions.cert = sc.clientCert.content;
-              if (sc.clientKey?.content) agentOptions.key = sc.clientKey.content;
+              if (sc.clientKey?.content)
+                agentOptions.key = sc.clientKey.content;
               if (sc.caCert?.content) agentOptions.ca = sc.caCert.content;
               if (sc.pfx?.content)
                 agentOptions.pfx = Buffer.from(sc.pfx.content, 'base64');
@@ -258,13 +263,17 @@ class RequestManager {
             ) {
               if (redirectCount >= maxRedirects) {
                 const endTime = Date.now();
-                const errorBody = JSON.stringify({
-                  error: 'Too Many Redirects',
-                  message: `Exceeded maximum of ${maxRedirects} redirects`,
-                  url: targetUrl,
-                  redirectCount,
-                  timestamp: new Date().toISOString(),
-                }, null, 2);
+                const errorBody = JSON.stringify(
+                  {
+                    error: 'Too Many Redirects',
+                    message: `Exceeded maximum of ${maxRedirects} redirects`,
+                    url: targetUrl,
+                    redirectCount,
+                    timestamp: new Date().toISOString(),
+                  },
+                  null,
+                  2
+                );
                 safeResolve({
                   status: 0,
                   statusText: 'Too Many Redirects',
@@ -278,7 +287,10 @@ class RequestManager {
               }
 
               // Resolve relative redirect URLs
-              const redirectUrl = new URL(res.headers.location, targetUrl).toString();
+              const redirectUrl = new URL(
+                res.headers.location,
+                targetUrl
+              ).toString();
 
               // For 303, switch to GET and drop body
               if (statusCode === 303) {
@@ -304,7 +316,9 @@ class RequestManager {
           // Set timeout
           if (timeoutMs > 0) {
             req.setTimeout(timeoutMs, () => {
-              req.destroy(new Error(`Request timed out after ${timeoutMs / 1000}s`));
+              req.destroy(
+                new Error(`Request timed out after ${timeoutMs / 1000}s`)
+              );
             });
           }
 
@@ -382,10 +396,14 @@ class RequestManager {
         ) {
           if (redirectCount >= maxRedirects) {
             const endTime = Date.now();
-            const errorBody = JSON.stringify({
-              error: 'Too Many Redirects',
-              message: `Exceeded maximum of ${maxRedirects} redirects`,
-            }, null, 2);
+            const errorBody = JSON.stringify(
+              {
+                error: 'Too Many Redirects',
+                message: `Exceeded maximum of ${maxRedirects} redirects`,
+              },
+              null,
+              2
+            );
             safeResolve({
               status: 0,
               statusText: 'Too Many Redirects',
@@ -419,7 +437,9 @@ class RequestManager {
 
       if (timeoutMs > 0) {
         req.setTimeout(timeoutMs, () => {
-          req.destroy(new Error(`Request timed out after ${timeoutMs / 1000}s`));
+          req.destroy(
+            new Error(`Request timed out after ${timeoutMs / 1000}s`)
+          );
         });
       }
 
@@ -433,12 +453,7 @@ class RequestManager {
     });
 
     connectReq.on('error', (error) => {
-      this.handleRequestError(
-        error,
-        targetParsed.href,
-        startTime,
-        safeResolve
-      );
+      this.handleRequestError(error, targetParsed.href, startTime, safeResolve);
     });
 
     if (timeoutMs > 0) {
@@ -496,13 +511,17 @@ class RequestManager {
     responseStream.on('end', () => {
       if (sizeLimitExceeded) {
         const endTime = Date.now();
-        const errorBody = JSON.stringify({
-          error: 'Response Too Large',
-          message: `Response body exceeded the ${(maxResponseSize / 1024 / 1024).toFixed(0)} MB limit and was truncated`,
-          truncatedSize: totalDecompressedSize,
-          maxSize: maxResponseSize,
-          timestamp: new Date().toISOString(),
-        }, null, 2);
+        const errorBody = JSON.stringify(
+          {
+            error: 'Response Too Large',
+            message: `Response body exceeded the ${(maxResponseSize / 1024 / 1024).toFixed(0)} MB limit and was truncated`,
+            truncatedSize: totalDecompressedSize,
+            maxSize: maxResponseSize,
+            timestamp: new Date().toISOString(),
+          },
+          null,
+          2
+        );
 
         const responseHeaders: Record<string, string> = {};
         Object.entries(res.headers).forEach(([key, value]) => {

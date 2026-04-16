@@ -172,9 +172,7 @@ describe('TabsStateManager', () => {
         },
       });
       tsm.closeTab(tab.id);
-      const evt = dispatched.find(
-        (e) => e.type === 'tab-closed-with-response'
-      );
+      const evt = dispatched.find((e) => e.type === 'tab-closed-with-response');
       expect(evt).toBeDefined();
     });
 

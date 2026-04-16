@@ -181,7 +181,9 @@ describe('computeDecorations', () => {
   it('creates left decoration for removed row', () => {
     const leftJson = '{"name":"Alice"}';
     const rightJson = '{}';
-    const rows = [{ path: '/name', type: 'removed' as const, leftValue: 'Alice' }];
+    const rows = [
+      { path: '/name', type: 'removed' as const, leftValue: 'Alice' },
+    ];
 
     const { leftDecorations, rightDecorations } = computeDecorations(
       rows,

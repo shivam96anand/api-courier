@@ -4,9 +4,7 @@ import { JsonFormatter } from '../formatter';
 describe('JsonFormatter', () => {
   describe('formatValue', () => {
     it('wraps strings in quotes with HTML-escaped content', () => {
-      expect(JsonFormatter.formatValue('hello', 'string')).toBe(
-        '"hello"'
-      );
+      expect(JsonFormatter.formatValue('hello', 'string')).toBe('"hello"');
     });
 
     it('escapes HTML in string values', () => {

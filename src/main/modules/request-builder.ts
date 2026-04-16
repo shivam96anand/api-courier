@@ -175,9 +175,10 @@ export class RequestBuilder {
    * Builds multipart/form-data from structured FormDataField array
    * Supports both text fields and file uploads
    */
-  private static buildMultipartBodyFromFields(
-    fields: FormDataField[]
-  ): { buffer: Buffer; contentType: string } {
+  private static buildMultipartBodyFromFields(fields: FormDataField[]): {
+    buffer: Buffer;
+    contentType: string;
+  } {
     const boundary = `----RestbroBoundary${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
     const parts: Buffer[] = [];
     const CRLF = '\r\n';
@@ -331,9 +332,7 @@ export class RequestBuilder {
     if (Array.isArray(pairs)) {
       return pairs.flatMap(({ key, value, enabled }) => {
         const cleanKey = key.trim();
-        return enabled && cleanKey
-          ? [[cleanKey, value.trim()]]
-          : [];
+        return enabled && cleanKey ? [[cleanKey, value.trim()]] : [];
       });
     }
 

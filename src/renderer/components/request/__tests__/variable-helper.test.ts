@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildFolderVars, detectVariables, resolveVariable } from '../variable-helper';
+import {
+  buildFolderVars,
+  detectVariables,
+  resolveVariable,
+} from '../variable-helper';
 
 describe('variable-helper.ts', () => {
   it('re-exports buildFolderVars', () => {

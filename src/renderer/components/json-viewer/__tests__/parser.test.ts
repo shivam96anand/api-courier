@@ -138,10 +138,7 @@ describe('JsonParser', () => {
 
     it('limits expansion for large responses', () => {
       // Large response (> 5MB): only root expanded
-      const nodes = JsonParser.parseToNodes(
-        { a: { b: 1 } },
-        6 * 1024 * 1024
-      );
+      const nodes = JsonParser.parseToNodes({ a: { b: 1 } }, 6 * 1024 * 1024);
       const root = nodes[0];
       expect(root.isExpanded).toBe(true); // Level 0 < 1
       expect(root.children![0].isExpanded).toBe(false); // Level 1 >= 1

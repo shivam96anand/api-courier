@@ -121,7 +121,10 @@ function mockHttpResponse(
   const response = new PassThrough();
   (response as any).statusCode = statusCode;
   (response as any).statusMessage = 'OK';
-  (response as any).headers = { 'content-type': 'application/json', ...headers };
+  (response as any).headers = {
+    'content-type': 'application/json',
+    ...headers,
+  };
 
   // Simulate async body writing
   setTimeout(() => {
@@ -239,9 +242,7 @@ describe('request-manager.ts', () => {
     });
 
     it('returns 400 when unresolved variables are found in the URL', async () => {
-      vi.mocked(scanUnresolvedVars).mockReturnValue([
-        '{{MISSING_VAR}}',
-      ]);
+      vi.mocked(scanUnresolvedVars).mockReturnValue(['{{MISSING_VAR}}']);
 
       const request = createRequest({
         url: 'https://api.example.com/{{MISSING_VAR}}',
@@ -250,7 +251,9 @@ describe('request-manager.ts', () => {
 
       expect(response.status).toBe(400);
       expect(response.statusText).toBe('Unresolved Variables');
-      expect(RequestErrorFormatter.formatUnresolvedVariablesError).toHaveBeenCalled();
+      expect(
+        RequestErrorFormatter.formatUnresolvedVariablesError
+      ).toHaveBeenCalled();
     });
 
     it('proceeds with request when there are no unresolved variables', async () => {

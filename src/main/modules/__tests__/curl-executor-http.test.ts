@@ -26,10 +26,13 @@ function createMockResponse(
   (res as any).headers = { 'content-type': 'text/plain', ...headers };
   (res as any).resume = vi.fn();
   (res as any).pipe = vi.fn().mockReturnValue(res); // for zlib piping
-  return { res, emitBody: () => {
-    (res as any).emit('data', Buffer.from(body));
-    (res as any).emit('end');
-  }};
+  return {
+    res,
+    emitBody: () => {
+      (res as any).emit('data', Buffer.from(body));
+      (res as any).emit('end');
+    },
+  };
 }
 
 vi.mock('http', () => ({

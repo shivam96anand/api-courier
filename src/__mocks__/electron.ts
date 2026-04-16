@@ -39,8 +39,12 @@ export const BrowserWindow = vi.fn().mockImplementation(() => ({
 (BrowserWindow as any).getAllWindows = vi.fn().mockReturnValue([]);
 
 export const dialog = {
-  showSaveDialog: vi.fn().mockResolvedValue({ canceled: false, filePath: '/tmp/test.json' }),
-  showOpenDialog: vi.fn().mockResolvedValue({ canceled: false, filePaths: ['/tmp/test.json'] }),
+  showSaveDialog: vi
+    .fn()
+    .mockResolvedValue({ canceled: false, filePath: '/tmp/test.json' }),
+  showOpenDialog: vi
+    .fn()
+    .mockResolvedValue({ canceled: false, filePaths: ['/tmp/test.json'] }),
   showMessageBox: vi.fn().mockResolvedValue({ response: 0 }),
 };
 

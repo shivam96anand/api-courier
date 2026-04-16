@@ -140,7 +140,7 @@ describe('HistoryManager', () => {
     it('generates unique IDs for history items', () => {
       hm.addToHistory(makeRequest({ id: 'a' }), makeResponse());
       hm.addToHistory(makeRequest({ id: 'b' }), makeResponse());
-      const ids = hm.getHistory().map(h => h.id);
+      const ids = hm.getHistory().map((h) => h.id);
       expect(new Set(ids).size).toBe(2);
     });
 
@@ -155,8 +155,14 @@ describe('HistoryManager', () => {
   describe('initialize', () => {
     it('sets up event listeners', () => {
       hm.initialize();
-      expect(document.addEventListener).toHaveBeenCalledWith('response-received', expect.any(Function));
-      expect(document.addEventListener).toHaveBeenCalledWith('tab-closed-with-response', expect.any(Function));
+      expect(document.addEventListener).toHaveBeenCalledWith(
+        'response-received',
+        expect.any(Function)
+      );
+      expect(document.addEventListener).toHaveBeenCalledWith(
+        'tab-closed-with-response',
+        expect.any(Function)
+      );
     });
   });
 });

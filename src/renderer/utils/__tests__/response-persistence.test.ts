@@ -102,9 +102,7 @@ describe('response-persistence.ts', () => {
 
   describe('sanitizeHistoryForPersistence', () => {
     it('strips response body from history items', () => {
-      const history = [
-        makeHistoryItem({ response: makeResponse(5000) }),
-      ];
+      const history = [makeHistoryItem({ response: makeResponse(5000) })];
       const result = sanitizeHistoryForPersistence(history);
       expect(result[0].response.body).toBe('');
     });

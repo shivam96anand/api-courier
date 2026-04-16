@@ -85,7 +85,9 @@ describe('JsonSearch', () => {
       const nodes = makeExpandedNodes({ obj: { inner: 1 } });
       // "obj" node is type 'object', its value shouldn't be searched
       const result = search.performSearch('[object', nodes);
-      expect(result.matches.every((m) => m.isKey || m.node.type !== 'object')).toBe(true);
+      expect(
+        result.matches.every((m) => m.isKey || m.node.type !== 'object')
+      ).toBe(true);
     });
   });
 

@@ -646,11 +646,13 @@ export class ResponseViewer {
       const row = document.createElement('tr');
 
       const nameCell = document.createElement('td');
-      nameCell.style.cssText = 'padding: 8px; border-bottom: 1px solid var(--border-color); font-weight: 500;';
+      nameCell.style.cssText =
+        'padding: 8px; border-bottom: 1px solid var(--border-color); font-weight: 500;';
       nameCell.textContent = name;
 
       const valueCell = document.createElement('td');
-      valueCell.style.cssText = 'padding: 8px; border-bottom: 1px solid var(--border-color); word-break: break-word;';
+      valueCell.style.cssText =
+        'padding: 8px; border-bottom: 1px solid var(--border-color); word-break: break-word;';
       valueCell.textContent = value;
 
       row.appendChild(nameCell);
@@ -681,10 +683,20 @@ export class ResponseViewer {
 
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    const cols = ['Name', 'Value', 'Domain', 'Path', 'Expires', 'HttpOnly', 'Secure', 'SameSite'];
+    const cols = [
+      'Name',
+      'Value',
+      'Domain',
+      'Path',
+      'Expires',
+      'HttpOnly',
+      'Secure',
+      'SameSite',
+    ];
     cols.forEach((col) => {
       const th = document.createElement('th');
-      th.style.cssText = 'text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary);';
+      th.style.cssText =
+        'text-align: left; padding: 8px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary);';
       th.textContent = col;
       headerRow.appendChild(th);
     });
@@ -706,7 +718,8 @@ export class ResponseViewer {
       ];
       values.forEach((val) => {
         const td = document.createElement('td');
-        td.style.cssText = 'padding: 8px; border-bottom: 1px solid var(--border-color); word-break: break-word; max-width: 200px;';
+        td.style.cssText =
+          'padding: 8px; border-bottom: 1px solid var(--border-color); word-break: break-word; max-width: 200px;';
         td.textContent = val;
         row.appendChild(td);
       });
@@ -743,9 +756,11 @@ export class ResponseViewer {
       if (key.toLowerCase() !== 'set-cookie') continue;
       // set-cookie values might be comma-separated (but also dates have commas)
       // Split carefully: only split on commas followed by a cookie name=value pattern
-      const cookieStrings = value.split(/,(?=\s*[^;=\s]+=[^;]*)/).map(s => s.trim());
+      const cookieStrings = value
+        .split(/,(?=\s*[^;=\s]+=[^;]*)/)
+        .map((s) => s.trim());
       for (const cookieStr of cookieStrings) {
-        const parts = cookieStr.split(';').map(p => p.trim());
+        const parts = cookieStr.split(';').map((p) => p.trim());
         if (parts.length === 0) continue;
         const nameVal = parts[0];
         const eqIdx = nameVal.indexOf('=');
@@ -1386,7 +1401,8 @@ export class ResponseViewer {
       iframe.style.cssText =
         'width:100%;height:100%;border:none;background:white;';
       contentArea.appendChild(iframe);
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      const iframeDoc =
+        iframe.contentDocument || iframe.contentWindow?.document;
       if (iframeDoc) {
         iframeDoc.open();
         iframeDoc.write(body);

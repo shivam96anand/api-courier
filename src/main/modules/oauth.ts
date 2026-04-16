@@ -243,7 +243,9 @@ export class OAuthManager {
 
           if (pollCount > maxPolls) {
             userCodeWindow.close();
-            reject(new Error('Device authorization timed out. Please try again.'));
+            reject(
+              new Error('Device authorization timed out. Please try again.')
+            );
             return;
           }
 

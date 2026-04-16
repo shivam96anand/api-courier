@@ -2,7 +2,11 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect } from 'vitest';
-import { getIcon, getMethodIcon, createIconElement } from '../collections-icons';
+import {
+  getIcon,
+  getMethodIcon,
+  createIconElement,
+} from '../collections-icons';
 import type { IconType } from '../collections-icons';
 
 describe('collections-icons', () => {

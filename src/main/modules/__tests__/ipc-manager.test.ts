@@ -532,14 +532,20 @@ describe('ipc-manager.ts', () => {
   describe('loadtest handlers', () => {
     it('loadtest:start delegates to loadTestEngine.startLoadTest', async () => {
       const handler = getHandler(IPC_CHANNELS.LOADTEST_START)!;
-      const config = { rpm: 60, durationSec: 10, target: { kind: 'adhoc', method: 'GET', url: 'http://example.com' } };
+      const config = {
+        rpm: 60,
+        durationSec: 10,
+        target: { kind: 'adhoc', method: 'GET', url: 'http://example.com' },
+      };
       const result = await handler({}, config);
       expect(loadTestEngine.startLoadTest).toHaveBeenCalledWith(config);
       expect(result).toEqual({ runId: 'run-1' });
     });
 
     it('loadtest:start wraps errors', async () => {
-      vi.mocked(loadTestEngine.startLoadTest).mockRejectedValueOnce(new Error('bad config'));
+      vi.mocked(loadTestEngine.startLoadTest).mockRejectedValueOnce(
+        new Error('bad config')
+      );
       const handler = getHandler(IPC_CHANNELS.LOADTEST_START)!;
       await expect(handler({}, {})).rejects.toThrow('bad config');
     });
@@ -569,14 +575,20 @@ describe('ipc-manager.ts', () => {
   describe('oauth handlers', () => {
     it('oauth:start-flow delegates to oauthManager.startFlow', async () => {
       const handler = getHandler(IPC_CHANNELS.OAUTH_START_FLOW)!;
-      const config = { grantType: 'client_credentials', clientId: 'id', tokenUrl: 'http://token' };
+      const config = {
+        grantType: 'client_credentials',
+        clientId: 'id',
+        tokenUrl: 'http://token',
+      };
       const result = await handler({}, config);
       expect(oauthManager.startFlow).toHaveBeenCalledWith(config);
       expect(result).toEqual({ success: true });
     });
 
     it('oauth:start-flow wraps errors', async () => {
-      vi.mocked(oauthManager.startFlow).mockRejectedValueOnce(new Error('auth error'));
+      vi.mocked(oauthManager.startFlow).mockRejectedValueOnce(
+        new Error('auth error')
+      );
       const handler = getHandler(IPC_CHANNELS.OAUTH_START_FLOW)!;
       await expect(handler({}, {})).rejects.toThrow('auth error');
     });
@@ -599,7 +611,9 @@ describe('ipc-manager.ts', () => {
   describe('environment / state handlers', () => {
     it('collections-state:get returns collectionsUIState from store', () => {
       vi.mocked(storeManager.getState).mockReturnValue(
-        createState({ collectionsUIState: { expandedFolderIds: ['f1'] } } as any)
+        createState({
+          collectionsUIState: { expandedFolderIds: ['f1'] },
+        } as any)
       );
       const handler = getHandler(IPC_CHANNELS.COLLECTIONS_STATE_GET)!;
       const result = handler();
@@ -616,12 +630,19 @@ describe('ipc-manager.ts', () => {
     it('collections-state:set delegates to storeManager', () => {
       const handler = getHandler(IPC_CHANNELS.COLLECTIONS_STATE_SET)!;
       handler({}, { expandedFolderIds: ['f1'] });
-      expect(storeManager.setState).toHaveBeenCalledWith({ collectionsUIState: { expandedFolderIds: ['f1'] } });
+      expect(storeManager.setState).toHaveBeenCalledWith({
+        collectionsUIState: { expandedFolderIds: ['f1'] },
+      });
     });
 
     it('jsonviewer-state:get returns jsonViewerUIState from store', () => {
       vi.mocked(storeManager.getState).mockReturnValue(
-        createState({ jsonViewerUIState: { expandedNodesByRequest: { r1: ['n1'] }, requestAccessOrder: ['r1'] } } as any)
+        createState({
+          jsonViewerUIState: {
+            expandedNodesByRequest: { r1: ['n1'] },
+            requestAccessOrder: ['r1'],
+          },
+        } as any)
       );
       const handler = getHandler(IPC_CHANNELS.JSONVIEWER_STATE_GET)!;
       const result = handler();
@@ -632,7 +653,9 @@ describe('ipc-manager.ts', () => {
       const handler = getHandler(IPC_CHANNELS.JSONVIEWER_STATE_SET)!;
       const uiState = { expandedNodesByRequest: {}, requestAccessOrder: [] };
       handler({}, uiState);
-      expect(storeManager.setState).toHaveBeenCalledWith({ jsonViewerUIState: uiState });
+      expect(storeManager.setState).toHaveBeenCalledWith({
+        jsonViewerUIState: uiState,
+      });
     });
   });
 
@@ -674,7 +697,9 @@ describe('ipc-manager.ts', () => {
     it('ai:update-session delegates to aiEngine', () => {
       const handler = getHandler(IPC_CHANNELS.AI_UPDATE_SESSION)!;
       handler({}, 'session-1', { title: 'New Title' });
-      expect(aiEngine.updateSession).toHaveBeenCalledWith('session-1', { title: 'New Title' });
+      expect(aiEngine.updateSession).toHaveBeenCalledWith('session-1', {
+        title: 'New Title',
+      });
     });
 
     it('ai:check-engine delegates to aiEngine', async () => {
@@ -695,13 +720,18 @@ describe('ipc-manager.ts', () => {
     it('mockserver:create delegates to mockServerManager', () => {
       const handler = getHandler(IPC_CHANNELS.MOCKSERVER_CREATE_SERVER)!;
       handler({}, { name: 'Test' });
-      expect(mockServerManager.createServer).toHaveBeenCalledWith({ name: 'Test' });
+      expect(mockServerManager.createServer).toHaveBeenCalledWith({
+        name: 'Test',
+      });
     });
 
     it('mockserver:update delegates to mockServerManager', () => {
       const handler = getHandler(IPC_CHANNELS.MOCKSERVER_UPDATE_SERVER)!;
       handler({}, { serverId: 's1', name: 'Updated' });
-      expect(mockServerManager.updateServer).toHaveBeenCalledWith({ serverId: 's1', name: 'Updated' });
+      expect(mockServerManager.updateServer).toHaveBeenCalledWith({
+        serverId: 's1',
+        name: 'Updated',
+      });
     });
 
     it('mockserver:delete delegates to mockServerManager', () => {
@@ -726,13 +756,22 @@ describe('ipc-manager.ts', () => {
       getHandler(IPC_CHANNELS.MOCKSERVER_ADD_ROUTE)!({}, { serverId: 's1' });
       expect(mockServerManager.addRoute).toHaveBeenCalled();
 
-      getHandler(IPC_CHANNELS.MOCKSERVER_UPDATE_ROUTE)!({}, { serverId: 's1', routeId: 'r1' });
+      getHandler(IPC_CHANNELS.MOCKSERVER_UPDATE_ROUTE)!(
+        {},
+        { serverId: 's1', routeId: 'r1' }
+      );
       expect(mockServerManager.updateRoute).toHaveBeenCalled();
 
-      getHandler(IPC_CHANNELS.MOCKSERVER_DELETE_ROUTE)!({}, { serverId: 's1', routeId: 'r1' });
+      getHandler(IPC_CHANNELS.MOCKSERVER_DELETE_ROUTE)!(
+        {},
+        { serverId: 's1', routeId: 'r1' }
+      );
       expect(mockServerManager.deleteRoute).toHaveBeenCalled();
 
-      getHandler(IPC_CHANNELS.MOCKSERVER_TOGGLE_ROUTE)!({}, { serverId: 's1', routeId: 'r1' });
+      getHandler(IPC_CHANNELS.MOCKSERVER_TOGGLE_ROUTE)!(
+        {},
+        { serverId: 's1', routeId: 'r1' }
+      );
       expect(mockServerManager.toggleRoute).toHaveBeenCalled();
     });
   });
@@ -794,7 +833,7 @@ describe('ipc-manager.ts', () => {
       // First approve the file path via the file dialog
       const dialogHandler = getHandler(IPC_CHANNELS.FILE_OPEN_DIALOG)!;
       await dialogHandler();
-      
+
       const handler = getHandler(IPC_CHANNELS.FILE_READ_BINARY)!;
       const result = await handler({}, '/tmp/test.json');
       expect(result.success).toBe(true);
@@ -893,10 +932,13 @@ describe('ipc-manager.ts', () => {
   describe('notepad handlers', () => {
     it('notepad:save-file saves content to file', async () => {
       const handler = getHandler(IPC_CHANNELS.NOTEPAD_SAVE_FILE)!;
-      const result = await handler({}, {
-        filePath: '/tmp/test.txt',
-        content: 'Hello World',
-      });
+      const result = await handler(
+        {},
+        {
+          filePath: '/tmp/test.txt',
+          content: 'Hello World',
+        }
+      );
       expect(result).toHaveProperty('canceled');
     });
 

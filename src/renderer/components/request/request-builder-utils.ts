@@ -62,9 +62,10 @@ export function buildHeaders(request: ApiRequest): Record<string, string> {
   ) {
     const credentials = `${request.auth.config.username}:${request.auth.config.password}`;
     const encoded = btoa(
-      new Uint8Array(
-        new TextEncoder().encode(credentials)
-      ).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      new Uint8Array(new TextEncoder().encode(credentials)).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        ''
+      )
     );
     cleanHeaders['Authorization'] = `Basic ${encoded}`;
   }

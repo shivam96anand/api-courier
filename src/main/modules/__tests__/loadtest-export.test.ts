@@ -19,7 +19,11 @@ import { dialog } from 'electron';
 import { promises as fs } from 'fs';
 import { loadTestEngine } from '../loadtest-engine';
 import { loadTestExporter } from '../loadtest-export';
-import { LoadTestSummary, LoadTestConfig, LoadSample } from '../../../shared/types';
+import {
+  LoadTestSummary,
+  LoadTestConfig,
+  LoadSample,
+} from '../../../shared/types';
 
 function createSamples(): LoadSample[] {
   return [
@@ -83,7 +87,10 @@ describe('loadtest-export.ts', () => {
     it('returns error when dialog is cancelled', async () => {
       vi.mocked(loadTestEngine.getSamples).mockReturnValue(createSamples());
       vi.mocked(loadTestEngine.getRunConfig).mockReturnValue(createConfig());
-      vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: true, filePath: '' });
+      vi.mocked(dialog.showSaveDialog).mockResolvedValue({
+        canceled: true,
+        filePath: '',
+      });
 
       const result = await exporter.exportCsv('test-run');
       expect(result.ok).toBe(false);
@@ -103,7 +110,9 @@ describe('loadtest-export.ts', () => {
       expect(result.ok).toBe(true);
       expect(fs.writeFile).toHaveBeenCalledWith(
         '/tmp/test-export.csv',
-        expect.stringContaining('runId,timestamp_iso,method,url,status,duration_ms,bytes,error'),
+        expect.stringContaining(
+          'runId,timestamp_iso,method,url,status,duration_ms,bytes,error'
+        ),
         'utf-8'
       );
     });
@@ -143,7 +152,10 @@ describe('loadtest-export.ts', () => {
 
     it('returns error when dialog is cancelled', async () => {
       vi.mocked(loadTestEngine.getRunConfig).mockReturnValue(createConfig());
-      vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: true, filePath: '' });
+      vi.mocked(dialog.showSaveDialog).mockResolvedValue({
+        canceled: true,
+        filePath: '',
+      });
 
       const result = await exporter.exportPdf('test-run', createSummary());
       expect(result.ok).toBe(false);

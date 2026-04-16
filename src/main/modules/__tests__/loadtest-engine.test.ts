@@ -18,14 +18,24 @@ vi.mock('../store-manager', () => ({
 vi.mock('../oauth', () => ({
   oauthManager: {
     getTokenInfo: vi.fn().mockReturnValue({ isValid: true, expiresIn: 3600 }),
-    refreshToken: vi.fn().mockResolvedValue({ success: true, data: { accessToken: 'new', expiresIn: 3600 } }),
-    startFlow: vi.fn().mockResolvedValue({ success: true, data: { accessToken: 'new', expiresIn: 3600 } }),
+    refreshToken: vi.fn().mockResolvedValue({
+      success: true,
+      data: { accessToken: 'new', expiresIn: 3600 },
+    }),
+    startFlow: vi.fn().mockResolvedValue({
+      success: true,
+      data: { accessToken: 'new', expiresIn: 3600 },
+    }),
   },
 }));
 
 import { loadTestEngine as engine } from '../loadtest-engine';
 import { requestManager } from '../request-manager';
-import { LoadTestConfig, LoadTestSummary, LoadTestProgressTick } from '../../../shared/types';
+import {
+  LoadTestConfig,
+  LoadTestSummary,
+  LoadTestProgressTick,
+} from '../../../shared/types';
 
 function createConfig(overrides: Partial<LoadTestConfig> = {}): LoadTestConfig {
   return {
@@ -225,7 +235,9 @@ describe('loadtest-engine.ts', () => {
   describe('error handling in requests', () => {
     it('counts failed requests as errors in summary', async () => {
       // Make all requests fail
-      vi.mocked(requestManager.sendRequest).mockRejectedValue(new Error('Connection refused'));
+      vi.mocked(requestManager.sendRequest).mockRejectedValue(
+        new Error('Connection refused')
+      );
 
       const summaryEvents: LoadTestSummary[] = [];
       engine.on('summary', (summary: LoadTestSummary) => {

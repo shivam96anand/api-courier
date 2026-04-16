@@ -24,7 +24,8 @@
         pointer-events: none;
       }
       #app-loading-overlay .loader-title {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 22px;
         font-weight: 600;
         color: #ffffff;
@@ -34,7 +35,9 @@
     </style>
   </head>
   <body>
-    <div id="app-loading-overlay"><span class="loader-title">RestBro</span></div>
+    <div id="app-loading-overlay">
+      <span class="loader-title">RestBro</span>
+    </div>
     <div id="app">
       <header class="app-header">
         <div class="header-left">
@@ -335,7 +338,10 @@
 
                     <div id="curl-section" class="section">
                       <div class="curl-section-toolbar">
-                        <select id="code-language-select" class="code-language-select">
+                        <select
+                          id="code-language-select"
+                          class="code-language-select"
+                        >
                           <option value="curl" selected>cURL</option>
                         </select>
                         <button
@@ -410,7 +416,9 @@
                     <div class="response-placeholder">No response headers</div>
                   </div>
                   <div id="response-cookies" class="response-section">
-                    <div class="response-placeholder">No cookies in response</div>
+                    <div class="response-placeholder">
+                      No cookies in response
+                    </div>
                   </div>
                 </div>
               </div>

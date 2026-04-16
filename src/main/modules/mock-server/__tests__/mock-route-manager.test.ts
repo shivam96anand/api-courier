@@ -7,11 +7,20 @@ vi.mock('../mock-server-store', () => ({
   saveMockServersState: vi.fn(),
 }));
 
-import { getMockServersState, saveMockServersState } from '../mock-server-store';
+import {
+  getMockServersState,
+  saveMockServersState,
+} from '../mock-server-store';
 import { MockRouteManager } from '../mock-route-manager';
-import { MockServerDefinition, MockRoute, MockRouteHeader } from '../../../../shared/types';
+import {
+  MockServerDefinition,
+  MockRoute,
+  MockRouteHeader,
+} from '../../../../shared/types';
 
-function createServer(overrides: Partial<MockServerDefinition> = {}): MockServerDefinition {
+function createServer(
+  overrides: Partial<MockServerDefinition> = {}
+): MockServerDefinition {
   return {
     id: 'server-1',
     name: 'Test Server',
@@ -31,7 +40,9 @@ function createRouteInput(): Omit<MockRoute, 'id'> {
     path: '/api/test',
     pathMatchType: 'exact',
     statusCode: 200,
-    headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
+    headers: [
+      { key: 'Content-Type', value: 'application/json', enabled: true },
+    ],
     responseType: 'json',
     body: '{"message": "ok"}',
   };
@@ -66,7 +77,10 @@ describe('mock-route-manager.ts', () => {
       const server = createServer();
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 
-      routeManager.addRoute({ serverId: 'server-1', route: createRouteInput() });
+      routeManager.addRoute({
+        serverId: 'server-1',
+        route: createRouteInput(),
+      });
 
       expect(saveMockServersState).toHaveBeenCalled();
     });
@@ -87,7 +101,10 @@ describe('mock-route-manager.ts', () => {
       const server = createServer();
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 
-      routeManager.addRoute({ serverId: 'server-1', route: createRouteInput() });
+      routeManager.addRoute({
+        serverId: 'server-1',
+        route: createRouteInput(),
+      });
 
       expect(server.routes.length).toBe(1);
     });
@@ -96,7 +113,10 @@ describe('mock-route-manager.ts', () => {
       const server = createServer({ updatedAt: 1000 });
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 
-      routeManager.addRoute({ serverId: 'server-1', route: createRouteInput() });
+      routeManager.addRoute({
+        serverId: 'server-1',
+        route: createRouteInput(),
+      });
 
       expect(server.updatedAt).toBeGreaterThan(1000);
     });
@@ -190,7 +210,11 @@ describe('mock-route-manager.ts', () => {
 
   describe('toggleRoute', () => {
     it('enables a route', () => {
-      const route: MockRoute = { ...createRouteInput(), id: 'route-1', enabled: false };
+      const route: MockRoute = {
+        ...createRouteInput(),
+        id: 'route-1',
+        enabled: false,
+      };
       const server = createServer({ routes: [route] });
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 
@@ -205,7 +229,11 @@ describe('mock-route-manager.ts', () => {
     });
 
     it('disables a route', () => {
-      const route: MockRoute = { ...createRouteInput(), id: 'route-1', enabled: true };
+      const route: MockRoute = {
+        ...createRouteInput(),
+        id: 'route-1',
+        enabled: true,
+      };
       const server = createServer({ routes: [route] });
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 

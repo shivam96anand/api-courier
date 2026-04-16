@@ -9,10 +9,17 @@ vi.mock('../mock-server-store', () => ({
 
 vi.mock('../mock-route-manager', () => ({
   mockRouteManager: {
-    addRoute: vi.fn().mockReturnValue({ success: true, data: { id: 'new-route' } }),
-    updateRoute: vi.fn().mockReturnValue({ success: true, data: { id: 'route-1' } }),
+    addRoute: vi
+      .fn()
+      .mockReturnValue({ success: true, data: { id: 'new-route' } }),
+    updateRoute: vi
+      .fn()
+      .mockReturnValue({ success: true, data: { id: 'route-1' } }),
     deleteRoute: vi.fn().mockReturnValue({ success: true }),
-    toggleRoute: vi.fn().mockReturnValue({ success: true, data: { id: 'route-1', enabled: true } }),
+    toggleRoute: vi.fn().mockReturnValue({
+      success: true,
+      data: { id: 'route-1', enabled: true },
+    }),
   },
 }));
 
@@ -29,12 +36,17 @@ vi.mock('../../../../shared/ipc', () => ({
   },
 }));
 
-import { getMockServersState, saveMockServersState } from '../mock-server-store';
+import {
+  getMockServersState,
+  saveMockServersState,
+} from '../mock-server-store';
 import { mockRouteManager } from '../mock-route-manager';
 import { mockServerManager } from '../mock-server-manager';
 import { MockServerDefinition } from '../../../../shared/types';
 
-function createServer(overrides: Partial<MockServerDefinition> = {}): MockServerDefinition {
+function createServer(
+  overrides: Partial<MockServerDefinition> = {}
+): MockServerDefinition {
   return {
     id: 'server-1',
     name: 'Test Server',
@@ -250,10 +262,17 @@ describe('mock-server-manager.ts', () => {
 
   describe('updateServer — partial updates', () => {
     it('updates only the provided fields', () => {
-      const server = createServer({ name: 'Original', host: '127.0.0.1', port: 3000 });
+      const server = createServer({
+        name: 'Original',
+        host: '127.0.0.1',
+        port: 3000,
+      });
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 
-      const result = manager.updateServer({ serverId: 'server-1', name: 'Updated' });
+      const result = manager.updateServer({
+        serverId: 'server-1',
+        name: 'Updated',
+      });
       expect(result.success).toBe(true);
       expect(result.data!.name).toBe('Updated');
       expect(result.data!.host).toBe('127.0.0.1'); // unchanged
@@ -273,7 +292,10 @@ describe('mock-server-manager.ts', () => {
       const server = createServer();
       vi.mocked(getMockServersState).mockReturnValue({ servers: [server] });
 
-      const result = manager.updateServer({ serverId: 'server-1', host: '0.0.0.0' });
+      const result = manager.updateServer({
+        serverId: 'server-1',
+        host: '0.0.0.0',
+      });
       expect(result.success).toBe(true);
       expect(result.data!.host).toBe('0.0.0.0');
     });

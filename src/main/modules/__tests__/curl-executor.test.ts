@@ -41,7 +41,7 @@ describe('curl-executor.ts — parseCurlCommand', () => {
 
   it('parses body with -d flag and sets POST method', () => {
     const result = parseCurlCommand(
-      "curl -d '{\"name\":\"John\"}' https://api.example.com/users"
+      'curl -d \'{"name":"John"}\' https://api.example.com/users'
     );
     expect(result.method).toBe('POST');
     expect(result.body).toBe('{"name":"John"}');
@@ -110,9 +110,7 @@ describe('curl-executor.ts — parseCurlCommand', () => {
   });
 
   it('collects boolean flags like -k, -L, -v, -s', () => {
-    const result = parseCurlCommand(
-      'curl -k -L -v -s https://api.example.com'
-    );
+    const result = parseCurlCommand('curl -k -L -v -s https://api.example.com');
     expect(result.flags).toContain('-k');
     expect(result.flags).toContain('-L');
     expect(result.flags).toContain('-v');
@@ -161,7 +159,7 @@ describe('curl-executor.ts — parseCurlCommand', () => {
     expect(result.headers['X-Custom']).toBe('he"llo');
   });
 
-  it('handles $\'...\' ANSI-C quoting', () => {
+  it("handles $'...' ANSI-C quoting", () => {
     const result = parseCurlCommand(
       "curl -d $'line1\\nline2' https://api.example.com"
     );
@@ -179,7 +177,7 @@ describe('curl-executor.ts — parseCurlCommand', () => {
       "curl -X POST 'https://api.example.com/data' " +
         "-H 'Authorization: Bearer token123' " +
         "-H 'Content-Type: application/json' " +
-        "-d '{\"key\":\"value\"}' " +
+        '-d \'{"key":"value"}\' ' +
         '-k -L'
     );
 

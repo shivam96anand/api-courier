@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { isRestbroExport, mapRestbroExport, RestbroExportData } from '../api-courier';
+import {
+  isRestbroExport,
+  mapRestbroExport,
+  RestbroExportData,
+} from '../api-courier';
 
-function createExportData(overrides: Partial<RestbroExportData> = {}): RestbroExportData {
+function createExportData(
+  overrides: Partial<RestbroExportData> = {}
+): RestbroExportData {
   return {
     type: 'restbro-export',
     collection: {
@@ -34,15 +40,21 @@ function createExportData(overrides: Partial<RestbroExportData> = {}): RestbroEx
 describe('api-courier.ts', () => {
   describe('isRestbroExport', () => {
     it('returns true for restbro-export type with collection', () => {
-      expect(isRestbroExport({ type: 'restbro-export', collection: {} })).toBe(true);
+      expect(isRestbroExport({ type: 'restbro-export', collection: {} })).toBe(
+        true
+      );
     });
 
     it('returns true for api-courier-export type with collection', () => {
-      expect(isRestbroExport({ type: 'api-courier-export', collection: {} })).toBe(true);
+      expect(
+        isRestbroExport({ type: 'api-courier-export', collection: {} })
+      ).toBe(true);
     });
 
     it('returns true for restbro-export with collections array', () => {
-      expect(isRestbroExport({ type: 'restbro-export', collections: [] })).toBe(true);
+      expect(isRestbroExport({ type: 'restbro-export', collections: [] })).toBe(
+        true
+      );
     });
 
     it('returns false for unknown type', () => {
@@ -135,12 +147,18 @@ describe('api-courier.ts', () => {
         type: 'restbro-export',
         collections: [
           {
-            id: 'c1', name: 'Col 1', type: 'folder',
-            createdAt: new Date(), updatedAt: new Date(),
+            id: 'c1',
+            name: 'Col 1',
+            type: 'folder',
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
           {
-            id: 'c2', name: 'Col 2', type: 'folder',
-            createdAt: new Date(), updatedAt: new Date(),
+            id: 'c2',
+            name: 'Col 2',
+            type: 'folder',
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
         ],
       };

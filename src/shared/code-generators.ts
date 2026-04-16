@@ -143,9 +143,13 @@ function generateJsAxios(req: CodeGenRequest): string {
   lines.push('');
 
   if (hasBody) {
-    lines.push(`const response = await axios.${methodLower}('${escapeJs(req.url)}', '${escapeJs(req.body!)}', {`);
+    lines.push(
+      `const response = await axios.${methodLower}('${escapeJs(req.url)}', '${escapeJs(req.body!)}', {`
+    );
   } else {
-    lines.push(`const response = await axios.${methodLower}('${escapeJs(req.url)}', {`);
+    lines.push(
+      `const response = await axios.${methodLower}('${escapeJs(req.url)}', {`
+    );
   }
 
   if (headerEntries.length > 0) {
@@ -258,24 +262,32 @@ function generateJava(req: CodeGenRequest): string {
   lines.push('import java.io.*;');
   lines.push('');
   lines.push(`URL url = new URL("${escapeJava(req.url)}");`);
-  lines.push('HttpURLConnection con = (HttpURLConnection) url.openConnection();');
+  lines.push(
+    'HttpURLConnection con = (HttpURLConnection) url.openConnection();'
+  );
   lines.push(`con.setRequestMethod("${req.method}");`);
 
   headerEntries.forEach(([k, v]) => {
-    lines.push(`con.setRequestProperty("${escapeJava(k)}", "${escapeJava(v)}");`);
+    lines.push(
+      `con.setRequestProperty("${escapeJava(k)}", "${escapeJava(v)}");`
+    );
   });
 
   if (hasBody) {
     lines.push('con.setDoOutput(true);');
     lines.push('try (OutputStream os = con.getOutputStream()) {');
-    lines.push(`    byte[] input = "${escapeJava(req.body!)}".getBytes("utf-8");`);
+    lines.push(
+      `    byte[] input = "${escapeJava(req.body!)}".getBytes("utf-8");`
+    );
     lines.push('    os.write(input, 0, input.length);');
     lines.push('}');
   }
 
   lines.push('');
   lines.push('int status = con.getResponseCode();');
-  lines.push('BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));');
+  lines.push(
+    'BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));'
+  );
   lines.push('String line;');
   lines.push('StringBuilder content = new StringBuilder();');
   lines.push('while ((line = in.readLine()) != null) {');
@@ -307,9 +319,13 @@ function generateGo(req: CodeGenRequest): string {
 
   if (hasBody) {
     lines.push(`    body := strings.NewReader("${escapeGo(req.body!)}")`);
-    lines.push(`    req, err := http.NewRequest("${req.method}", "${escapeGo(req.url)}", body)`);
+    lines.push(
+      `    req, err := http.NewRequest("${req.method}", "${escapeGo(req.url)}", body)`
+    );
   } else {
-    lines.push(`    req, err := http.NewRequest("${req.method}", "${escapeGo(req.url)}", nil)`);
+    lines.push(
+      `    req, err := http.NewRequest("${req.method}", "${escapeGo(req.url)}", nil)`
+    );
   }
 
   lines.push('    if err != nil {');
@@ -357,7 +373,9 @@ function generatePhpCurl(req: CodeGenRequest): string {
   }
 
   if (hasBody) {
-    lines.push(`curl_setopt($ch, CURLOPT_POSTFIELDS, '${escapePhp(req.body!)}');`);
+    lines.push(
+      `curl_setopt($ch, CURLOPT_POSTFIELDS, '${escapePhp(req.body!)}');`
+    );
   }
 
   lines.push('');
@@ -387,12 +405,16 @@ function generateCsharp(req: CodeGenRequest): string {
   );
 
   nonContentHeaders.forEach(([k, v]) => {
-    lines.push(`client.DefaultRequestHeaders.Add("${escapeJava(k)}", "${escapeJava(v)}");`);
+    lines.push(
+      `client.DefaultRequestHeaders.Add("${escapeJava(k)}", "${escapeJava(v)}");`
+    );
   });
 
   if (hasBody) {
     const ct = contentTypeHeader?.[1] || req.contentType || 'text/plain';
-    lines.push(`var content = new StringContent("${escapeJava(req.body!)}", System.Text.Encoding.UTF8, "${escapeJava(ct)}");`);
+    lines.push(
+      `var content = new StringContent("${escapeJava(req.body!)}", System.Text.Encoding.UTF8, "${escapeJava(ct)}");`
+    );
   }
 
   const methodMap: Record<string, string> = {
@@ -405,11 +427,17 @@ function generateCsharp(req: CodeGenRequest): string {
 
   const asyncMethod = methodMap[req.method];
   if (asyncMethod && !hasBody) {
-    lines.push(`var response = await client.${asyncMethod}("${escapeJava(req.url)}");`);
+    lines.push(
+      `var response = await client.${asyncMethod}("${escapeJava(req.url)}");`
+    );
   } else if (asyncMethod && hasBody) {
-    lines.push(`var response = await client.${asyncMethod}("${escapeJava(req.url)}", content);`);
+    lines.push(
+      `var response = await client.${asyncMethod}("${escapeJava(req.url)}", content);`
+    );
   } else {
-    lines.push(`var request = new HttpRequestMessage(new HttpMethod("${req.method}"), "${escapeJava(req.url)}");`);
+    lines.push(
+      `var request = new HttpRequestMessage(new HttpMethod("${req.method}"), "${escapeJava(req.url)}");`
+    );
     if (hasBody) lines.push('request.Content = content;');
     lines.push('var response = await client.SendAsync(request);');
   }
