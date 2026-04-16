@@ -9,7 +9,7 @@ function setupDOM() {
   const styles: Record<string, string> = {};
   const attrs: Record<string, string> = {};
   let dropdownValue = '';
-  const listeners: Record<string, Function[]> = {};
+  const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
 
   // document.body.setAttribute
   document.body.setAttribute = vi.fn((k, v) => {
@@ -29,10 +29,12 @@ function setupDOM() {
     set value(v: string) {
       dropdownValue = v;
     },
-    addEventListener: vi.fn((event: string, handler: Function) => {
-      if (!listeners[event]) listeners[event] = [];
-      listeners[event].push(handler);
-    }),
+    addEventListener: vi.fn(
+      (event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(handler);
+      }
+    ),
   };
   vi.spyOn(document, 'getElementById').mockReturnValue(
     dropdownEl as unknown as HTMLElement
