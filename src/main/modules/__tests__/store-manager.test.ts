@@ -53,7 +53,15 @@ describe('store-manager.ts', () => {
       await storeManager.initialize();
 
       const state = storeManager.getState();
-      expect(state.collections).toEqual([]);
+      // Fresh install seeds default Mocks folder with 2 requests
+      expect(state.collections).toHaveLength(3);
+      expect(state.collections[0].name).toBe('Mocks');
+      expect(state.collections[0].type).toBe('folder');
+      expect(state.collections[1].name).toBe('Small');
+      expect(state.collections[1].request?.url).toBe('https://jsonplaceholder.typicode.com/posts/1');
+      expect(state.collections[2].name).toBe('Big');
+      expect(state.collections[2].request?.url).toBe('https://jsonplaceholder.typicode.com/posts');
+      expect(state.hasSeededDefaults).toBe(true);
       expect(state.openTabs).toEqual([]);
       expect(state.history).toEqual([]);
       expect(state.environments).toEqual([]);
@@ -67,7 +75,9 @@ describe('store-manager.ts', () => {
       await storeManager.initialize();
 
       const state = storeManager.getState();
-      expect(state.collections).toEqual([]);
+      // Falls back to default state which seeds Mocks folder
+      expect(state.collections).toHaveLength(3);
+      expect(state.hasSeededDefaults).toBe(true);
     });
 
     it('merges loaded data into defaultState (missing keys get defaults)', async () => {
@@ -108,7 +118,8 @@ describe('store-manager.ts', () => {
 
       const state = storeManager.getState();
       expect(state).toBeDefined();
-      expect(state.collections).toEqual([]);
+      // Fresh install seeds default Mocks folder
+      expect(state.collections).toHaveLength(3);
     });
   });
 

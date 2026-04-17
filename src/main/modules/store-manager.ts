@@ -7,6 +7,7 @@ import {
   readdirSync,
   unlinkSync,
 } from 'fs';
+import { randomUUID } from 'crypto';
 import { readFile, writeFile } from 'fs/promises';
 import {
   AppState,
@@ -121,6 +122,9 @@ class StoreManager {
     } else {
       this.data = defaultState;
     }
+
+    // Seed default collections on first launch
+    this.seedDefaultCollections();
 
     // Always write to ensure migrations are persisted
     await this.writeToFile();
@@ -285,6 +289,7 @@ class StoreManager {
         ...defaultRequestSettings,
         ...(sanitizedLoaded.requestSettings || {}),
       },
+      hasSeededDefaults: sanitizedLoaded.hasSeededDefaults ?? false,
     };
   }
 
@@ -377,6 +382,68 @@ class StoreManager {
     const second = Number(timePart.slice(4, 6));
     const parsed = new Date(year, month, day, hour, minute, second);
     return isNaN(parsed.getTime()) ? null : parsed.getTime();
+  }
+
+  private seedDefaultCollections(): void {
+    if (this.data.hasSeededDefaults) return;
+    if (this.data.collections.length > 0) {
+      // Existing user with data — mark as seeded without adding defaults
+      this.data.hasSeededDefaults = true;
+      return;
+    }
+
+    const now = new Date();
+    const folderId = randomUUID();
+
+    const mocksFolder: Collection = {
+      id: folderId,
+      name: 'Mocks',
+      type: 'folder',
+      order: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const smallRequestId = randomUUID();
+    const smallRequest: Collection = {
+      id: smallRequestId,
+      name: 'Small',
+      type: 'request',
+      parentId: folderId,
+      order: 0,
+      request: {
+        id: randomUUID(),
+        name: 'Small',
+        method: 'GET',
+        url: 'https://jsonplaceholder.typicode.com/posts/1',
+        params: {},
+        headers: {},
+      },
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const bigRequestId = randomUUID();
+    const bigRequest: Collection = {
+      id: bigRequestId,
+      name: 'Big',
+      type: 'request',
+      parentId: folderId,
+      order: 1000,
+      request: {
+        id: randomUUID(),
+        name: 'Big',
+        method: 'GET',
+        url: 'https://jsonplaceholder.typicode.com/posts',
+        params: {},
+        headers: {},
+      },
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.data.collections = [mocksFolder, smallRequest, bigRequest];
+    this.data.hasSeededDefaults = true;
   }
 
   async flush(): Promise<void> {

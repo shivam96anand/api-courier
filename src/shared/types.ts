@@ -190,6 +190,7 @@ export interface AppState {
   mockServers?: MockServersState;
   hasCompletedThemeOnboarding?: boolean;
   requestSettings?: RequestSettings;
+  hasSeededDefaults?: boolean;
 }
 
 // Load Testing Types
