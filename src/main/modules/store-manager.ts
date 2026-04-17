@@ -12,6 +12,7 @@ import { readFile, writeFile } from 'fs/promises';
 import {
   AppState,
   AppTheme,
+  Collection,
   Globals,
   CollectionsUIState,
   JsonViewerUIState,
