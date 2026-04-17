@@ -1161,7 +1161,14 @@ export class RequestManager {
       headers: Array.isArray(request.headers)
         ? request.headers.map((header) => ({ ...header }))
         : { ...request.headers },
-      body: request.body ? { ...request.body } : request.body,
+      body: request.body
+        ? {
+            ...request.body,
+            formDataFields: request.body.formDataFields
+              ? request.body.formDataFields.map((f: any) => ({ ...f }))
+              : undefined,
+          }
+        : request.body,
       auth: request.auth
         ? { ...request.auth, config: { ...request.auth.config } }
         : request.auth,

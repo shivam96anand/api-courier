@@ -654,6 +654,9 @@ export class RequestBodyEditor {
 
     this.currentFormat = inferredFormat;
 
+    // Always reset form-data fields before loading new body
+    this.formDataFields = [];
+
     // Load form-data fields if present
     if (body.type === 'form-data' && body.formDataFields) {
       this.formDataFields = body.formDataFields.map((f) => ({ ...f }));
