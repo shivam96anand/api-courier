@@ -112,9 +112,7 @@ describe('response-persistence.ts', () => {
     });
 
     it('strips response body when it exceeds the history cap', () => {
-      const history = [
-        makeHistoryItem({ response: makeResponse(1_000_001) }),
-      ];
+      const history = [makeHistoryItem({ response: makeResponse(1_000_001) })];
       const result = sanitizeHistoryForPersistence(history);
       expect(result[0].response.body).toBe('');
     });
