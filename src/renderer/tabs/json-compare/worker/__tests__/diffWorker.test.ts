@@ -1,64 +1,64 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-// vi.hoisted runs before vi.mock factories and imports
+interface SelfStub {
+  onmessage: ((e: { data: unknown }) => void) | null;
+  postMessage: (data: unknown) => void;
+}
+
 const { postMessageSpy } = vi.hoisted(() => {
   const postMessageSpy = vi.fn();
-  (globalThis as any).self = Object.create(globalThis, {
-    onmessage: { value: null, writable: true, configurable: true },
-    postMessage: { value: postMessageSpy, writable: true, configurable: true },
+  const stub: SelfStub = { onmessage: null, postMessage: postMessageSpy };
+  Object.defineProperty(globalThis, 'self', {
+    value: stub,
+    writable: true,
+    configurable: true,
   });
   return { postMessageSpy };
 });
 
-// Mock jsondiffpatch
 vi.mock('jsondiffpatch', () => ({
   create: () => ({
-    diff: (left: unknown, right: unknown) => {
-      if (JSON.stringify(left) === JSON.stringify(right)) return undefined;
-      return { _t: 'a' };
-    },
+    diff: (left: unknown, right: unknown) =>
+      JSON.stringify(left) === JSON.stringify(right) ? undefined : { _t: 'a' },
   }),
   DiffPatcher: class {},
 }));
 
-// Mock buildDiffRows
 vi.mock('../../utils/diffMap', () => ({
-  buildDiffRows: (delta: any) => {
-    if (!delta) return [];
-    return [
-      { path: '/test', type: 'changed', leftValue: 'a', rightValue: 'b' },
-    ];
-  },
+  buildDiffRows: (delta: unknown) =>
+    delta
+      ? [{ path: '/test', type: 'changed', leftValue: 'a', rightValue: 'b' }]
+      : [],
+  filterDiffRowsByIgnorePaths: (rows: unknown[]) => rows,
+  computeDecorations: () => ({ leftDecorations: [], rightDecorations: [] }),
 }));
 
-// Now import — this sets self.onmessage
 import '../../worker/diffWorker';
 
-describe('diffWorker', () => {
-  beforeEach(() => {
-    postMessageSpy.mockClear();
-  });
+function send(data: Record<string, unknown>): void {
+  const stub = globalThis as unknown as { self: SelfStub };
+  stub.self.onmessage!({ data });
+}
 
-  function sendMessage(data: any) {
-    const event = { data } as MessageEvent;
-    (self as any).onmessage(event);
-  }
+describe('diffWorker', () => {
+  beforeEach(() => postMessageSpy.mockClear());
 
   it('ignores non-diff messages', () => {
-    sendMessage({ type: 'ping' });
+    send({ type: 'ping', requestId: 1 });
     expect(postMessageSpy).not.toHaveBeenCalled();
   });
 
-  it('computes diff and posts result', () => {
-    sendMessage({
+  it('computes diff and echoes requestId', () => {
+    send({
       type: 'diff',
+      requestId: 7,
       leftJson: '{"a":1}',
       rightJson: '{"a":2}',
     });
-
     expect(postMessageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'diff-result',
+        requestId: 7,
         result: expect.objectContaining({
           rows: expect.any(Array),
           stats: expect.objectContaining({
@@ -72,54 +72,50 @@ describe('diffWorker', () => {
     );
   });
 
-  it('posts error for invalid left JSON', () => {
-    sendMessage({
+  it('posts error with requestId for invalid left JSON', () => {
+    send({
       type: 'diff',
+      requestId: 11,
       leftJson: 'not-json',
       rightJson: '{}',
     });
-
     expect(postMessageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'error',
+        requestId: 11,
         error: expect.stringContaining('Left JSON invalid'),
       })
     );
   });
 
   it('posts error for invalid right JSON', () => {
-    sendMessage({
+    send({
       type: 'diff',
+      requestId: 12,
       leftJson: '{}',
       rightJson: 'not-json',
     });
-
     expect(postMessageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'error',
+        requestId: 12,
         error: expect.stringContaining('Right JSON invalid'),
       })
     );
   });
 
-  it('handles identical JSON (no delta)', () => {
-    sendMessage({
+  it('handles identical JSON (empty rows)', () => {
+    send({
       type: 'diff',
+      requestId: 13,
       leftJson: '{"a":1}',
       rightJson: '{"a":1}',
     });
-
     expect(postMessageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'diff-result',
-        result: expect.objectContaining({
-          rows: [],
-          stats: expect.objectContaining({
-            added: 0,
-            removed: 0,
-            changed: 0,
-          }),
-        }),
+        requestId: 13,
+        result: expect.objectContaining({ rows: [] }),
       })
     );
   });

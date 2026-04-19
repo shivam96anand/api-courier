@@ -383,9 +383,10 @@ describe('request-manager.ts', () => {
       const cancelled = requestManager.cancelRequest('cancel-me');
       expect(cancelled).toBe(true);
 
-      // The promise resolves (not rejects) with an error response after cancellation
-      const response = await promise;
-      expect(response.status).toBe(0);
+      // After cancellation the promise rejects with an Error whose message
+      // contains "cancel" — the renderer's catch block keys off that string
+      // to distinguish user-cancellation from real network failures.
+      await expect(promise).rejects.toThrow(/cancel/i);
     });
 
     it('returns false when cancelling an unknown request ID', () => {

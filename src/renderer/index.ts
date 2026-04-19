@@ -21,6 +21,9 @@ import { AskAiTab } from './components/AskAiTab';
 import { NotepadManager } from './components/NotepadManager';
 import { CurlToolManager } from './components/CurlToolManager';
 import { UpdateNotificationManager } from './components/update-notification-manager';
+import { SpeedTestManager } from './components/speed-test-manager';
+import { ToastManager } from './components/toast-manager';
+import { HistoryPanel } from './components/history-panel';
 import { ThemeManager } from './utils/theme-manager';
 import { resizeManager } from './utils/resize-manager';
 import { EnvironmentManager } from './components/environments/environment-manager';
@@ -59,6 +62,9 @@ class RestbroRenderer {
   private backupManager: BackupManager;
   private themeOnboarding: ThemeOnboarding;
   private updateNotificationManager: UpdateNotificationManager;
+  private speedTestManager: SpeedTestManager;
+  private toastManager: ToastManager;
+  private historyPanel: HistoryPanel;
 
   constructor() {
     this.themeManager = new ThemeManager();
@@ -73,6 +79,10 @@ class RestbroRenderer {
     this.backupManager = new BackupManager();
     this.themeOnboarding = new ThemeOnboarding(this.themeManager);
     this.updateNotificationManager = new UpdateNotificationManager();
+    this.speedTestManager = new SpeedTestManager();
+    this.toastManager = new ToastManager();
+    this.historyManager = new HistoryManager();
+    this.historyPanel = new HistoryPanel(this.historyManager);
 
     // Get container elements for managers that require them
     const responseContainer =
@@ -81,7 +91,6 @@ class RestbroRenderer {
       document.getElementById('ask-ai-tab') || document.body;
 
     this.responseManager = new ResponseManager(responseContainer);
-    this.historyManager = new HistoryManager();
     this.loadTestManager = new LoadTestManager();
     this.mockServerManager = new MockServerTabManager();
     this.jsonViewerTab = new JsonViewerTab();
@@ -117,6 +126,9 @@ class RestbroRenderer {
     this.askAiTab.initialize();
     this.curlToolManager.initialize();
     this.updateNotificationManager.initialize();
+    this.speedTestManager.initialize();
+    this.toastManager.initialize();
+    this.historyPanel.initialize();
     resizeManager.initialize();
 
     // Parallelize independent async initializations

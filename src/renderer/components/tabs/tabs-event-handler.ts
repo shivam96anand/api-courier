@@ -1,4 +1,5 @@
 import { ApiRequest, RequestMode, RequestTab } from '../../../shared/types';
+import { cloneApiRequest } from '../../../shared/clone-request';
 import { iconHtml } from '../../utils/icons';
 
 export class TabsEventHandler {
@@ -143,6 +144,25 @@ export class TabsEventHandler {
       if (response && request) {
         // Route response to the tab that owns this request, not the active tab
         this.onUpdateTabByRequestId(request.id, { response }, false);
+      }
+    });
+
+    // Mode toggle (REST <-> SOAP) invalidates the previous response on this
+    // tab. Drop it from the tab so it isn't restored on the next tab switch.
+    document.addEventListener('request-mode-changed', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const requestId = customEvent.detail?.requestId as string | undefined;
+      if (requestId) {
+        this.onUpdateTabByRequestId(
+          requestId,
+          { response: undefined, responseViewState: undefined },
+          false
+        );
+      } else {
+        this.onUpdateActiveTab(
+          { response: undefined, responseViewState: undefined },
+          false
+        );
       }
     });
 
@@ -357,31 +377,6 @@ export class TabsEventHandler {
   }
 
   private cloneRequest(request: ApiRequest): ApiRequest {
-    return {
-      ...request,
-      params: Array.isArray(request.params)
-        ? request.params.map((param) => ({ ...param }))
-        : request.params
-          ? { ...request.params }
-          : request.params,
-      headers: Array.isArray(request.headers)
-        ? request.headers.map((header) => ({ ...header }))
-        : { ...request.headers },
-      body: request.body
-        ? {
-            ...request.body,
-            formDataFields: request.body.formDataFields
-              ? request.body.formDataFields.map((f: any) => ({ ...f }))
-              : undefined,
-          }
-        : request.body,
-      auth: request.auth
-        ? { ...request.auth, config: { ...request.auth.config } }
-        : request.auth,
-      soap: request.soap ? { ...request.soap } : request.soap,
-      variables: request.variables
-        ? { ...request.variables }
-        : request.variables,
-    };
+    return cloneApiRequest(request);
   }
 }

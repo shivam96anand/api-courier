@@ -3,6 +3,7 @@
  */
 
 import type { DiffRow, DiffDecoration, DiffChangeType } from '../types';
+import { buildIgnoreMatcher } from './pathMatcher';
 
 interface Delta {
   [key: string]: unknown;
@@ -90,6 +91,39 @@ export function buildDiffRows(
 }
 
 /**
+ * Filter diff rows by user-supplied ignore-path glob patterns.
+ * Patterns use the syntax described in pathMatcher (e.g. "/audit/**", "/* /createdAt").
+ */
+export function filterDiffRowsByIgnorePaths(
+  rows: DiffRow[],
+  ignorePaths: string[] | undefined
+): DiffRow[] {
+  if (!ignorePaths || ignorePaths.length === 0) return rows;
+  const isIgnored = buildIgnoreMatcher(ignorePaths);
+  return rows.filter((r) => !isIgnored(r.path));
+}
+
+/**
+ * Memoized position map: parses each unique JSON text only once.
+ * Cache is bounded so it can't grow unbounded for power users.
+ */
+const POSITION_CACHE = new Map<string, PathPosition[]>();
+const POSITION_CACHE_MAX = 8;
+
+function getPositionMap(jsonText: string): PathPosition[] {
+  const cached = POSITION_CACHE.get(jsonText);
+  if (cached) return cached;
+  const positions = buildPositionMap(jsonText);
+  if (POSITION_CACHE.size >= POSITION_CACHE_MAX) {
+    // Evict oldest (Map preserves insertion order)
+    const firstKey = POSITION_CACHE.keys().next().value;
+    if (firstKey !== undefined) POSITION_CACHE.delete(firstKey);
+  }
+  POSITION_CACHE.set(jsonText, positions);
+  return positions;
+}
+
+/**
  * Exact text range finder using a JSON parser that records offsets per JSON Pointer path.
  */
 export function findTextRangeForPath(
@@ -120,8 +154,8 @@ export function findTextRangeForPath(
     };
   }
 
-  // Build position map
-  const positions = buildPositionMap(jsonText);
+  // Build position map (cached per jsonText)
+  const positions = getPositionMap(jsonText);
 
   // Find matching path
   const match = positions.find((p) => p.path === path);
@@ -421,9 +455,9 @@ export function computeDecorations(
   const leftDecorations: DiffDecoration[] = [];
   const rightDecorations: DiffDecoration[] = [];
 
-  // Build position maps once per text, not once per row
-  const leftPositions = buildPositionMap(leftText);
-  const rightPositions = buildPositionMap(rightText);
+  // Build position maps once per text (cached across calls)
+  const leftPositions = getPositionMap(leftText);
+  const rightPositions = getPositionMap(rightText);
 
   rows.forEach((row) => {
     if (row.type === 'removed' || row.type === 'changed') {

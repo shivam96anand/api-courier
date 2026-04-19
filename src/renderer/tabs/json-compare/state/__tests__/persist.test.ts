@@ -1,91 +1,104 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  loadCompareState,
-  saveCompareState,
-  clearCompareState,
-} from '../../state/persist';
-import type { CompareState } from '../../types';
+// @vitest-environment jsdom
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { loadCompareState, saveCompareState } from '../persist';
+import type { JsonCompareUIState } from '../../../../../shared/types';
 
-// Minimal localStorage stub
-const store: Record<string, string> = {};
-const localStorageMock = {
-  getItem: vi.fn((key: string) => store[key] ?? null),
-  setItem: vi.fn((key: string, value: string) => {
-    store[key] = value;
-  }),
-  removeItem: vi.fn((key: string) => {
-    delete store[key];
-  }),
-};
-
-Object.defineProperty(globalThis, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
-
-const STORAGE_KEY = 'restbro.jsonCompare.v1';
+interface FakeStore {
+  jsonCompareUIState?: Partial<JsonCompareUIState>;
+}
 
 describe('persist (JSON Compare state)', () => {
+  let fakeStore: FakeStore;
+  let getMock: ReturnType<typeof vi.fn>;
+  let setMock: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
-    vi.restoreAllMocks();
-    // Clear our fake store
-    for (const key of Object.keys(store)) delete store[key];
-  });
-
-  describe('loadCompareState', () => {
-    it('returns default state when nothing is stored', () => {
-      const state = loadCompareState();
-      expect(state).toEqual({
-        leftJson: '',
-        rightJson: '',
-        tableFilter: '',
-        selectedTypes: ['added', 'removed', 'changed'],
-      });
+    fakeStore = {};
+    getMock = vi.fn(async () => fakeStore);
+    setMock = vi.fn(async (updates: FakeStore) => {
+      Object.assign(fakeStore, updates);
     });
 
-    it('returns default state for invalid JSON', () => {
-      store[STORAGE_KEY] = 'not-json';
-      const state = loadCompareState();
-      expect(state.leftJson).toBe('');
+    Object.defineProperty(window, 'restbro', {
+      configurable: true,
+      writable: true,
+      value: { store: { get: getMock, set: setMock } },
     });
 
-    it('returns stored state when valid', () => {
-      const saved: CompareState = {
-        leftJson: '{"a":1}',
-        rightJson: '{"b":2}',
-        tableFilter: 'name',
-        selectedTypes: ['added'],
-      };
-      store[STORAGE_KEY] = JSON.stringify(saved);
-      const state = loadCompareState();
-      expect(state).toEqual(saved);
-    });
-
-    it('returns default state when structure is invalid', () => {
-      store[STORAGE_KEY] = JSON.stringify({ leftJson: 123 }); // wrong type
-      const state = loadCompareState();
-      expect(state.leftJson).toBe('');
+    // Provide an in-memory localStorage shim (jsdom may not expose one
+    // depending on environment).
+    const memory: Record<string, string> = {};
+    const localStorageStub: Storage = {
+      get length() {
+        return Object.keys(memory).length;
+      },
+      clear: () => {
+        for (const k of Object.keys(memory)) delete memory[k];
+      },
+      getItem: (k: string) =>
+        Object.prototype.hasOwnProperty.call(memory, k) ? memory[k] : null,
+      key: (i: number) => Object.keys(memory)[i] ?? null,
+      removeItem: (k: string) => {
+        delete memory[k];
+      },
+      setItem: (k: string, v: string) => {
+        memory[k] = String(v);
+      },
+    };
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      writable: true,
+      value: localStorageStub,
     });
   });
 
-  describe('saveCompareState', () => {
-    it('persists state to localStorage', () => {
-      const state: CompareState = {
-        leftJson: '{}',
-        rightJson: '[]',
-        tableFilter: '',
+  afterEach(() => {
+    delete (window as unknown as { restbro?: unknown }).restbro;
+  });
+
+  it('returns defaults when nothing is stored and there is no legacy state', async () => {
+    const state = await loadCompareState();
+    expect(state.leftJson).toBe('');
+    expect(state.rightJson).toBe('');
+    expect(state.tableFilter).toBe('');
+    expect(state.selectedTypes).toEqual(['added', 'removed', 'changed']);
+    expect(state.options?.ignoreArrayOrder).toBe(true);
+  });
+
+  it('loads previously persisted state from the store', async () => {
+    fakeStore.jsonCompareUIState = {
+      leftJson: '{"a":1}',
+      rightJson: '{"b":2}',
+      tableFilter: 'name',
+      selectedTypes: ['added'],
+      options: { sortKeys: true },
+    };
+    const state = await loadCompareState();
+    expect(state.leftJson).toBe('{"a":1}');
+    expect(state.rightJson).toBe('{"b":2}');
+    expect(state.tableFilter).toBe('name');
+    expect(state.selectedTypes).toEqual(['added']);
+    expect(state.options?.sortKeys).toBe(true);
+    // defaulted from DEFAULT_OPTIONS
+    expect(state.options?.ignoreArrayOrder).toBe(true);
+  });
+
+  it('migrates legacy localStorage state into the store on first load', async () => {
+    localStorage.setItem(
+      'restbro.jsonCompare.v1',
+      JSON.stringify({
+        leftJson: '{"x":1}',
+        rightJson: '{"x":2}',
+        tableFilter: 'foo',
         selectedTypes: ['changed'],
-      };
-      saveCompareState(state);
-      expect(store[STORAGE_KEY]).toBe(JSON.stringify(state));
-    });
-  });
+      })
+    );
 
-  describe('clearCompareState', () => {
-    it('removes key from localStorage', () => {
-      store[STORAGE_KEY] = '{}';
-      clearCompareState();
-      expect(store[STORAGE_KEY]).toBeUndefined();
-    });
+    const state = await loadCompareState();
+    expect(state.leftJson).toBe('{"x":1}');
+    expect(state.tableFilter).toBe('foo');
+    expect(state.selectedTypes).toEqual(['changed']);
+    // legacy key removed
+    expect(localStorage.getItem('restbro.jsonCompare.v1')).toBeNull();
   });
 });

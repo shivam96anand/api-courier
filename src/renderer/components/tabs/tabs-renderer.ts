@@ -81,12 +81,67 @@ export class TabsRenderer {
       const nameSpan = document.createElement('span');
       nameSpan.textContent = tab.name + (tab.isModified ? ' •' : '');
       nameSpan.className = 'tab-name';
+      nameSpan.title = 'Double-click to rename';
+
+      // Inline rename on double-click. Replaces the span with a small input,
+      // commits on Enter / blur, cancels on Escape. The actual update is
+      // dispatched as a custom event so tabs-state-manager owns the mutation.
+      nameSpan.addEventListener('dblclick', (ev) => {
+        ev.stopPropagation();
+        if (nameSpan.querySelector('input')) return;
+        const original = tab.name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = original;
+        input.className = 'tab-name__rename-input';
+        input.setAttribute('aria-label', 'Rename tab');
+        nameSpan.textContent = '';
+        nameSpan.appendChild(input);
+        input.focus();
+        input.select();
+
+        const commit = (next: string): void => {
+          const trimmed = next.trim();
+          if (trimmed && trimmed !== original) {
+            document.dispatchEvent(
+              new CustomEvent('tab-rename', {
+                detail: { tabId: tab.id, newName: trimmed },
+              })
+            );
+          } else {
+            // restore display
+            nameSpan.textContent = original + (tab.isModified ? ' •' : '');
+          }
+        };
+
+        let committed = false;
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            committed = true;
+            commit(input.value);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            committed = true;
+            nameSpan.textContent = original + (tab.isModified ? ' •' : '');
+          }
+        });
+        input.addEventListener('blur', () => {
+          if (!committed) commit(input.value);
+        });
+      });
 
       const closeButton = document.createElement('span');
       closeButton.className = 'tab-close';
       closeButton.dataset.tabId = tab.id;
       closeButton.textContent = '×';
       closeButton.title = 'Close tab';
+      closeButton.setAttribute('role', 'button');
+      closeButton.setAttribute(
+        'aria-label',
+        `Close tab ${tab.name || ''}`.trim()
+      );
+      closeButton.setAttribute('tabindex', '0');
 
       tabElement.appendChild(nameSpan);
       tabElement.appendChild(closeButton);

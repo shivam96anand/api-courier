@@ -1,81 +1,93 @@
 /**
  * Hook to manage JSON diff computation.
- * Tries Web Worker first; falls back to inline (main-thread) computation
- * when the worker is unavailable (e.g. Electron file:// + sandbox).
+ *
+ * - Tries the Web Worker first; falls back to inline (main-thread) computation
+ *   when the worker is unavailable (e.g. Electron file:// + sandbox).
+ * - Tags each request with a monotonically-increasing requestId so stale
+ *   worker responses are discarded.
+ * - Honours user-supplied JsonCompareOptions.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { create, DiffPatcher } from 'jsondiffpatch';
-import { buildDiffRows } from '../utils/diffMap';
+import {
+  buildDiffRows,
+  computeDecorations,
+  filterDiffRowsByIgnorePaths,
+} from '../utils/diffMap';
+import { computeObjectHash } from '../utils/objectHash';
+import { applyCompareOptions } from '../utils/applyCompareOptions';
 import type {
   DiffResult,
   DiffStats,
   WorkerRequest,
   WorkerResponse,
 } from '../types';
+import type { JsonCompareOptions } from '../../../../shared/types';
 
 interface UseJsonDiffOptions {
   debounceMs?: number;
   /** Max ms to wait for the worker before falling back to inline. */
   workerTimeoutMs?: number;
+  /** User-selected comparison options. */
+  compareOptions?: JsonCompareOptions;
 }
 
 interface UseJsonDiffResult {
   status: 'idle' | 'computing' | 'success' | 'error';
   result: DiffResult | null;
   error: string | null;
+  workerUnavailable: boolean;
   compute: () => void;
 }
 
-// Lazy-init a DiffPatcher for inline fallback
-let inlineDiffer: DiffPatcher | null = null;
+let inlineDetectMove: DiffPatcher | null = null;
+let inlineNoMove: DiffPatcher | null = null;
 
-function computeObjectHash(obj: unknown): string {
-  if (!obj || typeof obj !== 'object') {
-    return JSON.stringify(obj);
+function getInlineDiffer(opts: JsonCompareOptions | undefined): DiffPatcher {
+  if (opts?.ignoreArrayOrder === false) {
+    if (!inlineNoMove) {
+      inlineNoMove = create({
+        objectHash: computeObjectHash,
+        arrays: { detectMove: false },
+        textDiff: { minLength: Infinity },
+      });
+    }
+    return inlineNoMove;
   }
-
-  const record = obj as Record<string, unknown>;
-  const directId = record.id ?? record._id ?? record.uuid ?? record.guid;
-  if (typeof directId === 'string' || typeof directId === 'number') {
-    return String(directId);
-  }
-
-  const product = record.product as Record<string, unknown> | undefined;
-  const nestedProductId = product?.id;
-  if (
-    typeof nestedProductId === 'string' ||
-    typeof nestedProductId === 'number'
-  ) {
-    return String(nestedProductId);
-  }
-
-  return JSON.stringify(obj);
-}
-
-function getInlineDiffer(): DiffPatcher {
-  if (!inlineDiffer) {
-    inlineDiffer = create({
+  if (!inlineDetectMove) {
+    inlineDetectMove = create({
       objectHash: computeObjectHash,
       arrays: { detectMove: true },
       textDiff: { minLength: Infinity },
     });
   }
-  return inlineDiffer;
+  return inlineDetectMove;
 }
 
-/**
- * Compute diff result synchronously on the main thread.
- */
-function computeInline(leftJson: string, rightJson: string): DiffResult {
+function computeInline(
+  leftJson: string,
+  rightJson: string,
+  options: JsonCompareOptions | undefined
+): DiffResult {
   const start = performance.now();
 
   const leftParsed = JSON.parse(leftJson);
   const rightParsed = JSON.parse(rightJson);
 
-  const differ = getInlineDiffer();
-  const delta = differ.diff(leftParsed, rightParsed);
-  const rows = buildDiffRows(delta);
+  const leftNorm = applyCompareOptions(leftParsed, options);
+  const rightNorm = applyCompareOptions(rightParsed, options);
+
+  const differ = getInlineDiffer(options);
+  const delta = differ.diff(leftNorm, rightNorm);
+  let rows = buildDiffRows(delta);
+  rows = filterDiffRowsByIgnorePaths(rows, options?.ignorePaths);
+
+  const { leftDecorations, rightDecorations } = computeDecorations(
+    rows,
+    leftJson,
+    rightJson
+  );
 
   const stats: DiffStats = {
     added: rows.filter((r) => r.type === 'added').length,
@@ -84,7 +96,7 @@ function computeInline(leftJson: string, rightJson: string): DiffResult {
     totalTime: performance.now() - start,
   };
 
-  return { rows, leftDecorations: [], rightDecorations: [], stats };
+  return { rows, leftDecorations, rightDecorations, stats };
 }
 
 export function useJsonDiff(
@@ -94,19 +106,27 @@ export function useJsonDiff(
   rightValid: boolean,
   options: UseJsonDiffOptions = {}
 ): UseJsonDiffResult {
-  const { debounceMs = 300, workerTimeoutMs = 2000 } = options;
+  const { debounceMs = 300, workerTimeoutMs = 2000, compareOptions } = options;
 
   const [status, setStatus] = useState<
     'idle' | 'computing' | 'success' | 'error'
   >('idle');
   const [result, setResult] = useState<DiffResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [workerUnavailable, setWorkerUnavailable] = useState(false);
 
   const workerRef = useRef<Worker | null>(null);
-  /** true once we know the worker is broken; skip it from then on */
   const workerBrokenRef = useRef(false);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const workerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const workerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+  /** Tracks the requestId of the in-flight worker call (for fast-fallback on error). */
+  const inFlightRef = useRef<{
+    id: number;
+    left: string;
+    right: string;
+    options: JsonCompareOptions | undefined;
+  } | null>(null);
 
   // ---------- Worker setup ----------
   useEffect(() => {
@@ -114,13 +134,21 @@ export function useJsonDiff(
       const w = new Worker(new URL('../worker/diffWorker.ts', import.meta.url));
 
       w.onmessage = (e: MessageEvent<WorkerResponse>) => {
-        // Worker responded — clear the fallback timeout
+        const {
+          type,
+          requestId,
+          result: workerResult,
+          error: workerError,
+        } = e.data;
+
+        // Discard stale responses (a newer compute() has been issued).
+        if (requestId !== requestIdRef.current) return;
+
         if (workerTimeoutRef.current) {
           clearTimeout(workerTimeoutRef.current);
           workerTimeoutRef.current = null;
         }
-
-        const { type, result: workerResult, error: workerError } = e.data;
+        inFlightRef.current = null;
 
         if (type === 'diff-result' && workerResult) {
           setResult(workerResult);
@@ -134,15 +162,37 @@ export function useJsonDiff(
       };
 
       w.onerror = () => {
-        // Worker is broken (e.g. file:// + sandbox). Mark and fall back.
+        // Worker is broken (e.g. file:// + sandbox). Mark and fall back NOW
+        // for any in-flight request — don't wait for the timeout.
         workerBrokenRef.current = true;
-        w.terminate();
+        setWorkerUnavailable(true);
+        if (workerTimeoutRef.current) {
+          clearTimeout(workerTimeoutRef.current);
+          workerTimeoutRef.current = null;
+        }
+        const inflight = inFlightRef.current;
+        inFlightRef.current = null;
+        try {
+          w.terminate();
+        } catch {
+          /* noop */
+        }
         workerRef.current = null;
+
+        if (inflight) {
+          runInlineSafe(
+            inflight.left,
+            inflight.right,
+            inflight.options,
+            inflight.id
+          );
+        }
       };
 
       workerRef.current = w;
     } catch {
       workerBrokenRef.current = true;
+      setWorkerUnavailable(true);
       workerRef.current = null;
     }
 
@@ -154,18 +204,28 @@ export function useJsonDiff(
   }, []);
 
   // ---------- Inline fallback ----------
-  const runInline = useCallback((left: string, right: string) => {
-    try {
-      const diffResult = computeInline(left, right);
-      setResult(diffResult);
-      setStatus('success');
-      setError(null);
-    } catch (err) {
-      setError((err as Error).message);
-      setStatus('error');
-      setResult(null);
-    }
-  }, []);
+  const runInlineSafe = useCallback(
+    (
+      left: string,
+      right: string,
+      opts: JsonCompareOptions | undefined,
+      requestId: number
+    ) => {
+      try {
+        const diffResult = computeInline(left, right, opts);
+        if (requestId !== requestIdRef.current) return; // stale
+        setResult(diffResult);
+        setStatus('success');
+        setError(null);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        setError((err as Error).message);
+        setStatus('error');
+        setResult(null);
+      }
+    },
+    []
+  );
 
   // ---------- Compute (worker → inline fallback) ----------
   const compute = useCallback(() => {
@@ -181,32 +241,61 @@ export function useJsonDiff(
       return;
     }
 
+    const requestId = ++requestIdRef.current;
     setStatus('computing');
     setError(null);
 
-    // Fast path: worker is known broken → compute inline immediately
     if (workerBrokenRef.current || !workerRef.current) {
-      runInline(leftJson, rightJson);
+      runInlineSafe(leftJson, rightJson, compareOptions, requestId);
       return;
     }
 
-    // Try the worker, but set a timeout to fall back to inline
+    inFlightRef.current = {
+      id: requestId,
+      left: leftJson,
+      right: rightJson,
+      options: compareOptions,
+    };
+
     workerRef.current.postMessage({
       type: 'diff',
+      requestId,
       leftJson,
       rightJson,
+      options: compareOptions,
     } as WorkerRequest);
 
-    // If the worker doesn't respond in time, fall back
     if (workerTimeoutRef.current) clearTimeout(workerTimeoutRef.current);
     workerTimeoutRef.current = setTimeout(() => {
       workerTimeoutRef.current = null;
       workerBrokenRef.current = true;
-      workerRef.current?.terminate();
+      setWorkerUnavailable(true);
+      try {
+        workerRef.current?.terminate();
+      } catch {
+        /* noop */
+      }
       workerRef.current = null;
-      runInline(leftJson, rightJson);
+      const inflight = inFlightRef.current;
+      inFlightRef.current = null;
+      if (inflight) {
+        runInlineSafe(
+          inflight.left,
+          inflight.right,
+          inflight.options,
+          inflight.id
+        );
+      }
     }, workerTimeoutMs);
-  }, [leftJson, rightJson, leftValid, rightValid, runInline, workerTimeoutMs]);
+  }, [
+    leftJson,
+    rightJson,
+    leftValid,
+    rightValid,
+    compareOptions,
+    runInlineSafe,
+    workerTimeoutMs,
+  ]);
 
   // ---------- Auto-compute with debounce ----------
   useEffect(() => {
@@ -228,5 +317,5 @@ export function useJsonDiff(
     };
   }, [leftJson, rightJson, leftValid, rightValid, debounceMs, compute]);
 
-  return { status, result, error, compute };
+  return { status, result, error, workerUnavailable, compute };
 }

@@ -160,6 +160,19 @@
     font-weight: 700;
     letter-spacing: 0.2px;
   }
+
+  // Settings gear is a primary action — give it a bigger, more obvious target.
+  &.settings {
+    padding: 6px 10px;
+    min-width: 38px;
+    height: 34px;
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .notepad-editor {
@@ -302,4 +315,242 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+// ── Editor area: side-by-side split when preview is on ────────────────────
+.notepad-editor-area {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.notepad-editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+// ── Resize splitter between editor and preview ────────────────────────────
+.notepad-resize-splitter {
+  flex: 0 0 5px;
+  cursor: col-resize;
+  background: var(--border-color);
+  transition: background 0.15s;
+
+  &:hover,
+  &:active {
+    background: var(--primary-color);
+  }
+
+  &.hidden { display: none; }
+}
+
+// Prevent text selection and enforce col-resize cursor while dragging.
+body.notepad-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+// ── Preview pane ───────────────────────────────────────────────────────────────────────
+.notepad-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 50%;
+  min-width: 200px;
+  border-left: none;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+
+  &.hidden { display: none; }
+
+  .notepad-preview-header {
+    padding: 6px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .notepad-preview-body {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 22px;
+    font-size: 14px;
+    line-height: 1.6;
+
+    .notepad-preview-iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #ffffff;
+    }
+    h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.4em; font-weight: 600; }
+    h1 { font-size: 1.6em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.2em; }
+    h2 { font-size: 1.35em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.15em; }
+    h3 { font-size: 1.15em; }
+    p, ul, ol, blockquote, pre, table { margin: 0.6em 0; }
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    pre {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 12px 14px;
+      border-radius: 6px;
+      overflow-x: auto;
+      code { background: transparent; padding: 0; }
+    }
+    a { color: var(--primary-color) !important; text-decoration: underline; }
+    blockquote {
+      border-left: 3px solid var(--primary-color);
+      padding-left: 10px;
+      color: var(--text-secondary);
+    }
+    table { border-collapse: collapse; }
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 6px 10px;
+    }
+    img { max-width: 100%; border-radius: 4px; }
+    hr { border: none; border-top: 1px solid var(--border-color); margin: 1em 0; }
+    .md-error { color: #ff8888; }
+
+    // Code preview (JSON, XML, etc.)
+    .notepad-code-preview {
+      margin: 0;
+      padding: 16px 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      code { background: transparent; padding: 0; }
+    }
+  }
+}
+
+// ── File drag-and-drop overlay ────────────────────────────────────────────
+.notepad-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+
+  &.hidden { display: none; }
+
+  .notepad-drop-overlay-inner {
+    border: 2px dashed var(--primary-color);
+    border-radius: 12px;
+    padding: 28px 36px;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.6);
+  }
+}
+
+// ── Tab drag-to-reorder visual feedback ───────────────────────────────────
+.notepad-tab.dragging { opacity: 0.5; }
+.notepad-tab.drag-over {
+  border-left: 2px solid var(--primary-color);
+}
+
+// ── Settings menu popover ────────────────────────────────────────────────
+.notepad-settings-host { position: relative; }
+.notepad-settings-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 280px;
+  background: #1c1f24;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  padding: 8px 0;
+  font-size: 13px;
+
+  &.hidden { display: none; }
+
+  .notepad-settings-section {
+    padding: 6px 14px 10px;
+    & + .notepad-settings-section {
+      border-top: 1px solid var(--border-color);
+      margin-top: 4px;
+      padding-top: 10px;
+    }
+  }
+  .notepad-settings-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary) !important;
+    margin-bottom: 6px;
+  }
+  .notepad-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    cursor: pointer;
+    small { color: var(--text-secondary) !important; margin-left: 4px; font-size: 0.85em; }
+    select {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+  }
+}
+
+// ── Toast notifications ───────────────────────────────────────────────────
+.notepad-toast-host {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+.notepad-toast {
+  pointer-events: auto;
+  padding: 9px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #1c1f24;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 1;
+
+  &--success { border-color: #2ea043; }
+  &--error { border-color: #f85149; color: #ffd5d5 !important; }
+  &--leaving { opacity: 0; transform: translateY(8px); }
+}
+
+// ── Status bar additions ──────────────────────────────────────────────────
+.status-language-picker {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 11px;
+  margin-right: 4px;
+}
+.status-metric--muted { color: var(--text-secondary) !important; opacity: 0.7; }
+.np-btn.ghost.active {
+  background: rgba(var(--primary-color-rgb, 102, 187, 255), 0.18);
+  color: var(--primary-color) !important;
 }

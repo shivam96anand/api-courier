@@ -62,6 +62,12 @@ const IPC_CHANNELS = {
   NOTEPAD_OPEN_FILE: 'notepad:open-file',
   NOTEPAD_READ_FILE: 'notepad:read-file',
   NOTEPAD_REVEAL: 'notepad:reveal',
+  NOTEPAD_OPEN_PATH: 'notepad:open-path',
+  NOTEPAD_GET_PENDING_FILES: 'notepad:get-pending-files',
+  NOTEPAD_FILE_OPENED: 'notepad:file-opened',
+  NOTEPAD_BEFORE_QUIT: 'notepad:before-quit',
+  NOTEPAD_QUIT_DECISION: 'notepad:quit-decision',
+  NOTEPAD_COPY_PATH: 'notepad:copy-path',
 
   // Mock Server channels
   MOCKSERVER_LIST: 'mockserver:list',
@@ -85,6 +91,11 @@ const IPC_CHANNELS = {
   UPDATE_INSTALL: 'update:install',
   UPDATE_DOWNLOADED: 'update:downloaded',
   UPDATE_JUST_UPDATED: 'update:just-updated',
+
+  // Network speed test channels
+  NETWORK_SPEED_TEST_RUN: 'network:speed-test-run',
+  NETWORK_SPEED_TEST_PROGRESS: 'network:speed-test-progress',
+  NETWORK_SPEED_TEST_CANCEL: 'network:speed-test-cancel',
 } as const;
 
 // Define types inline to avoid import issues
@@ -135,16 +146,31 @@ interface NotepadTab {
   id: string;
   title: string;
   content: string;
+  savedContent?: string;
   filePath?: string;
   isDirty: boolean;
+  language?: string;
+  viewState?: unknown;
+  previewMode?: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+interface NotepadSettings {
+  fontSize: number;
+  wordWrap: 'on' | 'off';
+  tabSize: number;
+  formatOnSave: boolean;
+  trimTrailingWhitespace: boolean;
+  insertFinalNewline: boolean;
+  promptOnExit: boolean;
 }
 
 interface NotepadState {
   tabs: NotepadTab[];
   activeTabId?: string;
   untitledCounter: number;
+  settings?: NotepadSettings;
 }
 
 interface AppState {
@@ -546,19 +572,55 @@ const restbroAPI = {
       filePath?: string;
       content: string;
       defaultName?: string;
-    }): Promise<{ filePath?: string; canceled?: boolean }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_SAVE_FILE, args),
+    }): Promise<{
+      filePath?: string;
+      canceled?: boolean;
+      ok?: boolean;
+      error?: string;
+      code?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_SAVE_FILE, args),
     openFile: (): Promise<{
       filePath?: string;
       content?: string;
       canceled?: boolean;
+      error?: string;
     }> => ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_OPEN_FILE),
     readFile: (
       filePath: string
-    ): Promise<{ content?: string; canceled?: boolean }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_READ_FILE, filePath),
+    ): Promise<{
+      content?: string;
+      canceled?: boolean;
+      error?: string;
+      filePath?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_READ_FILE, filePath),
+    openPath: (
+      filePath: string
+    ): Promise<{
+      content?: string;
+      filePath?: string;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_OPEN_PATH, filePath),
+    getPendingFiles: (): Promise<string[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_GET_PENDING_FILES),
     revealInFolder: (filePath: string): Promise<boolean> =>
       ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_REVEAL, filePath),
+    copyPath: (filePath: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTEPAD_COPY_PATH, filePath),
+    onFileOpened: (callback: (filePath: string) => void): (() => void) => {
+      const handler = (_: unknown, filePath: string) => callback(filePath);
+      ipcRenderer.on(IPC_CHANNELS.NOTEPAD_FILE_OPENED, handler);
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.NOTEPAD_FILE_OPENED, handler);
+    },
+    onBeforeQuit: (callback: (requestId: string) => void): (() => void) => {
+      const handler = (_: unknown, requestId: string) => callback(requestId);
+      ipcRenderer.on(IPC_CHANNELS.NOTEPAD_BEFORE_QUIT, handler);
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.NOTEPAD_BEFORE_QUIT, handler);
+    },
+    sendQuitDecision: (requestId: string, canQuit: boolean): void => {
+      ipcRenderer.send(IPC_CHANNELS.NOTEPAD_QUIT_DECISION, requestId, canQuit);
+    },
   },
 
   ai: {
@@ -662,6 +724,34 @@ const restbroAPI = {
       );
       return () =>
         ipcRenderer.removeAllListeners(IPC_CHANNELS.UPDATE_JUST_UPDATED);
+    },
+  },
+
+  network: {
+    runSpeedTest: (): Promise<{
+      ok: boolean;
+      downloadMbps: number;
+      uploadMbps: number;
+      pingMs: number;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.NETWORK_SPEED_TEST_RUN),
+    cancelSpeedTest: (): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NETWORK_SPEED_TEST_CANCEL),
+    onSpeedTestProgress: (
+      callback: (data: {
+        phase: 'starting' | 'download' | 'upload' | 'done' | 'error';
+        mbps: number;
+        ratio: number;
+      }) => void
+    ): (() => void) => {
+      const handler = (_: unknown, data: unknown): void =>
+        callback(data as Parameters<typeof callback>[0]);
+      ipcRenderer.on(IPC_CHANNELS.NETWORK_SPEED_TEST_PROGRESS, handler);
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.NETWORK_SPEED_TEST_PROGRESS,
+          handler
+        );
     },
   },
 };

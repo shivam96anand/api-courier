@@ -67,6 +67,7 @@ export class HeadersManager {
       });
 
       headersEditor.addEventListener('input', () => {
+        this.ensureTrailingEmptyRow();
         this.updateHeadersFromDOM();
       });
 
@@ -133,6 +134,29 @@ export class HeadersManager {
       this.globals,
       this.folderVars
     );
+  }
+
+  /**
+   * Postman-style affordance: auto-append a fresh empty row as soon as the
+   * user starts typing in the last row, so they never have to click
+   * "Add Header". Mirrors ParamsManager.ensureTrailingEmptyRow.
+   */
+  private ensureTrailingEmptyRow(): void {
+    const headersEditor = this.container.querySelector('#headers-editor');
+    if (!headersEditor) return;
+    const rows = headersEditor.querySelectorAll('.kv-row');
+    if (rows.length === 0) return;
+    const lastRow = rows[rows.length - 1];
+    const keyInput = lastRow.querySelector('.key-input') as HTMLInputElement;
+    const valueInput = lastRow.querySelector(
+      '.value-input'
+    ) as HTMLInputElement;
+    const lastIsNonEmpty =
+      (keyInput?.value || '').trim() !== '' ||
+      (valueInput?.value || '').trim() !== '';
+    if (lastIsNonEmpty) {
+      this.addHeaderRow();
+    }
   }
 
   private updateHeadersFromDOM(): void {

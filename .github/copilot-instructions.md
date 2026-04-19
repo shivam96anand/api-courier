@@ -1,3 +1,26 @@
+# GitHub Copilot instructions
+
+The full agent guide lives in **[AGENTS.md](../AGENTS.md)** at the repo root. It is the single source of truth for all AI coding agents (Copilot, Claude Code, Codex, Cursor, Aider, …).
+
+Before suggesting changes, please follow the rules in `AGENTS.md`, especially:
+
+- Electron security flags (`nodeIntegration:false`, `contextIsolation:true`, `sandbox:true`) must stay on.
+- Renderer code uses only `window.restbro.*` (preload bridge) — never `ipcRenderer`, `fs`, or `localStorage`.
+- All persistence goes through `StoreManager` → `database.json` in the main process.
+- IPC channels are whitelisted in `src/shared/ipc.ts`; add new ones explicitly.
+- Never log or render secrets (Authorization, tokens, client secrets, JKS passwords).
+- File-size targets: main modules ≤ 300 lines, renderer managers 150–300 lines.
+- To add a capability: update `src/shared/types.ts` → `src/shared/ipc.ts` → main handler → preload bridge → renderer consumer.
+
+Before marking work complete, run and pass:
+
+```bash
+npm run lint
+npm run build
+npm test -- run
+```
+
+Update `AGENTS.md` (not this file) when conventions change.
 # Restbro — Repo Instructions (Claude/Copilot)
 
 Restbro is a secure Electron desktop app for API testing (Postman/Insomnia-like) with Collections, History, Environments/Globals, OAuth2, Load Testing, JSON tools, Notepad, and Ask-AI.

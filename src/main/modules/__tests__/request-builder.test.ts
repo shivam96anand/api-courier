@@ -120,7 +120,7 @@ describe('request-builder.ts', () => {
       expect(headers).toEqual({ 'X-Test': '123', 'Missing-Value': '' });
     });
 
-    it('includes only non-empty object headers', () => {
+    it('preserves empty object header values and skips blank keys', () => {
       const headers = RequestBuilder.buildHeaders(
         createRequest({
           headers: {
@@ -131,7 +131,9 @@ describe('request-builder.ts', () => {
         })
       );
 
-      expect(headers).toEqual({ 'X-Test': '123' });
+      // Empty values are intentionally preserved (some APIs require headers
+      // like `X-Trace-Hint:` with no value). Only blank keys are dropped.
+      expect(headers).toEqual({ 'X-Test': '123', EmptyValue: '' });
     });
 
     it('adds auth headers for oauth2, bearer, api-key header, and basic auth', () => {

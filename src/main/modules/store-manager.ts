@@ -16,6 +16,7 @@ import {
   Globals,
   CollectionsUIState,
   JsonViewerUIState,
+  JsonCompareUIState,
   NotepadState,
   MockServersState,
   RequestSettings,
@@ -62,6 +63,26 @@ const defaultJsonViewerUIState: JsonViewerUIState = {
   requestAccessOrder: [],
 };
 
+const defaultJsonCompareUIState: JsonCompareUIState = {
+  leftJson: '',
+  rightJson: '',
+  tableFilter: '',
+  valueFilter: '',
+  selectedTypes: ['added', 'removed', 'changed'],
+  leftLabel: 'Left',
+  rightLabel: 'Right',
+  options: {
+    sortKeys: false,
+    ignoreArrayOrder: true,
+    caseInsensitive: false,
+    ignoreStringWhitespace: false,
+    ignorePaths: [],
+  },
+};
+
+/** Per-side JSON cap for json-compare persistence (~256 KB). */
+const JSON_COMPARE_MAX_SIDE_CHARS = 256 * 1024;
+
 const defaultNotepadState: NotepadState = {
   tabs: [],
   activeTabId: undefined,
@@ -89,6 +110,7 @@ const defaultState: AppState = {
   globals: defaultGlobals,
   collectionsUIState: defaultCollectionsUIState,
   jsonViewerUIState: defaultJsonViewerUIState,
+  jsonCompareUIState: defaultJsonCompareUIState,
   notepad: defaultNotepadState,
   mockServers: defaultMockServersState,
   hasCompletedThemeOnboarding: false,
@@ -178,7 +200,33 @@ class StoreManager {
       }));
     }
 
+    if (updates.jsonCompareUIState) {
+      next.jsonCompareUIState = this.sanitizeJsonCompareState(
+        updates.jsonCompareUIState
+      );
+    }
+
     return next;
+  }
+
+  private sanitizeJsonCompareState(
+    state: JsonCompareUIState
+  ): JsonCompareUIState {
+    const left = state.leftJson || '';
+    const right = state.rightJson || '';
+    const leftTruncated = left.length > JSON_COMPARE_MAX_SIDE_CHARS;
+    const rightTruncated = right.length > JSON_COMPARE_MAX_SIDE_CHARS;
+    return {
+      ...state,
+      leftJson: leftTruncated
+        ? left.slice(0, JSON_COMPARE_MAX_SIDE_CHARS)
+        : left,
+      rightJson: rightTruncated
+        ? right.slice(0, JSON_COMPARE_MAX_SIDE_CHARS)
+        : right,
+      leftTruncated,
+      rightTruncated,
+    };
   }
 
   // For open tabs: preserve body up to 5 MB so large JSON remains valid after restart
@@ -281,6 +329,14 @@ class StoreManager {
         sanitizedLoaded.collectionsUIState || defaultCollectionsUIState,
       jsonViewerUIState:
         sanitizedLoaded.jsonViewerUIState || defaultJsonViewerUIState,
+      jsonCompareUIState: {
+        ...defaultJsonCompareUIState,
+        ...(sanitizedLoaded.jsonCompareUIState || {}),
+        options: {
+          ...defaultJsonCompareUIState.options,
+          ...(sanitizedLoaded.jsonCompareUIState?.options || {}),
+        },
+      },
       notepad: sanitizedLoaded.notepad || defaultNotepadState,
       navOrder: this.resolveNavOrder(sanitizedLoaded.navOrder),
       mockServers: sanitizedLoaded.mockServers || defaultMockServersState,

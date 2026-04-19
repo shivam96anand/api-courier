@@ -1,4 +1,9 @@
-import { ApiRequest, Environment, Globals } from '../../../shared/types';
+import {
+  ApiRequest,
+  Environment,
+  Globals,
+  HttpMethod,
+} from '../../../shared/types';
 import { setupAutocomplete } from './variable-autocomplete';
 import { VariableContextHandler } from './variable-context-handler';
 import { FormUIHandler } from './form-ui-handler';
@@ -29,7 +34,9 @@ export class RequestFormHandler {
       this.uiHandler.updateMethodSelectColor(methodSelect);
 
       methodSelect.addEventListener('change', () => {
-        this.onRequestUpdate({ method: methodSelect.value as any });
+        this.onRequestUpdate({
+          method: methodSelect.value as HttpMethod,
+        });
         this.uiHandler.updateMethodSelectColor(methodSelect);
       });
     }

@@ -54,12 +54,15 @@ describe('response-persistence.ts', () => {
       const result = sanitizeResponseForPersistence(response);
       expect(result!.body).toBe(response.body);
       expect(result!.body.length).toBe(1000);
+      expect(result!.truncated).toBeUndefined();
     });
 
-    it('clamps body exceeding 5MB', () => {
+    it('silently strips body exceeding 5MB without setting truncated flag', () => {
       const response = makeResponse(6_000_000);
       const result = sanitizeResponseForPersistence(response);
-      expect(result!.body.length).toBe(5_000_000);
+      expect(result!.body).toBe('');
+      expect(result!.truncated).toBeUndefined();
+      expect(result!.truncatedSize).toBeUndefined();
     });
 
     it('handles empty body', () => {
@@ -85,7 +88,8 @@ describe('response-persistence.ts', () => {
         makeTab({ response: makeResponse(100) }),
       ];
       const result = sanitizeTabsForPersistence(tabs);
-      expect(result[0].response!.body.length).toBe(5_000_000);
+      expect(result[0].response!.body).toBe('');
+      expect(result[0].response!.truncated).toBeUndefined();
       expect(result[1].response!.body.length).toBe(100);
     });
 
@@ -101,8 +105,16 @@ describe('response-persistence.ts', () => {
   });
 
   describe('sanitizeHistoryForPersistence', () => {
-    it('strips response body from history items', () => {
+    it('preserves response body for typical sized history items', () => {
       const history = [makeHistoryItem({ response: makeResponse(5000) })];
+      const result = sanitizeHistoryForPersistence(history);
+      expect(result[0].response.body.length).toBe(5000);
+    });
+
+    it('strips response body when it exceeds the history cap', () => {
+      const history = [
+        makeHistoryItem({ response: makeResponse(1_000_001) }),
+      ];
       const result = sanitizeHistoryForPersistence(history);
       expect(result[0].response.body).toBe('');
     });

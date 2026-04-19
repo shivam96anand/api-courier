@@ -1,6 +1,6 @@
 {
   "name": "restbro",
-  "version": "1.0.15",
+  "version": "1.1.0",
   "description": "A modern API testing tool similar to Postman and Insomnia",
   "main": "dist/main/main/index.js",
   "scripts": {
@@ -76,6 +76,7 @@
     "electron-updater": "^6.8.3",
     "jks-js": "^1.1.6",
     "jsondiffpatch": "^0.5.0",
+    "marked": "^12.0.2",
     "monaco-editor": "^0.52.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -109,6 +110,62 @@
         "provider": "github",
         "owner": "shivam96anand",
         "repo": "restbro-app"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "txt",
+        "name": "Plain Text",
+        "description": "Plain text document",
+        "role": "Editor"
+      },
+      {
+        "ext": "md",
+        "name": "Markdown",
+        "description": "Markdown document",
+        "role": "Editor"
+      },
+      {
+        "ext": "markdown",
+        "name": "Markdown",
+        "description": "Markdown document",
+        "role": "Editor"
+      },
+      {
+        "ext": "json",
+        "name": "JSON",
+        "description": "JSON document",
+        "role": "Editor"
+      },
+      {
+        "ext": "log",
+        "name": "Log File",
+        "description": "Log file",
+        "role": "Editor"
+      },
+      {
+        "ext": "yaml",
+        "name": "YAML",
+        "description": "YAML document",
+        "role": "Editor"
+      },
+      {
+        "ext": "yml",
+        "name": "YAML",
+        "description": "YAML document",
+        "role": "Editor"
+      },
+      {
+        "ext": "xml",
+        "name": "XML",
+        "description": "XML document",
+        "role": "Editor"
+      },
+      {
+        "ext": "csv",
+        "name": "CSV",
+        "description": "Comma-separated values",
+        "role": "Editor"
       }
     ],
     "mac": {

@@ -59,6 +59,17 @@ export const IPC_CHANNELS = {
   NOTEPAD_OPEN_FILE: 'notepad:open-file',
   NOTEPAD_READ_FILE: 'notepad:read-file',
   NOTEPAD_REVEAL: 'notepad:reveal',
+  /** Open a specific path (used by OS file-association handler). */
+  NOTEPAD_OPEN_PATH: 'notepad:open-path',
+  /** Drain queued file paths that arrived before the renderer was ready. */
+  NOTEPAD_GET_PENDING_FILES: 'notepad:get-pending-files',
+  /** Main → renderer push: a file was opened by the OS via file association. */
+  NOTEPAD_FILE_OPENED: 'notepad:file-opened',
+  /** Main → renderer push: app is about to quit; check for unsaved changes. */
+  NOTEPAD_BEFORE_QUIT: 'notepad:before-quit',
+  /** Renderer → main reply: ok to quit (or cancel). */
+  NOTEPAD_QUIT_DECISION: 'notepad:quit-decision',
+  NOTEPAD_COPY_PATH: 'notepad:copy-path',
 
   // Mock Server channels
   MOCKSERVER_LIST: 'mockserver:list',
@@ -82,6 +93,14 @@ export const IPC_CHANNELS = {
   UPDATE_INSTALL: 'update:install',
   UPDATE_DOWNLOADED: 'update:downloaded',
   UPDATE_JUST_UPDATED: 'update:just-updated',
+
+  // Network speed test channels
+  /** Renderer → main: run a one-shot download/upload speed test. */
+  NETWORK_SPEED_TEST_RUN: 'network:speed-test-run',
+  /** Main → renderer push: live progress while test runs. */
+  NETWORK_SPEED_TEST_PROGRESS: 'network:speed-test-progress',
+  /** Renderer → main: cancel an in-flight test. */
+  NETWORK_SPEED_TEST_CANCEL: 'network:speed-test-cancel',
 } as const;
 
 export type IpcChannelKey = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

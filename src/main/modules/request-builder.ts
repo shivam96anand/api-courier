@@ -38,18 +38,20 @@ export class RequestBuilder {
   public static buildHeaders(request: ApiRequest): Record<string, string> {
     const cleanHeaders: Record<string, string> = {};
 
-    // Add user-specified headers, handling both formats
+    // Add user-specified headers, handling both formats.
+    // Empty values ARE allowed (some APIs require empty headers like
+    // `X-Trace-Hint:`). We only skip when the KEY is blank.
     if (request.headers) {
       if (Array.isArray(request.headers)) {
         request.headers.forEach(({ key, value, enabled }) => {
           if (enabled && key.trim()) {
-            cleanHeaders[key.trim()] = value.trim();
+            cleanHeaders[key.trim()] = (value ?? '').trim();
           }
         });
       } else {
         Object.entries(request.headers).forEach(([key, value]) => {
-          if (key.trim() && value.trim()) {
-            cleanHeaders[key.trim()] = value.trim();
+          if (key.trim()) {
+            cleanHeaders[key.trim()] = (value ?? '').toString().trim();
           }
         });
       }
@@ -93,6 +95,23 @@ export class RequestBuilder {
       const credentials = `${request.auth.config.username}:${request.auth.config.password}`;
       const encoded = Buffer.from(credentials, 'utf8').toString('base64');
       cleanHeaders['Authorization'] = `Basic ${encoded}`;
+    }
+
+    // Normalize SOAPAction header casing. Some intermediaries are picky and
+    // only honour the canonical "SOAPAction" capitalization. Users routinely
+    // type "soapaction" / "Soap-Action" / "SoapAction" — fold any variant
+    // back to the canonical form (only when the request is SOAP).
+    if (request.soap) {
+      const canonical = 'SOAPAction';
+      for (const key of Object.keys(cleanHeaders)) {
+        if (
+          key !== canonical &&
+          key.toLowerCase().replace(/-/g, '') === 'soapaction'
+        ) {
+          cleanHeaders[canonical] = cleanHeaders[key];
+          delete cleanHeaders[key];
+        }
+      }
     }
 
     return cleanHeaders;
@@ -273,13 +292,13 @@ export class RequestBuilder {
   ): Record<string, string> {
     const result = { ...headers };
 
-    // Only set Content-Type if not already specified by user
-    if (contentType && !result['Content-Type'] && !result['content-type']) {
+    // Only set Content-Type if not already specified by user (case-insensitive).
+    if (contentType && !this.hasHeader(result, 'Content-Type')) {
       result['Content-Type'] = contentType;
     }
 
-    // Set Content-Length if body exists
-    if (bodyData && !result['Content-Length'] && !result['content-length']) {
+    // Set Content-Length if body exists and not already specified by user.
+    if (bodyData && !this.hasHeader(result, 'Content-Length')) {
       result['Content-Length'] = Buffer.byteLength(bodyData).toString();
     }
 
@@ -342,7 +361,7 @@ export class RequestBuilder {
     });
   }
 
-  private static hasHeader(
+  public static hasHeader(
     headers: Record<string, string>,
     headerName: string
   ): boolean {

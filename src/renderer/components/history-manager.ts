@@ -40,6 +40,19 @@ export class HistoryManager {
         }
       }
     });
+
+    // Synchronous query: callers dispatch with `{ requestId, items: [] }`,
+    // we populate `items` in place. Used by the response panel "Compare with"
+    // dropdown to list previous responses for the current request.
+    document.addEventListener('request-previous-responses', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const requestId = customEvent.detail?.requestId as string | undefined;
+      const sink = customEvent.detail?.items as HistoryItem[] | undefined;
+      if (!requestId || !Array.isArray(sink)) return;
+      this.history
+        .filter((item) => item.request.id === requestId)
+        .forEach((item) => sink.push(item));
+    });
   }
 
   addToHistory(request: ApiRequest, response: ApiResponse): void {

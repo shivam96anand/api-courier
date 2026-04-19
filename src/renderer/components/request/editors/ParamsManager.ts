@@ -67,6 +67,7 @@ export class ParamsManager {
       });
 
       paramsEditor.addEventListener('input', () => {
+        this.ensureTrailingEmptyRow();
         this.updateParamsFromDOM();
       });
 
@@ -133,6 +134,29 @@ export class ParamsManager {
       this.globals,
       this.folderVars
     );
+  }
+
+  /**
+   * Postman-style affordance: as soon as the user starts typing in the last
+   * row, append a fresh empty row so they never have to click "Add Parameter".
+   * Runs on every input event but only mutates the DOM when needed.
+   */
+  private ensureTrailingEmptyRow(): void {
+    const paramsEditor = this.container.querySelector('#params-editor');
+    if (!paramsEditor) return;
+    const rows = paramsEditor.querySelectorAll('.kv-row');
+    if (rows.length === 0) return;
+    const lastRow = rows[rows.length - 1];
+    const keyInput = lastRow.querySelector('.key-input') as HTMLInputElement;
+    const valueInput = lastRow.querySelector(
+      '.value-input'
+    ) as HTMLInputElement;
+    const lastIsNonEmpty =
+      (keyInput?.value || '').trim() !== '' ||
+      (valueInput?.value || '').trim() !== '';
+    if (lastIsNonEmpty) {
+      this.addParamRow();
+    }
   }
 
   private updateParamsFromDOM(): void {

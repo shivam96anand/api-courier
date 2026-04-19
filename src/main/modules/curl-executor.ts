@@ -12,15 +12,55 @@ import {
 const activeRequests = new Map<string, http.ClientRequest>();
 
 /**
+ * Default User-Agent applied when the user hasn't provided one,
+ * mirroring what the system `curl` binary would send. Some APIs
+ * (e.g. GitHub) reject requests without a User-Agent, so matching
+ * terminal behavior here avoids spurious 403s.
+ */
+const DEFAULT_CURL_USER_AGENT = 'curl/8.4.0';
+
+/**
+ * Strip everything from the first unquoted shell pipeline / redirect /
+ * command separator onward. The in-app executor can only run the curl
+ * itself, not subsequent shell commands, but leaving those tokens in
+ * place caused them to leak into the parsed flags and confuse users.
+ */
+function stripShellPipeline(input: string): string {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    const prev = input[i - 1];
+    if (ch === "'" && !inDouble && prev !== '\\') inSingle = !inSingle;
+    else if (ch === '"' && !inSingle && prev !== '\\') inDouble = !inDouble;
+    else if (!inSingle && !inDouble) {
+      if (
+        ch === '|' ||
+        ch === ';' ||
+        ch === '>' ||
+        ch === '<' ||
+        (ch === '&' && input[i + 1] === '&')
+      ) {
+        return input.slice(0, i).trim();
+      }
+    }
+  }
+  return input;
+}
+
+/**
  * Parse a raw curl command string into structured components.
  * Handles single-quoted, double-quoted, and unquoted arguments.
  */
 export function parseCurlCommand(raw: string): CurlParsed {
-  // Normalize line continuations and whitespace
-  const cleaned = raw
-    .replace(/\\\s*\n/g, ' ') // join backslash-continued lines
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Normalize line continuations and whitespace, then drop any trailing
+  // shell pipeline so we only parse the curl invocation itself.
+  const cleaned = stripShellPipeline(
+    raw
+      .replace(/\\\s*\n/g, ' ') // join backslash-continued lines
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 
   const tokens = tokenize(cleaned);
 
@@ -202,12 +242,26 @@ export async function executeCurl(
       redirectCount: number
     ): Promise<CurlExecuteResponse> => {
       return new Promise((resolve) => {
+        // Apply curl's implicit defaults so behavior matches the
+        // terminal `curl` binary. Only fill in headers the user hasn't
+        // explicitly provided (case-insensitive check).
+        const requestHeaders: Record<string, string> = { ...parsed.headers };
+        const lowerKeys = new Set(
+          Object.keys(requestHeaders).map((k) => k.toLowerCase())
+        );
+        if (!lowerKeys.has('user-agent')) {
+          requestHeaders['User-Agent'] = DEFAULT_CURL_USER_AGENT;
+        }
+        if (!lowerKeys.has('accept')) {
+          requestHeaders['Accept'] = '*/*';
+        }
+
         const options: http.RequestOptions = {
           hostname: targetUrl.hostname,
           port: targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
           path: targetUrl.pathname + targetUrl.search,
           method: parsed.method,
-          headers: { ...parsed.headers },
+          headers: requestHeaders,
           ...(insecure && targetUrl.protocol === 'https:'
             ? { rejectUnauthorized: false }
             : {}),

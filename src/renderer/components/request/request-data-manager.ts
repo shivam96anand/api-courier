@@ -58,17 +58,55 @@ export class RequestDataManager {
       });
     }
 
+    // Global keyboard shortcuts for the API tab:
+    //   Cmd/Ctrl + Enter  -> Send the active request
+    //   Escape            -> Cancel the active in-flight request
+    // Both only fire when the API tab is active so they don't fight Notepad
+    // or JSON Compare shortcuts.
+    document.addEventListener('keydown', (e) => {
+      const apiTab = document.getElementById('api-tab');
+      if (!apiTab?.classList.contains('active')) return;
+
+      const isSendCombo =
+        (e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.shiftKey;
+
+      if (isSendCombo) {
+        e.preventDefault();
+        void this.sendRequest();
+        return;
+      }
+
+      if (e.key === 'Escape' && this.currentRequest) {
+        const id = this.currentRequest.id;
+        if (this.sendingRequestIds.has(id)) {
+          e.preventDefault();
+          void this.cancelRequest();
+        }
+      }
+    });
+
     // Ensure buttons start in idle state
     this.toggleRequestButtons(false);
   }
 
   setupSwitchToSoapButton(): void {
-    const switchBtn = document.getElementById('switch-to-soap');
-    if (!switchBtn) return;
+    // Backed by a segmented [REST | SOAP] control. Clicking either segment
+    // dispatches the legacy `request-mode-toggle-clicked` event when the
+    // OTHER mode is selected, so the existing toggle handler in
+    // RequestManager can stay as-is. The visual active state is updated by
+    // RequestManager.applyModeUI().
+    const restBtn = document.getElementById('mode-rest');
+    const soapBtn = document.getElementById('mode-soap');
 
-    switchBtn.addEventListener('click', () => {
-      document.dispatchEvent(new CustomEvent('request-mode-toggle-clicked'));
-    });
+    const wire = (el: HTMLElement | null, targetMode: 'rest' | 'soap') => {
+      if (!el) return;
+      el.addEventListener('click', () => {
+        if (this.requestMode === targetMode) return;
+        document.dispatchEvent(new CustomEvent('request-mode-toggle-clicked'));
+      });
+    };
+    wire(restBtn, 'rest');
+    wire(soapBtn, 'soap');
   }
 
   setupCurlTab(): void {
@@ -123,11 +161,7 @@ export class RequestDataManager {
       });
     }
 
-    this.scheduleCurlPreviewUpdate();
-  }
-
-  setupCodeTab(): void {
-    // Merged into setupCurlTab — no-op for backward compatibility
+    this.scheduleUnifiedPreviewUpdate();
   }
 
   setupCancelButton(): void {
@@ -167,7 +201,7 @@ export class RequestDataManager {
 
   setCurrentRequest(request: ApiRequest | null): void {
     this.currentRequest = request;
-    this.scheduleCurlPreviewUpdate();
+    this.scheduleUnifiedPreviewUpdate();
   }
 
   setRequestMode(mode: RequestMode): void {
@@ -203,14 +237,11 @@ export class RequestDataManager {
     document.dispatchEvent(event);
   }
 
-  private scheduleCurlPreviewUpdate(): void {
-    this.scheduleUnifiedPreviewUpdate();
-  }
-
-  private scheduleCodePreviewUpdate(): void {
-    this.scheduleUnifiedPreviewUpdate();
-  }
-
+  /**
+   * Schedule a debounced re-render of the cURL / code preview. Single entry
+   * point; the previous `scheduleCurlPreviewUpdate` and
+   * `scheduleCodePreviewUpdate` aliases were dead code from an earlier split.
+   */
   private scheduleUnifiedPreviewUpdate(): void {
     if (this.curlPreviewUpdateTimeout) {
       window.clearTimeout(this.curlPreviewUpdateTimeout);

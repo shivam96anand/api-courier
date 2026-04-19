@@ -69,6 +69,20 @@ export function setupEventListeners(deps: EventListenersDeps): void {
     saveState();
   });
 
+  // History modal: clicking a row opens a tab with the historical
+  // request + its response so the user can re-send / inspect / clone it.
+  document.addEventListener('open-request-from-history', (e: Event) => {
+    const customEvent = e as CustomEvent;
+    const request = customEvent.detail?.request;
+    const response = customEvent.detail?.response;
+    if (!request) return;
+    if (response) {
+      tabsManager.openRequestInTabWithResponse(request, response);
+    } else {
+      tabsManager.openRequestInTab(request);
+    }
+  });
+
   // Listen for history changes to trigger state saves
   document.addEventListener('history-changed', () => {
     saveState();

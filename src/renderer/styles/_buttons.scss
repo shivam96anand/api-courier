@@ -67,6 +67,72 @@
   &:hover {
     background-color: var(--primary-dark);
   }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+// Cancel button shown next to Send while a request is in flight.
+// Kept hidden via inline `display:none` until toggled by request-data-manager.
+.cancel-btn {
+  background: transparent;
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+  border-radius: 4px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: rgba(var(--error-color-rgb), 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// REST | SOAP segmented toggle. Both segments are always visible; the active
+// one is filled with the primary color. Replaces the old "Switch to SOAP"
+// button which forced users to read the label to know what mode they were in.
+.mode-segment {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.mode-segment__btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  transition: all 0.15s ease;
+
+  & + & {
+    border-left: 1px solid var(--border-color);
+  }
+
+  &:hover:not(.active) {
+    color: var(--text-primary);
+    background: rgba(var(--primary-color-rgb), 0.08);
+  }
+
+  &.active {
+    background: var(--primary-color);
+    color: #fff;
+  }
 }
 
 .copy-curl-btn {
@@ -258,7 +324,7 @@
 // Response action buttons - Modern pill style
 .response-actions {
   display: flex;
-  gap: 3px;
+  gap: 8px;
   padding: 6px 10px;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
@@ -315,6 +381,9 @@
     }
 
     &.ask-ai-btn {
+      // No margin-left: auto — Ask AI must wrap with the rest of the buttons
+      // so it never appears detached when the response panel is resized.
+      // It still stands out via the gradient background below.
       background: linear-gradient(
         135deg,
         var(--primary-color) 0%,

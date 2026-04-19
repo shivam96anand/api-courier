@@ -2,7 +2,17 @@
  * Core type definitions for JSON Compare feature
  */
 
-export type DiffChangeType = 'added' | 'removed' | 'changed';
+import type {
+  JsonCompareUIState,
+  JsonCompareOptions,
+  JsonCompareChangeType,
+} from '../../../shared/types';
+
+export type DiffChangeType = JsonCompareChangeType;
+
+/** @deprecated kept for backward compat with existing tests; prefer JsonCompareUIState */
+export type CompareState = JsonCompareUIState;
+export type CompareOptions = JsonCompareOptions;
 
 export interface DiffRow {
   path: string;
@@ -34,21 +44,19 @@ export interface DiffResult {
   stats: DiffStats;
 }
 
-export interface CompareState {
-  leftJson: string;
-  rightJson: string;
-  tableFilter: string;
-  selectedTypes: DiffChangeType[];
-}
-
 export interface WorkerRequest {
   type: 'diff';
+  /** Monotonically increasing id used to discard stale responses. */
+  requestId: number;
   leftJson: string;
   rightJson: string;
+  options?: JsonCompareOptions;
 }
 
 export interface WorkerResponse {
   type: 'diff-result' | 'error';
+  /** Echoes the requestId from the matching request. */
+  requestId: number;
   result?: DiffResult;
   error?: string;
 }

@@ -5,6 +5,7 @@ import {
   addVariableHighlighting,
 } from './variable-helper';
 import { setupAutocomplete } from './variable-autocomplete';
+import { resolveTemplate } from './request-variable-resolver';
 
 /**
  * Handles variable context management, highlighting, and tooltips for request inputs.
@@ -252,15 +253,44 @@ export class VariableContextHandler {
   }
 
   /**
-   * Setup URL input listener for variable highlighting
+   * Setup URL input listener for variable highlighting + resolved-URL preview.
+   * The native `title` attribute shows the resolved URL on hover so users can
+   * verify what `{{base}}/foo` actually expands to without sending the request.
+   * This is one of the most-loved Postman features.
    */
   public setupUrlInputListener(urlInput: HTMLInputElement): void {
     if (!urlInput.dataset.variableHighlightListenerAttached) {
       urlInput.addEventListener('input', () => {
         this.updateVariableIndicator(urlInput);
         this.refreshInputHighlight(urlInput);
+        this.updateResolvedUrlTitle(urlInput);
       });
       urlInput.dataset.variableHighlightListenerAttached = 'true';
+      // Initial paint (in case URL was loaded before the listener attached).
+      this.updateResolvedUrlTitle(urlInput);
+    }
+  }
+
+  private updateResolvedUrlTitle(urlInput: HTMLInputElement): void {
+    const raw = urlInput.value;
+    if (!raw || !raw.includes('{{')) {
+      urlInput.removeAttribute('title');
+      return;
+    }
+    try {
+      const resolved = resolveTemplate(raw, {
+        requestVars: {},
+        folderVars: this.folderVars || {},
+        envVars: this.activeEnvironment?.variables || {},
+        globalVars: this.globals?.variables || {},
+      });
+      if (resolved !== raw) {
+        urlInput.title = `Resolved: ${resolved}`;
+      } else {
+        urlInput.removeAttribute('title');
+      }
+    } catch {
+      // ignore — title is purely a UX nicety
     }
   }
 }

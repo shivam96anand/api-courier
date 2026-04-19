@@ -78,6 +78,13 @@ export interface ApiRequest {
   };
   soap?: SoapRequestConfig;
   soapCerts?: SoapCerts;
+  /**
+   * When true, this request will skip TLS certificate verification (sets
+   * `rejectUnauthorized: false` on the https.Agent). Per-request, opt-in,
+   * stored next to the request itself so users can flag a single sandbox
+   * endpoint without globally weakening security. **Use with care.**
+   */
+  allowInsecureTls?: boolean;
   variables?: Record<string, string>; // request-local variables
   collectionId?: string; // track which collection/folder this request belongs to
 }
@@ -90,6 +97,14 @@ export interface ApiResponse {
   time: number;
   size: number;
   timestamp: number; // Unix timestamp in milliseconds when response was received
+  /**
+   * Set to true when the response body was cut off because it exceeded the
+   * configured size limit. The renderer should surface a non-destructive
+   * banner instead of mutating `body` (mutation would corrupt JSON/XML).
+   */
+  truncated?: boolean;
+  /** Original (uncompressed) body size when `truncated` is true. */
+  truncatedSize?: number;
 }
 
 export interface RequestTab {
@@ -148,20 +163,82 @@ export interface JsonViewerUIState {
   requestAccessOrder: string[]; // LRU: most recent access at the end
 }
 
+export type JsonCompareChangeType = 'added' | 'removed' | 'changed';
+
+/**
+ * UI state and options for the JSON Compare tab.
+ * Persisted via StoreManager (NEVER localStorage).
+ */
+export interface JsonCompareUIState {
+  /** Left JSON text. Truncated if larger than the cap (see store-manager). */
+  leftJson: string;
+  /** Right JSON text. Truncated if larger than the cap. */
+  rightJson: string;
+  /** True when leftJson was truncated on persist. */
+  leftTruncated?: boolean;
+  /** True when rightJson was truncated on persist. */
+  rightTruncated?: boolean;
+  /** Path-keyword filter for the diff table. */
+  tableFilter: string;
+  /** Free-text value search (matches inside left/right values). */
+  valueFilter?: string;
+  /** Active change-type filters. */
+  selectedTypes: JsonCompareChangeType[];
+  /** User-friendly side labels (defaults: "Left" / "Right"). */
+  leftLabel?: string;
+  rightLabel?: string;
+  /** Comparison options. */
+  options?: JsonCompareOptions;
+}
+
+export interface JsonCompareOptions {
+  /** Sort object keys recursively before diffing (canonicalize). */
+  sortKeys?: boolean;
+  /** Ignore array element order (uses jsondiffpatch detectMove). */
+  ignoreArrayOrder?: boolean;
+  /** Compare strings case-insensitively. */
+  caseInsensitive?: boolean;
+  /** Ignore whitespace differences inside string values. */
+  ignoreStringWhitespace?: boolean;
+  /** Glob-ish patterns of JSON Pointer paths to ignore (e.g. "/*\/createdAt"). */
+  ignorePaths?: string[];
+}
+
 export interface NotepadTab {
   id: string;
   title: string;
   content: string;
+  /** The content as it exists on disk (or empty for new tabs). Used to compute dirty. */
+  savedContent?: string;
   filePath?: string;
   isDirty: boolean;
+  /** Monaco language id (e.g. 'plaintext', 'json', 'markdown'). Auto-detected on open. */
+  language?: string;
+  /** Serialized Monaco editor view state (cursor + scroll + folds). */
+  viewState?: unknown;
+  /** Whether the markdown preview pane is visible for this tab. */
+  previewMode?: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface NotepadSettings {
+  fontSize: number;
+  wordWrap: 'on' | 'off';
+  tabSize: number;
+  formatOnSave: boolean;
+  trimTrailingWhitespace: boolean;
+  insertFinalNewline: boolean;
+  /** Show modal asking to save unsaved tabs when the app is closing. */
+  promptOnExit: boolean;
 }
 
 export interface NotepadState {
   tabs: NotepadTab[];
   activeTabId?: string;
   untitledCounter: number;
+  /** User preferences. Persisted across sessions. */
+  settings?: NotepadSettings;
 }
 
 export interface RequestSettings {
@@ -186,6 +263,7 @@ export interface AppState {
   globals: Globals;
   collectionsUIState?: CollectionsUIState;
   jsonViewerUIState?: JsonViewerUIState;
+  jsonCompareUIState?: JsonCompareUIState;
   notepad?: NotepadState;
   mockServers?: MockServersState;
   hasCompletedThemeOnboarding?: boolean;

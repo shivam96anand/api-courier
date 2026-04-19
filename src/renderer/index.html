@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:*;"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'self'; form-action 'none';"
     />
     <title>RestBro</title>
     <style>
@@ -47,10 +47,20 @@
           <div class="app-title">RestBro</div>
         </div>
         <div class="header-right">
-          <button id="backup-button" class="backup-button" title="Time Machine">
+          <button
+            id="backup-button"
+            class="backup-button"
+            title="Time Machine"
+            aria-label="Open Time Machine (backups)"
+          >
             Time Machine
           </button>
-          <button id="theme-button" class="theme-button" title="Change Theme">
+          <button
+            id="theme-button"
+            class="theme-button"
+            title="Change Theme"
+            aria-label="Change theme"
+          >
             Theme
           </button>
         </div>
@@ -202,7 +212,15 @@
                         placeholder="Enter request URL"
                       />
                     </div>
-                    <button id="send-request" class="send-btn">Send</button>
+                    <button id="send-request" class="send-btn" title="Send request (⌘↵ / Ctrl+↵)">Send</button>
+                    <button
+                      id="cancel-request"
+                      class="cancel-btn"
+                      style="display: none"
+                      title="Cancel request (Esc)"
+                    >
+                      Cancel
+                    </button>
                   </div>
 
                   <div class="request-details">
@@ -219,13 +237,33 @@
                         <button class="tab" data-section="curl">CURL</button>
                       </div>
                       <div class="tabs-right">
-                        <button
-                          id="switch-to-soap"
-                          class="copy-curl-btn"
-                          title="Switch to SOAP"
+                        <div
+                          class="mode-segment"
+                          role="tablist"
+                          aria-label="Request mode"
+                          title="Switch between REST and SOAP"
                         >
-                          Switch to SOAP
-                        </button>
+                          <button
+                            id="mode-rest"
+                            class="mode-segment__btn active"
+                            data-mode="rest"
+                            role="tab"
+                            aria-selected="true"
+                            type="button"
+                          >
+                            REST
+                          </button>
+                          <button
+                            id="mode-soap"
+                            class="mode-segment__btn"
+                            data-mode="soap"
+                            role="tab"
+                            aria-selected="false"
+                            type="button"
+                          >
+                            SOAP
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -408,8 +446,16 @@
                     ></span>
                   </div>
                   <div id="response-body" class="response-section active">
-                    <div class="response-placeholder">
-                      Send a request to see the response here
+                    <div class="response-placeholder response-placeholder--hero">
+                      <div class="response-placeholder__title">
+                        Send a request to see the response
+                      </div>
+                      <div class="response-placeholder__hint">
+                        Press <kbd>⌘</kbd>+<kbd>↵</kbd>
+                        <span class="kbd-sep">/</span>
+                        <kbd>Ctrl</kbd>+<kbd>↵</kbd> to send,
+                        <kbd>Esc</kbd> to cancel.
+                      </div>
                     </div>
                   </div>
                   <div id="response-headers" class="response-section">

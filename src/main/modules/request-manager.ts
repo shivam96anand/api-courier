@@ -12,7 +12,62 @@ import * as zlib from 'zlib';
 import { URL } from 'url';
 import { RequestBuilder } from './request-builder';
 import { RequestErrorFormatter } from './request-error-formatter';
-import { parseKeystoreJks, parseTruststoreJks } from './jks-parser';
+import { getHttpsAgentForRequest } from './https-agent-cache';
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_MAX_RESPONSE_BYTES,
+} from '../../shared/constants';
+
+/**
+ * Decide the default scheme for a protocol-less URL.
+ * Returns 'http' for loopback / private-LAN / `.local` hosts and any host
+ * that explicitly carries a non-443 port; 'https' otherwise.
+ */
+function guessDefaultScheme(rawUrl: string): 'http' | 'https' {
+  // Strip path/query/fragment — we only care about the authority component.
+  const authority = rawUrl.split(/[/?#]/)[0] || '';
+  if (!authority) return 'https';
+
+  // Split off port. Bracketed IPv6: [::1]:8080
+  let host = authority;
+  const ipv6Match = authority.match(/^\[([^\]]+)\](?::(\d+))?$/);
+  if (ipv6Match) {
+    host = ipv6Match[1];
+  } else {
+    const colonIdx = authority.lastIndexOf(':');
+    if (colonIdx > -1 && /^\d+$/.test(authority.slice(colonIdx + 1))) {
+      host = authority.slice(0, colonIdx);
+    }
+  }
+
+  const lowerHost = host.toLowerCase();
+
+  // Loopback
+  if (
+    lowerHost === 'localhost' ||
+    lowerHost === '0.0.0.0' ||
+    lowerHost === '::1' ||
+    lowerHost.endsWith('.localhost')
+  ) {
+    return 'http';
+  }
+  // mDNS / .local
+  if (lowerHost.endsWith('.local')) return 'http';
+
+  // IPv4 private ranges
+  const ipv4 = lowerHost.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const a = Number(ipv4[1]);
+    const b = Number(ipv4[2]);
+    if (a === 127) return 'http'; // loopback
+    if (a === 10) return 'http'; // 10.0.0.0/8
+    if (a === 192 && b === 168) return 'http'; // 192.168.0.0/16
+    if (a === 172 && b >= 16 && b <= 31) return 'http'; // 172.16.0.0/12
+    if (a === 169 && b === 254) return 'http'; // link-local
+  }
+
+  return 'https';
+}
 
 class RequestManager {
   private activeRequests = new Map<
@@ -65,14 +120,40 @@ class RequestManager {
     // Handle OAuth token refresh if needed
     const updatedRequest = await this.handleOAuthRefresh(requestWithResolved);
 
-    // Check for unresolved variables in URL before attempting request
+    // Check for unresolved variables across URL, headers, body, and auth
+    // before attempting the request. Previously only the URL was scanned, so
+    // a stray {{token}} in an Authorization header silently sent literally.
     const opts = {
       requestVars: request.variables || {},
       folderVars: folderVars || {},
       envVars: activeEnv?.variables || {},
       globalVars: state.globals?.variables || {},
     };
-    const unresolvedVars = scanUnresolvedVars(updatedRequest.url, opts);
+    const scanTargets: string[] = [updatedRequest.url];
+    if (Array.isArray(updatedRequest.headers)) {
+      updatedRequest.headers.forEach((h) => {
+        if (h.enabled) scanTargets.push(h.key, h.value);
+      });
+    } else if (updatedRequest.headers) {
+      Object.entries(updatedRequest.headers).forEach(([k, v]) => {
+        scanTargets.push(k, String(v));
+      });
+    }
+    if (updatedRequest.body?.content) {
+      scanTargets.push(updatedRequest.body.content);
+    }
+    if (updatedRequest.auth?.config) {
+      Object.values(updatedRequest.auth.config).forEach((v) => {
+        if (typeof v === 'string') scanTargets.push(v);
+      });
+    }
+
+    const unresolvedVarsSet = new Set<string>();
+    for (const target of scanTargets) {
+      if (typeof target !== 'string' || !target.includes('{{')) continue;
+      scanUnresolvedVars(target, opts).forEach((v) => unresolvedVarsSet.add(v));
+    }
+    const unresolvedVars = Array.from(unresolvedVarsSet);
     if (unresolvedVars.length > 0) {
       const endTime = Date.now();
       const errorBody = RequestErrorFormatter.formatUnresolvedVariablesError(
@@ -117,11 +198,20 @@ class RequestManager {
           updatedRequest.params,
           authQueryParams
         );
-        // Build URL with query parameters
+        // Default protocol for protocol-less URLs.
+        // - Loopback / private hosts (`localhost`, `127.x`, `0.0.0.0`,
+        //   `::1`, `10.x`, `192.168.x`, `172.16-31.x`, plain `*.local`,
+        //   anything with an explicit non-443 port) → http://
+        //   This matches Insomnia/Postman behavior and avoids the WRONG_VERSION_NUMBER
+        //   TLS handshake error users see when they type `localhost:8080`.
+        // - Everything else (public hostnames) → https://, since silently
+        //   sending plaintext to public endpoints is a bad default for a
+        //   2026-era enterprise tool. Users who need plaintext for a public
+        //   host can still type `http://` explicitly.
         const rawUrl = updatedRequest.url.trim();
         const normalizedUrl = /^https?:\/\//i.test(rawUrl)
           ? rawUrl
-          : `http://${rawUrl}`;
+          : `${guessDefaultScheme(rawUrl)}://${rawUrl}`;
         const urlString = RequestBuilder.buildUrlWithParams(
           normalizedUrl,
           mergedParams
@@ -129,11 +219,12 @@ class RequestManager {
 
         // Get request settings
         const settings = state.requestSettings;
-        const timeoutMs = settings?.defaultTimeoutMs ?? 60000;
+        const timeoutMs =
+          settings?.defaultTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
         const followRedirects = settings?.followRedirects ?? true;
         const maxRedirects = settings?.maxRedirects ?? 10;
         const maxResponseSize =
-          settings?.maxResponseSizeBytes ?? 50 * 1024 * 1024;
+          settings?.maxResponseSizeBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
         const proxyEnabled = settings?.proxyEnabled ?? false;
         const proxyUrl = settings?.proxyUrl?.trim() || '';
 
@@ -159,11 +250,11 @@ class RequestManager {
             contentType
           );
 
-          // Add Accept-Encoding if not specified by user
-          if (
-            !cleanHeaders['Accept-Encoding'] &&
-            !cleanHeaders['accept-encoding']
-          ) {
+          // Add Accept-Encoding if not specified by user (case-insensitive).
+          const hasAcceptEncoding = Object.keys(cleanHeaders).some(
+            (k) => k.toLowerCase() === 'accept-encoding'
+          );
+          if (!hasAcceptEncoding) {
             cleanHeaders['Accept-Encoding'] = 'gzip, deflate, br';
           }
 
@@ -175,43 +266,11 @@ class RequestManager {
             headers: cleanHeaders,
           };
 
-          // Build mTLS agent for SOAP requests with cert config
-          if (isHttps && updatedRequest.soapCerts) {
-            const sc = updatedRequest.soapCerts;
-            const agentOptions: https.AgentOptions = {};
-
-            if (!sc.mode || sc.mode === 'jks') {
-              // JKS mode — parse on the fly using jks-js
-              if (sc.keystoreJks && sc.keystorePassword) {
-                const ks = parseKeystoreJks(
-                  sc.keystoreJks,
-                  sc.keystorePassword
-                );
-                if (ks.cert) agentOptions.cert = ks.cert;
-                if (ks.key) agentOptions.key = ks.key;
-              }
-              if (sc.truststoreJks && sc.truststorePassword) {
-                const ts = parseTruststoreJks(
-                  sc.truststoreJks,
-                  sc.truststorePassword
-                );
-                if (ts.ca) agentOptions.ca = ts.ca;
-              }
-            } else {
-              // PEM mode
-              if (sc.clientCert?.content)
-                agentOptions.cert = sc.clientCert.content;
-              if (sc.clientKey?.content)
-                agentOptions.key = sc.clientKey.content;
-              if (sc.caCert?.content) agentOptions.ca = sc.caCert.content;
-              if (sc.pfx?.content)
-                agentOptions.pfx = Buffer.from(sc.pfx.content, 'base64');
-              if (sc.passphrase) agentOptions.passphrase = sc.passphrase;
-            }
-
-            if (Object.keys(agentOptions).length > 0) {
-              options.agent = new https.Agent(agentOptions);
-            }
+          // Build mTLS / insecure-TLS agent (cached by cert fingerprint so
+          // repeat calls to the same host reuse the keep-alive connection).
+          if (isHttps) {
+            const agent = getHttpsAgentForRequest(updatedRequest);
+            if (agent) options.agent = agent;
           }
 
           // Apply HTTP proxy for non-HTTPS (simple proxy) targets
@@ -221,8 +280,21 @@ class RequestManager {
               options.hostname = proxyParsed.hostname;
               options.port = parseInt(proxyParsed.port || '80', 10);
               options.path = targetUrl; // full URL as path for proxy
-            } catch {
-              // ignore invalid proxy URL
+            } catch (err) {
+              // Don't silently fall through to direct connection — the user
+              // explicitly asked for a proxy and a silent fallback would
+              // leak the request around their network controls.
+              console.warn(
+                '[request] invalid proxy URL, aborting request:',
+                proxyUrl
+              );
+              safeReject(
+                new Error(
+                  `Invalid proxy URL configured in settings: "${proxyUrl}". ` +
+                    `(${(err as Error).message})`
+                )
+              );
+              return;
             }
           }
 
@@ -248,8 +320,17 @@ class RequestManager {
                 executeRequest
               );
               return;
-            } catch {
-              // fall through to direct connection
+            } catch (err) {
+              console.warn(
+                '[request] failed to set up HTTPS-over-proxy tunnel:',
+                proxyUrl
+              );
+              safeReject(
+                new Error(
+                  `Failed to set up HTTPS proxy tunnel for "${proxyUrl}": ${(err as Error).message}`
+                )
+              );
+              return;
             }
           }
 
@@ -292,12 +373,12 @@ class RequestManager {
                 targetUrl
               ).toString();
 
-              // For 303, switch to GET and drop body
+              // For 303, switch to GET and drop body. We mutate the LOCAL
+              // `updatedRequest` (already a clone from the start of
+              // sendRequest); the caller's ApiRequest is untouched.
               if (statusCode === 303) {
                 updatedRequest.method = 'GET';
-                if (updatedRequest.body) {
-                  updatedRequest.body = { type: 'none', content: '' };
-                }
+                updatedRequest.body = { type: 'none', content: '' };
               }
 
               // Consume current response and follow redirect
@@ -324,10 +405,9 @@ class RequestManager {
 
           this.activeRequests.set(requestId, { req, reject: safeReject });
 
-          // Write body data if present (skip for redirected GET)
-          if (bodyData && updatedRequest.method !== 'GET') {
-            req.write(bodyData);
-          } else if (bodyData) {
+          // Write body data if present. Redirected GETs already have body
+          // cleared in the 303 branch above.
+          if (bodyData) {
             req.write(bodyData);
           }
 
@@ -353,9 +433,14 @@ class RequestManager {
       return false;
     }
 
-    // Remove from active requests first to prevent double-settle
-    this.activeRequests.delete(requestId);
-    active.req.destroy(new Error('Request cancelled by user'));
+    // Reject the in-flight Promise FIRST so the imminent `error` event
+    // triggered by `req.destroy()` is short-circuited by the `settled` flag
+    // inside safeResolve/safeReject. Without this, cancellation surfaces as
+    // a fake "Request Failed" response in the UI instead of a clean
+    // request-cancelled event. The renderer's catch block keys off the
+    // string "cancel" in the error message, so keep that wording stable.
+    active.reject(new Error('Request cancelled by user'));
+    active.req.destroy();
     return true;
   }
 
@@ -471,7 +556,7 @@ class RequestManager {
     res: http.IncomingMessage,
     startTime: number,
     resolve: (value: ApiResponse) => void,
-    maxResponseSize: number = 50 * 1024 * 1024
+    maxResponseSize: number = DEFAULT_MAX_RESPONSE_BYTES
   ): void {
     const chunks: Buffer[] = [];
     const rawChunks: Buffer[] = [];
@@ -534,10 +619,15 @@ class RequestManager {
           status: res.statusCode || 0,
           statusText: res.statusMessage || '',
           headers: responseHeaders,
-          body: Buffer.concat(chunks).toString() + '\n\n... [TRUNCATED] ...',
+          // IMPORTANT: do NOT append a marker string into `body` — that
+          // corrupts JSON/XML/binary payloads. Use the `truncated` flag and
+          // let the UI render a banner above the partial body instead.
+          body: Buffer.concat(chunks).toString(),
           time: endTime - startTime,
           size: totalDecompressedSize,
           timestamp: endTime,
+          truncated: true,
+          truncatedSize: totalDecompressedSize,
         });
         return;
       }

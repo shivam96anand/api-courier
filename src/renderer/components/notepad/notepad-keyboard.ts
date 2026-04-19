@@ -1,5 +1,19 @@
 /**
- * Notepad keyboard shortcuts handler
+ * Notepad keyboard shortcuts. The handler short-circuits when the notepad tab
+ * is not active, so shortcuts in other tabs are unaffected.
+ *
+ * Shortcuts (Cmd on macOS, Ctrl elsewhere):
+ *   Cmd/Ctrl + S          Save
+ *   Cmd/Ctrl + Shift + S  Save As
+ *   Cmd/Ctrl + O          Open file
+ *   Cmd/Ctrl + N or T     New tab
+ *   Cmd/Ctrl + W          Close active tab
+ *   Cmd/Ctrl + F          Find
+ *   Cmd/Ctrl + Alt/Opt + F (mac) / Cmd/Ctrl + H  Find & Replace
+ *   Cmd/Ctrl + L          Go to line
+ *   Cmd/Ctrl + P          Quick tab switcher (planned, no-op if unhandled)
+ *   Ctrl + Tab            Next tab
+ *   Ctrl + Shift + Tab    Previous tab
  */
 import { isNotepadActive } from './notepad-utils';
 
@@ -10,18 +24,21 @@ export interface KeyboardHandlerCallbacks {
   onCloseActiveTab: () => void;
   onNextTab: () => void;
   onPrevTab: () => void;
+  onFind: () => void;
+  onReplace: () => void;
+  onGoToLine: () => void;
 }
 
-/**
- * Create a keyboard event handler for notepad shortcuts
- */
+export type KeyboardHandler = (event: KeyboardEvent) => void;
+
 export function createKeyboardHandler(
   isMac: boolean,
   callbacks: KeyboardHandlerCallbacks
-): (event: KeyboardEvent) => void {
+): KeyboardHandler {
   return (event: KeyboardEvent) => {
     if (!isNotepadActive()) return;
     const key = event.key.toLowerCase();
+
     if (key === 'tab' && event.ctrlKey) {
       event.preventDefault();
       if (event.shiftKey) {
@@ -47,6 +64,18 @@ export function createKeyboardHandler(
     } else if (key === 'w') {
       event.preventDefault();
       callbacks.onCloseActiveTab();
+    } else if (key === 'f' && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      callbacks.onFind();
+    } else if (
+      key === 'h' ||
+      (key === 'f' && (event.altKey || event.shiftKey))
+    ) {
+      event.preventDefault();
+      callbacks.onReplace();
+    } else if (key === 'l' || key === 'g') {
+      event.preventDefault();
+      callbacks.onGoToLine();
     }
   };
 }
@@ -60,11 +89,9 @@ export interface ContextMenuCallbacks {
   onCloseOthers: (tabId: string) => void;
   onCloseAll: () => void;
   onReveal: (tabId: string) => void;
+  onCopyPath: (tabId: string) => void;
 }
 
-/**
- * Handle context menu action
- */
 export function handleContextMenuAction(
   action: string,
   tabId: string | undefined,
@@ -86,5 +113,7 @@ export function handleContextMenuAction(
     callbacks.onCloseAll();
   } else if (action === 'reveal' && tabId) {
     callbacks.onReveal(tabId);
+  } else if (action === 'copyPath' && tabId) {
+    callbacks.onCopyPath(tabId);
   }
 }

@@ -1,0 +1,280 @@
+// Speed Test header button + floating popup.
+
+.speed-test-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  transition: all 0.15s ease;
+  height: 30px;
+
+  &__icon {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover {
+    border-color: rgba(var(--primary-color-rgb), 0.5);
+    background: rgba(var(--primary-color-rgb), 0.12);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.is-running {
+    border-color: rgba(var(--primary-color-rgb), 0.6);
+    background: rgba(var(--primary-color-rgb), 0.18);
+
+    .speed-test-button__icon {
+      animation: speed-test-spin 1.6s linear infinite;
+    }
+  }
+}
+
+@keyframes speed-test-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes speed-test-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes speed-test-popup-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+.speed-test-popup {
+  position: fixed;
+  z-index: 9050;
+  background: linear-gradient(
+    180deg,
+    var(--bg-primary) 0%,
+    var(--bg-secondary) 100%
+  );
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow:
+    0 20px 56px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(var(--primary-color-rgb), 0.08);
+  overflow: hidden;
+  animation: speed-test-popup-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+
+  &--leaving {
+    animation: speed-test-popup-out 140ms ease-in forwards;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  &__close {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(var(--primary-color-rgb), 0.15);
+      border-color: rgba(var(--primary-color-rgb), 0.3);
+    }
+  }
+
+  &__body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__status {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+    padding-top: 4px;
+    transition: color 0.2s ease;
+
+    &[data-kind='ok'] {
+      color: #22c55e;
+      font-weight: 600;
+    }
+    &[data-kind='error'] {
+      color: #ef4444;
+      font-weight: 600;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+  }
+
+  &__retry {
+    background: rgba(var(--primary-color-rgb), 0.12);
+    color: var(--primary-color);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.35);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: rgba(var(--primary-color-rgb), 0.2);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.speed-test-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &.is-active {
+    border-color: rgba(var(--primary-color-rgb), 0.55);
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.12);
+  }
+
+  &.is-done {
+    border-color: rgba(34, 197, 94, 0.4);
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  &__icon {
+    display: inline-flex;
+    color: var(--primary-color);
+  }
+
+  &__label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  &__value {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--text-primary);
+  }
+
+  &__num {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+    transition: color 0.2s ease;
+  }
+
+  &__unit {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  &__bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(
+      90deg,
+      var(--primary-color) 0%,
+      var(--primary-light, var(--primary-color)) 100%
+    );
+    border-radius: 2px;
+    transition: width 0.18s ease;
+  }
+
+  &--ping {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+
+    .speed-test-stat__num {
+      font-size: 16px;
+    }
+  }
+}

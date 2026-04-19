@@ -1,0 +1,124 @@
+// Previous-responses dropdown shown next to the response timestamp.
+
+.response-toolbar__timestamp-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.response-history-dropdown-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    color: var(--text-primary);
+    background: rgba(var(--primary-color-rgb), 0.12);
+    border-color: rgba(var(--primary-color-rgb), 0.3);
+  }
+}
+
+.response-history-dropdown-menu {
+  position: fixed;
+  z-index: 9500;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.response-history-dropdown-empty {
+  padding: 14px 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.response-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+
+    &.is-ok {
+      color: #22c55e;
+    }
+    &.is-warn {
+      color: #f59e0b;
+    }
+    &.is-error {
+      color: #ef4444;
+    }
+  }
+
+  &__time {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  &__ts {
+    font-size: 11px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__compare {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: white;
+    }
+  }
+}

@@ -1,21 +1,13 @@
 import { JsonViewer } from '../JsonViewer';
 import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
+import { showJsonExportModal } from '../export-modal';
 
 export class JsonViewerUtilities {
   public static exportJson(jsonData: any): void {
-    if (!jsonData) return;
-
-    const jsonString = JSON.stringify(jsonData, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `json-export-${new Date().getTime()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (jsonData === undefined || jsonData === null) return;
+    // Premium in-app picker — replaces the silent blob download so the
+    // export experience feels native to RestBro.
+    showJsonExportModal(jsonData);
   }
 
   public static async openFullscreen(jsonData: any): Promise<void> {

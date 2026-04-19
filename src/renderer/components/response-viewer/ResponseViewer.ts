@@ -144,16 +144,15 @@ export class ResponseViewer {
     this.currentResponseTimestamp = response.timestamp;
 
     if (response.timestamp !== lastTimestamp) {
-      console.log(
-        `[ResponseViewer] New response detected (size: ${response.size} bytes)`
-      );
+      // NOTE: we used to console.log every response (size, requestId) here.
+      // That leaked response metadata to devtools by default and added noise
+      // for users who open devtools to debug their own requests. If you need
+      // this for local debugging, gate it behind a debug flag — do NOT log
+      // unconditionally. The same applies anywhere else in the response
+      // pipeline: response bodies / headers may contain Authorization tokens.
       this.lastResponseTimestamps.set(
         this.currentRequestId,
         response.timestamp
-      );
-    } else {
-      console.log(
-        `[ResponseViewer] Same response (size: ${response.size} bytes)`
       );
     }
 
@@ -161,6 +160,32 @@ export class ResponseViewer {
     this.updateResponseHeaders(response);
     this.updateResponseCookies(response);
     this.updateResponseMeta(response);
+    this.updateTruncationBanner(response);
+  }
+
+  /**
+   * Show / hide a non-destructive banner above the body when the response was
+   * cut off due to size limits. We deliberately don't mutate `response.body`
+   * here — the body is rendered as-is so JSON/XML/binary previews still work
+   * up to the truncation point.
+   */
+  private updateTruncationBanner(response: ApiResponse): void {
+    const bodyContainer = document.getElementById('response-body');
+    if (!bodyContainer) return;
+    const existing = document.getElementById('response-truncated-banner');
+    if (!response.truncated) {
+      existing?.remove();
+      return;
+    }
+    if (existing) return;
+    const banner = document.createElement('div');
+    banner.id = 'response-truncated-banner';
+    banner.className = 'response-truncated-banner';
+    const sizeMb = response.truncatedSize
+      ? (response.truncatedSize / 1024 / 1024).toFixed(2)
+      : '?';
+    banner.textContent = `Response truncated — body exceeded the configured size limit (~${sizeMb} MB shown).`;
+    bodyContainer.parentElement?.insertBefore(banner, bodyContainer);
   }
 
   private async updateResponseBody(
@@ -818,14 +843,22 @@ export class ResponseViewer {
       statusEl.textContent = `${response.status} ${response.statusText}`;
       statusEl.classList.remove(
         'meta-chip--success',
+        'meta-chip--info',
         'meta-chip--warning',
         'meta-chip--error'
       );
+      // Semantic status palette:
+      //   2xx success → green
+      //   3xx redirect → blue (informational, not a problem)
+      //   4xx client  → amber/orange (user-actionable)
+      //   5xx / 0    → red (server fault / network)
       if (response.status >= 200 && response.status < 300) {
         statusEl.classList.add('meta-chip--success');
-      } else if (response.status >= 300 && response.status < 500) {
+      } else if (response.status >= 300 && response.status < 400) {
+        statusEl.classList.add('meta-chip--info');
+      } else if (response.status >= 400 && response.status < 500) {
         statusEl.classList.add('meta-chip--warning');
-      } else if (response.status >= 500) {
+      } else {
         statusEl.classList.add('meta-chip--error');
       }
     }

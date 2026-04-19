@@ -84,6 +84,21 @@
     white-space: nowrap;
   }
 
+  // Inline rename input — sized to fit inside .tab-name without bumping
+  // the tab's height. Uses theme variables so it works in all themes.
+  .tab-name__rename-input {
+    width: 100%;
+    min-width: 60px;
+    padding: 1px 4px;
+    margin: -2px 0;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--primary-color);
+    border-radius: 3px;
+    outline: none;
+  }
+
   .tab-close {
     display: none;
     width: 12px;
@@ -211,6 +226,13 @@
     color: #22c55e;
     background: rgba(34, 197, 94, 0.1);
     border-color: rgba(34, 197, 94, 0.25);
+  }
+
+  // 3xx redirects — blue, informational. Previously lumped in with 4xx.
+  &.meta-chip--info {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border-color: rgba(56, 189, 248, 0.25);
   }
 
   &.meta-chip--warning {

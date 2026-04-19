@@ -11,6 +11,7 @@ vi.mock('fs', () => ({
 vi.mock('fs/promises', () => ({
   readFile: vi.fn().mockResolvedValue('file-content'),
   writeFile: vi.fn().mockResolvedValue(undefined),
+  stat: vi.fn().mockResolvedValue({ size: 12 }),
 }));
 
 // Mock crypto

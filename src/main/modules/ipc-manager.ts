@@ -11,6 +11,8 @@ import { aiEngine } from './ai-engine';
 import { mockServerManager } from './mock-server-manager';
 import { executeCurl, cancelCurl } from './curl-executor';
 import { updateManager } from './update-manager';
+import { notepadIpc } from './notepad-ipc';
+import { runSpeedTest, cancelSpeedTest } from './network-speed';
 import {
   Collection,
   ApiRequest,
@@ -558,99 +560,8 @@ class IpcManager {
       }
     );
 
-    // Notepad IPC handlers
-    ipcMain.handle(
-      IPC_CHANNELS.NOTEPAD_SAVE_FILE,
-      async (
-        _,
-        args: { filePath?: string; content: string; defaultName?: string }
-      ) => {
-        const { filePath, content, defaultName } = args;
-
-        try {
-          let targetPath = filePath;
-
-          if (!targetPath) {
-            const result = await dialog.showSaveDialog({
-              defaultPath: defaultName || 'Untitled.txt',
-              filters: [
-                {
-                  name: 'Text Files',
-                  extensions: ['txt', 'md', 'log', 'json'],
-                },
-                { name: 'All Files', extensions: ['*'] },
-              ],
-            });
-
-            if (result.canceled || !result.filePath) {
-              return { canceled: true };
-            }
-
-            targetPath = result.filePath;
-          }
-
-          await writeFile(targetPath, content ?? '', 'utf-8');
-          return { canceled: false, filePath: targetPath };
-        } catch (error) {
-          throw new Error(
-            error instanceof Error ? error.message : 'Failed to save file'
-          );
-        }
-      }
-    );
-
-    ipcMain.handle(IPC_CHANNELS.NOTEPAD_OPEN_FILE, async () => {
-      try {
-        const result = await dialog.showOpenDialog({
-          properties: ['openFile'],
-          filters: [
-            {
-              name: 'Text Files',
-              extensions: ['txt', 'md', 'log', 'json', 'csv'],
-            },
-            { name: 'All Files', extensions: ['*'] },
-          ],
-        });
-
-        if (result.canceled || result.filePaths.length === 0) {
-          return { canceled: true };
-        }
-
-        const filePath = result.filePaths[0];
-        const content = await readFile(filePath, 'utf-8');
-        return { canceled: false, filePath, content };
-      } catch (error) {
-        throw new Error(
-          error instanceof Error ? error.message : 'Failed to open file'
-        );
-      }
-    });
-
-    ipcMain.handle(
-      IPC_CHANNELS.NOTEPAD_READ_FILE,
-      async (_, filePath: string) => {
-        try {
-          const content = await readFile(filePath, 'utf-8');
-          return { canceled: false, content };
-        } catch (error) {
-          throw new Error(
-            error instanceof Error ? error.message : 'Failed to read file'
-          );
-        }
-      }
-    );
-
-    ipcMain.handle(IPC_CHANNELS.NOTEPAD_REVEAL, async (_, filePath: string) => {
-      try {
-        if (!filePath) return false;
-        shell.showItemInFolder(filePath);
-        return true;
-      } catch (error) {
-        throw new Error(
-          error instanceof Error ? error.message : 'Failed to reveal file'
-        );
-      }
-    });
+    // Notepad IPC handlers (registered from a separate module)
+    notepadIpc.initialize();
 
     // AI Chat IPC handlers
     ipcMain.handle(IPC_CHANNELS.AI_GET_SESSIONS, () => {
@@ -811,6 +722,17 @@ class IpcManager {
     // ─── Auto-updater handler ─────────────────────────────────────────
     ipcMain.handle(IPC_CHANNELS.UPDATE_INSTALL, () => {
       updateManager.installAndRestart();
+    });
+
+    // ─── Network speed test handlers ──────────────────────────────────
+    ipcMain.handle(IPC_CHANNELS.NETWORK_SPEED_TEST_RUN, async (event) => {
+      const { BrowserWindow } = require('electron');
+      const win = BrowserWindow.fromWebContents(event.sender);
+      return await runSpeedTest(win);
+    });
+
+    ipcMain.handle(IPC_CHANNELS.NETWORK_SPEED_TEST_CANCEL, () => {
+      cancelSpeedTest();
     });
   }
 }

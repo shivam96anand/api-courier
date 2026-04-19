@@ -315,6 +315,45 @@
   }
 }
 
+// Hover-revealed Run-folder action.
+.folder-run-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: 4px;
+  margin-right: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--primary-color);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+
+  .collection-item.folder:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: rgba(var(--primary-color-rgb), 0.15);
+    border-color: rgba(var(--primary-color-rgb), 0.3);
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.3);
+  }
+}
+
 .empty-folder-indicator {
   margin-left: auto;
   font-size: 10px;

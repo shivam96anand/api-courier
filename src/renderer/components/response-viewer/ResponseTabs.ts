@@ -1,10 +1,13 @@
 import { ApiResponse } from '../../../shared/types';
 import { ResponseTabsConfig } from '../../types/response-types';
+import { PreviousResponsesDropdown } from './PreviousResponsesDropdown';
 
 export class ResponseTabs {
   private tabsContainer: HTMLElement | null = null;
   private activeTab: string = 'body';
   private onTabChangeCallback: ((tab: string) => void) | null = null;
+  private prevResponsesDropdown: PreviousResponsesDropdown =
+    new PreviousResponsesDropdown();
 
   constructor(
     container: HTMLElement,
@@ -55,14 +58,31 @@ export class ResponseTabs {
       <span class="meta-chip meta-chip--soap-fault" id="meta-soap-fault" style="display:none;">SOAP Fault</span>
     `;
 
-    // Right section: timestamp
+    // Right section: timestamp + previous-responses dropdown
+    const timestampWrap = document.createElement('span');
+    timestampWrap.className = 'response-toolbar__timestamp-wrap';
     const timestampEl = document.createElement('span');
     timestampEl.className = 'response-toolbar__timestamp';
     timestampEl.id = 'response-timestamp';
+    timestampWrap.appendChild(timestampEl);
+    this.prevResponsesDropdown.mount(timestampWrap);
 
     this.tabsContainer.appendChild(tabGroup);
     this.tabsContainer.appendChild(metaGroup);
-    this.tabsContainer.appendChild(timestampEl);
+    this.tabsContainer.appendChild(timestampWrap);
+  }
+
+  /**
+   * Update the previous-responses dropdown context. Called by ResponseManager
+   * when a response is displayed (or cleared) so the dropdown knows which
+   * request to query history for and which body to use as the "left" pane in
+   * a Compare action.
+   */
+  public setPrevResponsesContext(
+    requestId: string | null,
+    response: ApiResponse | null
+  ): void {
+    this.prevResponsesDropdown.setContext(requestId, response);
   }
 
   private getTabLabel(tab: string): string {
@@ -110,10 +130,18 @@ export class ResponseTabs {
 
     const cookiesTab = this.tabsContainer.querySelector(
       '[data-section="cookies"]'
-    );
+    ) as HTMLElement | null;
     if (cookiesTab && response.headers) {
       const cookieCount = this.countCookies(response.headers);
       cookiesTab.setAttribute('data-count', cookieCount.toString());
+      // Hide the Cookies tab entirely when there are no cookies. The empty
+      // "No cookies in response" placeholder for every API call was noisy.
+      cookiesTab.style.display = cookieCount > 0 ? '' : 'none';
+      // If the active tab was Cookies and it just disappeared, fall back.
+      if (cookieCount === 0 && this.activeTab === 'cookies') {
+        this.selectTab('body');
+        this.onTabChangeCallback?.('body');
+      }
     }
   }
 

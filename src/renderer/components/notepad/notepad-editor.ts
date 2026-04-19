@@ -1,20 +1,23 @@
 /**
- * Notepad Monaco editor initialization and theme management
+ * Notepad Monaco editor: theme + factory + editor-action helpers.
  */
 import * as monaco from 'monaco-editor';
 
 export interface NotepadEditorOptions {
   fontSize: number;
+  wordWrap?: 'on' | 'off';
+  tabSize?: number;
 }
 
 export interface NotepadEditorCallbacks {
   onContentChange: (value: string) => void;
-  onCursorChange: (lineNumber: number, column: number) => void;
+  onCursorChange: (
+    lineNumber: number,
+    column: number,
+    selectionLength: number
+  ) => void;
 }
 
-/**
- * Get a CSS hex variable value (without the # prefix)
- */
 function getCssHexVariable(name: string): string {
   const color = getComputedStyle(document.documentElement)
     .getPropertyValue(name)
@@ -22,9 +25,6 @@ function getCssHexVariable(name: string): string {
   return color.replace('#', '');
 }
 
-/**
- * Define and apply the custom Monaco theme for the notepad
- */
 export function updateMonacoTheme(): void {
   const themeColor = getCssHexVariable('--primary-color');
   const valueColor = getCssHexVariable('--text-primary') || 'ffffff';
@@ -62,9 +62,6 @@ export function updateMonacoTheme(): void {
   monaco.editor.setTheme('restbro-notepad');
 }
 
-/**
- * Create and configure a Monaco editor instance for the notepad
- */
 export function createNotepadEditor(
   container: HTMLElement,
   options: NotepadEditorOptions,
@@ -81,7 +78,8 @@ export function createNotepadEditor(
     scrollBeyondLastLine: false,
     fontSize: options.fontSize,
     lineNumbers: 'on',
-    wordWrap: 'on',
+    wordWrap: options.wordWrap ?? 'on',
+    tabSize: options.tabSize ?? 2,
     padding: { top: 12, bottom: 12 },
     bracketPairColorization: { enabled: true },
     renderWhitespace: 'selection',
@@ -101,19 +99,77 @@ export function createNotepadEditor(
     },
   });
 
-  // Wire up content change handler (with external guard for isApplyingState)
   editor.onDidChangeModelContent(() => {
-    const value = editor.getValue();
-    callbacks.onContentChange(value);
+    callbacks.onContentChange(editor.getValue());
   });
 
-  // Wire up cursor position handler
   editor.onDidChangeCursorPosition((evt) => {
-    callbacks.onCursorChange(evt.position.lineNumber, evt.position.column);
+    const sel = editor.getSelection();
+    const model = editor.getModel();
+    let selectionLength = 0;
+    if (sel && model && !sel.isEmpty()) {
+      selectionLength = model.getValueLengthInRange(sel);
+    }
+    callbacks.onCursorChange(
+      evt.position.lineNumber,
+      evt.position.column,
+      selectionLength
+    );
   });
 
-  // Listen for theme changes
+  // Theme changes from the rest of the app.
   document.addEventListener('theme-changed', () => updateMonacoTheme());
 
   return editor;
+}
+
+/** Set the language for the active model. Cheap; safe to call frequently. */
+export function setEditorLanguage(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  language: string
+): void {
+  const model = editor.getModel();
+  if (model) monaco.editor.setModelLanguage(model, language);
+}
+
+/** Trigger Monaco's built-in find widget. */
+export function triggerFind(editor: monaco.editor.IStandaloneCodeEditor): void {
+  editor.focus();
+  editor.getAction('actions.find')?.run();
+}
+
+/** Trigger Monaco's built-in find & replace widget. */
+export function triggerReplace(
+  editor: monaco.editor.IStandaloneCodeEditor
+): void {
+  editor.focus();
+  editor.getAction('editor.action.startFindReplaceAction')?.run();
+}
+
+/** Open Monaco's "Go to Line" prompt. */
+export function triggerGoToLine(
+  editor: monaco.editor.IStandaloneCodeEditor
+): void {
+  editor.focus();
+  editor.getAction('editor.action.gotoLine')?.run();
+}
+
+/** Format the document if a formatter is registered for the active language. */
+export async function formatDocument(
+  editor: monaco.editor.IStandaloneCodeEditor
+): Promise<void> {
+  await editor.getAction('editor.action.formatDocument')?.run();
+}
+
+/** Strip trailing whitespace from every line in the active model. */
+export function trimTrailingWhitespace(value: string): string {
+  // Preserve the file's original line endings.
+  return value.replace(/[ \t]+(\r?\n)/g, '$1').replace(/[ \t]+$/g, '');
+}
+
+/** Ensure the buffer ends with exactly one trailing newline. */
+export function ensureFinalNewline(value: string): string {
+  if (value.length === 0) return value;
+  if (value.endsWith('\r\n') || value.endsWith('\n')) return value;
+  return value + '\n';
 }

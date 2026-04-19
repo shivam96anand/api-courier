@@ -34,27 +34,50 @@ export class CollectionsSearch {
     const searchContainer = document.createElement('div');
     searchContainer.className = 'search-container';
     searchContainer.innerHTML = `
+      <div class="search-actions"></div>
       <div class="search-input-wrapper">
         <input type="text" id="collections-search" class="search-input" placeholder="Search collections">
         ${iconHtml('search', 'search-icon')}
       </div>
-      <div class="search-actions"></div>
     `;
 
     collectionsTree.parentNode?.insertBefore(searchContainer, collectionsTree);
 
-    // Move the toolbar buttons into the search container
+    // Move the toolbar buttons into the search container, in the new
+    // Import / Export / New order, with text labels alongside icons.
     const searchActions = searchContainer.querySelector('.search-actions');
     if (searchActions && importBtn && addBtn) {
+      // Re-label/re-decorate the existing import button.
+      importBtn.classList.add('btn-toolbar');
+      importBtn.title = 'Import Collection';
+      importBtn.innerHTML = `${iconHtml('import', 'ui-icon')}<span class="btn-toolbar__label">Import</span>`;
+
       const exportBtn = document.createElement('button');
       exportBtn.id = 'btn-export-collections';
-      exportBtn.className = 'btn-export';
+      exportBtn.className = 'btn-export btn-toolbar';
       exportBtn.title = 'Export Collections';
-      exportBtn.innerHTML = iconHtml('export', 'ui-icon');
+      exportBtn.innerHTML = `${iconHtml('export', 'ui-icon')}<span class="btn-toolbar__label">Export</span>`;
+
+      // Re-label the existing add button as "New".
+      addBtn.classList.add('btn-toolbar');
+      addBtn.title = 'New Collection';
+      addBtn.innerHTML = `<span class="btn-toolbar__plus" aria-hidden="true">+</span><span class="btn-toolbar__label">New</span>`;
+
+      // History button \u2014 opens the history modal.
+      const historyBtn = document.createElement('button');
+      historyBtn.id = 'btn-open-history';
+      historyBtn.className = 'btn-history btn-toolbar';
+      historyBtn.title = 'Recent requests';
+      historyBtn.setAttribute('aria-label', 'Open request history');
+      historyBtn.innerHTML = `${iconHtml('clock', 'ui-icon')}<span class="btn-toolbar__label">History</span>`;
+      historyBtn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('open-history'));
+      });
 
       searchActions.appendChild(importBtn);
       searchActions.appendChild(exportBtn);
       searchActions.appendChild(addBtn);
+      searchActions.appendChild(historyBtn);
     }
 
     // Hide the now-empty toolbar

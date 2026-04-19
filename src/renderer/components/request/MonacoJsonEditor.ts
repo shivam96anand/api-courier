@@ -44,6 +44,19 @@ export class MonacoJsonEditor {
     const lineNumberColor =
       this.getCssHexVariable('--json-line-number') || '6e6e6e';
 
+    // IMPORTANT — DO NOT "simplify" the delimiter rules below.
+    //
+    // Monaco's JSON tokenizer emits these token names (NOT `delimiter.bracket.json`):
+    //   - `delimiter.array.json`   for `[` and `]`
+    //   - `delimiter.bracket.json` for `{` and `}`   (a.k.a. "object brackets")
+    //   - `delimiter.colon.json`
+    //   - `delimiter.comma.json`
+    //
+    // Listing only `delimiter.bracket.json` worked by accident for `{}` but left
+    // `[]` (array brackets) unstyled. On first paint that fell through to Monaco's
+    // built-in rainbow `editorBracketHighlight.foregroundN`, producing the
+    // multi-color brace bug that "fixed itself" after a tab switch (which forced
+    // a re-tokenize against an updated theme). All five rules MUST stay.
     monaco.editor.defineTheme('restbro-json', {
       base: 'vs-dark',
       inherit: true,
@@ -53,6 +66,11 @@ export class MonacoJsonEditor {
         { token: 'string.json', foreground: valueColor },
         { token: 'number.json', foreground: valueColor },
         { token: 'keyword.json', foreground: valueColor },
+        {
+          token: 'delimiter.array.json',
+          foreground: bracketColor,
+          fontStyle: 'bold',
+        },
         {
           token: 'delimiter.bracket.json',
           foreground: bracketColor,

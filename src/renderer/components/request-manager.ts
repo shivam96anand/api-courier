@@ -5,25 +5,24 @@ import {
   RequestTab,
   SoapRequestConfig,
 } from '../../shared/types';
+import { cloneApiRequest } from '../../shared/clone-request';
 import { RequestFormHandler } from './request/request-form-handler';
 import { RequestEditorsManager } from './request/request-editors-manager';
 import { RequestDataManager } from './request/request-data-manager';
 import { buildFolderVars } from './request/variable-helper';
 import { RequestStateCache, VariableContext } from '../types/request-types';
-
-const SOAP_CONTENT_TYPE_11 = 'text/xml; charset=utf-8';
-const SOAP_CONTENT_TYPE_12 = 'application/soap+xml; charset=utf-8';
-const SOAP_HEADER_ACTION = 'SOAPAction';
-const SOAP_ENVELOPE_NS_11 = 'http://schemas.xmlsoap.org/soap/envelope/';
-const SOAP_ENVELOPE_NS_12 = 'http://www.w3.org/2003/05/soap-envelope';
-
-const AUTO_SOAP_CONTENT_TYPES = new Set([
+import {
+  AUTO_SOAP_CONTENT_TYPES,
+  buildSoapEnvelopeTemplate,
+  getSoapContentType,
+  parseXml,
+  prettyPrintXml,
   SOAP_CONTENT_TYPE_11,
   SOAP_CONTENT_TYPE_12,
-  'text/xml',
-  'application/xml',
-  'application/json',
-]);
+  syncSoapEnvelopeNamespace,
+} from './request/soap-xml-helpers';
+
+const SOAP_HEADER_ACTION = 'SOAPAction';
 
 const REQUEST_DETAILS_TRANSITION_MS = 200;
 
@@ -36,6 +35,7 @@ export class RequestManager {
   private readonly CACHE_TTL = 500; // Cache for 500ms
   private requestStateCache: Map<string, RequestStateCache> = new Map();
   private readonly REQUEST_CACHE_TTL = 5000; // Cache request state for 5 seconds
+  private readonly REQUEST_CACHE_MAX = 50; // LRU bound to keep memory in check
   private currentTabId?: string;
   private currentCollectionId?: string;
   private currentMode: RequestMode = 'rest';
@@ -86,7 +86,6 @@ export class RequestManager {
     this.dataManager.setupSendButton();
     this.dataManager.setupSwitchToSoapButton();
     this.dataManager.setupCurlTab();
-    this.dataManager.setupCodeTab();
     this.dataManager.setupCancelButton();
     this.dataManager.setupCancelEventListener();
     this.dataManager.setupTabChangeListener();
@@ -189,6 +188,21 @@ export class RequestManager {
     const currentRequest = this.dataManager.getCurrentRequest();
     if (!currentRequest || !this.currentTabId) return;
 
+    // Notify the rest of the app that this tab's protocol mode is changing.
+    // Listeners (response viewer, tabs state) clear the stale response so the
+    // user doesn't see a REST 200 OK body sitting next to a SOAP request.
+    const previousMode = this.currentMode;
+    document.dispatchEvent(
+      new CustomEvent('request-mode-changed', {
+        detail: {
+          requestId: currentRequest.id,
+          tabId: this.currentTabId,
+          fromMode: previousMode,
+          toMode: previousMode === 'rest' ? 'soap' : 'rest',
+        },
+      })
+    );
+
     if (this.currentMode === 'rest') {
       this.currentRestDraft = this.cloneRequest(currentRequest);
       const nextSoapDraft = this.currentSoapDraft
@@ -274,7 +288,7 @@ export class RequestManager {
     this.applySoapHeaders(nextRequest, previousVersion, previousContentType);
     nextRequest.body = this.ensureSoapBody(nextRequest.body, nextRequest.soap);
     if (configUpdates.version && nextRequest.body) {
-      nextRequest.body.content = this.syncSoapEnvelopeNamespace(
+      nextRequest.body.content = syncSoapEnvelopeNamespace(
         nextRequest.body.content || '',
         nextRequest.soap.version
       );
@@ -299,7 +313,7 @@ export class RequestManager {
     const currentRequest = this.dataManager.getCurrentRequest();
     if (!currentRequest?.body?.content) return;
 
-    const parseResult = this.parseXml(currentRequest.body.content);
+    const parseResult = parseXml(currentRequest.body.content);
     if (!parseResult.valid || !parseResult.document) {
       this.updateSoapValidationMessage(parseResult.error || 'Invalid XML body');
       this.dataManager.setRequestValidity(
@@ -309,13 +323,13 @@ export class RequestManager {
       return;
     }
 
-    const formatted = this.prettyPrintXml(parseResult.document);
+    const formatted = prettyPrintXml(parseResult.document);
     const nextRequest = this.cloneRequest(currentRequest);
     nextRequest.body = {
       ...nextRequest.body,
       type: 'raw',
       format: 'xml',
-      contentType: this.getSoapContentType(nextRequest.soap?.version || '1.2'),
+      contentType: getSoapContentType(nextRequest.soap?.version || '1.2'),
       content: formatted,
     };
 
@@ -416,7 +430,7 @@ export class RequestManager {
         soapDraft: activeTab?.soapDraft || cachedState.soapDraft,
       };
 
-      this.requestStateCache.set(tabId, {
+      this.setRequestStateCache(tabId, {
         ...mergedCachedState,
         timestamp: Date.now(),
       });
@@ -510,17 +524,20 @@ export class RequestManager {
     this.currentMode = mode;
     this.dataManager.setRequestMode(mode);
 
-    const switchBtn = document.getElementById(
-      'switch-to-soap'
+    // Update the [REST | SOAP] segmented control. Both segments stay visible;
+    // active state is reflected by `.active` + `aria-selected`.
+    const restBtn = document.getElementById(
+      'mode-rest'
     ) as HTMLButtonElement | null;
-    if (switchBtn) {
-      if (mode === 'soap') {
-        switchBtn.textContent = 'Switch to REST';
-        switchBtn.title = 'Switch to REST mode';
-      } else {
-        switchBtn.textContent = 'Switch to SOAP';
-        switchBtn.title = 'Switch to SOAP';
-      }
+    const soapBtn = document.getElementById(
+      'mode-soap'
+    ) as HTMLButtonElement | null;
+    if (restBtn && soapBtn) {
+      const isSoap = mode === 'soap';
+      restBtn.classList.toggle('active', !isSoap);
+      soapBtn.classList.toggle('active', isSoap);
+      restBtn.setAttribute('aria-selected', String(!isSoap));
+      soapBtn.setAttribute('aria-selected', String(isSoap));
     }
 
     // Rename the Auth tab label based on mode
@@ -552,7 +569,7 @@ export class RequestManager {
       this.editorsManager.setContentTypeSyncEnabled(false);
       this.editorsManager.setBodySoapMode(
         true,
-        this.getSoapContentType(soapVersion)
+        getSoapContentType(soapVersion)
       );
       return;
     }
@@ -635,8 +652,8 @@ export class RequestManager {
       return {
         type: 'raw',
         format: 'xml',
-        contentType: this.getSoapContentType(soapConfig.version),
-        content: this.buildSoapEnvelopeTemplate(
+        contentType: getSoapContentType(soapConfig.version),
+        content: buildSoapEnvelopeTemplate(
           soapConfig.version,
           soapConfig.action || ''
         ),
@@ -648,12 +665,9 @@ export class RequestManager {
       ...body,
       type: 'raw',
       format: 'xml',
-      contentType: this.getSoapContentType(soapConfig.version),
+      contentType: getSoapContentType(soapConfig.version),
       content: shouldInjectTemplate
-        ? this.buildSoapEnvelopeTemplate(
-            soapConfig.version,
-            soapConfig.action || ''
-          )
+        ? buildSoapEnvelopeTemplate(soapConfig.version, soapConfig.action || '')
         : body.content || '',
     };
   }
@@ -664,7 +678,7 @@ export class RequestManager {
     previousContentType?: string
   ): void {
     const soapVersion = request.soap?.version || '1.2';
-    const expectedContentType = this.getSoapContentType(soapVersion);
+    const expectedContentType = getSoapContentType(soapVersion);
 
     if (
       this.shouldApplySoapContentType(
@@ -718,13 +732,10 @@ export class RequestManager {
     }
 
     const previousSoapType = previousVersion
-      ? this.getSoapContentType(previousVersion)
-          .toLowerCase()
-          .split(';')[0]
-          .trim()
+      ? getSoapContentType(previousVersion).toLowerCase().split(';')[0].trim()
       : '';
     const nextSoapType = nextVersion
-      ? this.getSoapContentType(nextVersion).toLowerCase().split(';')[0].trim()
+      ? getSoapContentType(nextVersion).toLowerCase().split(';')[0].trim()
       : '';
 
     if (normalized === previousSoapType || normalized === nextSoapType) {
@@ -732,130 +743,6 @@ export class RequestManager {
     }
 
     return false;
-  }
-
-  private getSoapContentType(version: '1.1' | '1.2'): string {
-    return version === '1.1' ? SOAP_CONTENT_TYPE_11 : SOAP_CONTENT_TYPE_12;
-  }
-
-  private buildSoapEnvelopeTemplate(
-    version: '1.1' | '1.2',
-    action: string
-  ): string {
-    const envelopeNamespace =
-      version === '1.2' ? SOAP_ENVELOPE_NS_12 : SOAP_ENVELOPE_NS_11;
-    const actionComment = action
-      ? `<!-- SOAPAction: ${action} -->`
-      : '<!-- SOAPAction -->';
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<soap:Envelope xmlns:soap="${envelopeNamespace}">\n  <soap:Header>\n    ${actionComment}\n  </soap:Header>\n  <soap:Body>\n    <m:Operation xmlns:m="http://tempuri.org/">\n      <m:Value></m:Value>\n    </m:Operation>\n  </soap:Body>\n</soap:Envelope>`;
-  }
-
-  private syncSoapEnvelopeNamespace(
-    xml: string,
-    version: '1.1' | '1.2'
-  ): string {
-    const targetNamespace =
-      version === '1.2' ? SOAP_ENVELOPE_NS_12 : SOAP_ENVELOPE_NS_11;
-    if (!xml.trim()) return xml;
-
-    const envelopeTagMatch = xml.match(/<([\w.-]+:)?Envelope\b[^>]*>/i);
-    if (!envelopeTagMatch) return xml;
-
-    const openingTag = envelopeTagMatch[0];
-    const normalizedTag = openingTag
-      .replace(
-        new RegExp(
-          SOAP_ENVELOPE_NS_11.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          'g'
-        ),
-        targetNamespace
-      )
-      .replace(
-        new RegExp(
-          SOAP_ENVELOPE_NS_12.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          'g'
-        ),
-        targetNamespace
-      );
-
-    if (normalizedTag === openingTag) {
-      return xml;
-    }
-
-    return xml.replace(openingTag, normalizedTag);
-  }
-
-  private parseXml(xml: string): {
-    valid: boolean;
-    document?: Document;
-    error?: string;
-  } {
-    try {
-      const parser = new DOMParser();
-      const documentNode = parser.parseFromString(xml, 'application/xml');
-      const parserError = documentNode.querySelector('parsererror');
-      if (parserError) {
-        return {
-          valid: false,
-          error: 'Invalid XML body. Check tags, attributes, and namespaces.',
-        };
-      }
-      return { valid: true, document: documentNode };
-    } catch {
-      return { valid: false, error: 'Invalid XML body.' };
-    }
-  }
-
-  private prettyPrintXml(documentNode: Document): string {
-    const serializeNode = (node: Node, depth: number): string => {
-      const indent = '  '.repeat(depth);
-
-      if (node.nodeType === Node.TEXT_NODE) {
-        const text = (node.nodeValue || '').trim();
-        return text ? `${indent}${text}\n` : '';
-      }
-
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        return '';
-      }
-
-      const el = node as Element;
-      const attrs = Array.from(el.attributes)
-        .map((attr) => `${attr.name}="${attr.value}"`)
-        .join(' ');
-      const openTag = attrs ? `<${el.tagName} ${attrs}>` : `<${el.tagName}>`;
-
-      const childNodes = Array.from(el.childNodes).filter(
-        (child) =>
-          child.nodeType === Node.ELEMENT_NODE ||
-          (child.nodeType === Node.TEXT_NODE && (child.nodeValue || '').trim())
-      );
-
-      if (childNodes.length === 0) {
-        return `${indent}${openTag.replace('>', '/>')}\n`;
-      }
-
-      const hasOnlyText = childNodes.every(
-        (child) => child.nodeType === Node.TEXT_NODE
-      );
-      if (hasOnlyText) {
-        const textContent = childNodes
-          .map((child) => (child.nodeValue || '').trim())
-          .join('');
-        return `${indent}${openTag}${textContent}</${el.tagName}>\n`;
-      }
-
-      let content = `${indent}${openTag}\n`;
-      childNodes.forEach((child) => {
-        content += serializeNode(child, depth + 1);
-      });
-      content += `${indent}</${el.tagName}>\n`;
-      return content;
-    };
-
-    const declaration = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    const root = documentNode.documentElement;
-    return `${declaration}${serializeNode(root, 0).trimEnd()}`;
   }
 
   private validateRequestState(request: ApiRequest): void {
@@ -883,7 +770,7 @@ export class RequestManager {
       return;
     }
 
-    const parseResult = this.parseXml(xmlBody);
+    const parseResult = parseXml(xmlBody);
     if (!parseResult.valid) {
       const message = parseResult.error || 'Invalid XML body.';
       this.updateSoapValidationMessage(message);
@@ -1014,7 +901,7 @@ export class RequestManager {
     restDraft?: ApiRequest,
     soapDraft?: ApiRequest
   ): void {
-    this.requestStateCache.set(tabId, {
+    this.setRequestStateCache(tabId, {
       tabId,
       request,
       collectionId,
@@ -1058,7 +945,7 @@ export class RequestManager {
     const currentRequest = this.dataManager.getCurrentRequest();
     if (!currentRequest) return;
 
-    this.requestStateCache.set(this.currentTabId, {
+    this.setRequestStateCache(this.currentTabId, {
       ...cached,
       request: currentRequest,
       requestMode: this.currentMode,
@@ -1073,6 +960,23 @@ export class RequestManager {
    */
   private invalidateRequestStateCache(): void {
     this.requestStateCache.clear();
+  }
+
+  /**
+   * Insert/update a request-state cache entry while enforcing an LRU bound.
+   * Map preserves insertion order, so the oldest key is the first one
+   * iterated by `keys()`. We re-insert on update to mark recency.
+   */
+  private setRequestStateCache(tabId: string, state: RequestStateCache): void {
+    if (this.requestStateCache.has(tabId)) {
+      this.requestStateCache.delete(tabId);
+    }
+    this.requestStateCache.set(tabId, state);
+    while (this.requestStateCache.size > this.REQUEST_CACHE_MAX) {
+      const oldestKey = this.requestStateCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      this.requestStateCache.delete(oldestKey);
+    }
   }
 
   /**
@@ -1133,12 +1037,18 @@ export class RequestManager {
 
     this.updateSoapControlsVisibility();
 
-    const switchBtn = document.getElementById(
-      'switch-to-soap'
+    // Reset segmented control to REST when clearing the form.
+    const restBtn = document.getElementById(
+      'mode-rest'
     ) as HTMLButtonElement | null;
-    if (switchBtn) {
-      switchBtn.textContent = 'Switch to SOAP';
-      switchBtn.title = 'Switch to SOAP';
+    const soapBtn = document.getElementById(
+      'mode-soap'
+    ) as HTMLButtonElement | null;
+    if (restBtn && soapBtn) {
+      restBtn.classList.add('active');
+      soapBtn.classList.remove('active');
+      restBtn.setAttribute('aria-selected', 'true');
+      soapBtn.setAttribute('aria-selected', 'false');
     }
 
     const methodSelect = document.getElementById(
@@ -1151,32 +1061,7 @@ export class RequestManager {
   }
 
   private cloneRequest(request: ApiRequest): ApiRequest {
-    return {
-      ...request,
-      params: Array.isArray(request.params)
-        ? request.params.map((param) => ({ ...param }))
-        : request.params
-          ? { ...request.params }
-          : request.params,
-      headers: Array.isArray(request.headers)
-        ? request.headers.map((header) => ({ ...header }))
-        : { ...request.headers },
-      body: request.body
-        ? {
-            ...request.body,
-            formDataFields: request.body.formDataFields
-              ? request.body.formDataFields.map((f: any) => ({ ...f }))
-              : undefined,
-          }
-        : request.body,
-      auth: request.auth
-        ? { ...request.auth, config: { ...request.auth.config } }
-        : request.auth,
-      soap: request.soap ? { ...request.soap } : request.soap,
-      variables: request.variables
-        ? { ...request.variables }
-        : request.variables,
-    };
+    return cloneApiRequest(request);
   }
 
   private toHeaderPairs(headers: ApiRequest['headers']): KeyValuePair[] {

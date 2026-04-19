@@ -1,17 +1,24 @@
 /**
- * Monaco-based JSON editor with validation and diff highlighting
+ * Monaco-based JSON editor with validation and diff highlighting.
+ *
+ * - Theme is registered once at module scope (avoids per-mount re-registration).
+ * - Validation is debounced.
+ * - Decorations are applied with stable identity to avoid extra deltaDecorations work.
+ * - Supports drop-file via the onDropFile prop.
  */
 
 import React, {
+  forwardRef,
+  useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
-  useImperativeHandle,
-  forwardRef,
 } from 'react';
 import * as monaco from 'monaco-editor';
 import type { DiffDecoration } from '../types';
 import { findTextRangeForPath } from '../utils/diffMap';
+import Icon from './Icon';
 import './JsonEditor.css';
 
 interface JsonEditorProps {
@@ -20,6 +27,7 @@ interface JsonEditorProps {
   label: string;
   decorations: DiffDecoration[];
   onValidityChange: (valid: boolean, error?: string) => void;
+  onDropFile?: (file: File) => void;
 }
 
 export interface JsonEditorRef {
@@ -27,141 +35,115 @@ export interface JsonEditorRef {
   focusEditor: () => void;
 }
 
+let themeRegistered = false;
+
+function readCssHex(name: string): string {
+  if (typeof document === 'undefined') return '';
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim()
+    .replace('#', '');
+}
+
+function registerOrUpdateTheme(): void {
+  const themeColor = readCssHex('--primary-color');
+  const valueColor = readCssHex('--text-primary') || 'ffffff';
+  const bracketColor = readCssHex('--json-bracket') || 'da70d6';
+  const editorBackground = readCssHex('--bg-primary') || '1a1a1a';
+  const lineNumberColor = readCssHex('--json-line-number') || '6e6e6e';
+
+  monaco.editor.defineTheme('restbro-json', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'string.key.json', foreground: themeColor, fontStyle: 'bold' },
+      { token: 'string.value.json', foreground: valueColor },
+      { token: 'string.json', foreground: valueColor },
+      { token: 'number.json', foreground: valueColor },
+      { token: 'keyword.json', foreground: valueColor },
+      {
+        token: 'delimiter.bracket.json',
+        foreground: bracketColor,
+        fontStyle: 'bold',
+      },
+      { token: 'delimiter.colon.json', foreground: valueColor },
+      { token: 'delimiter.comma.json', foreground: bracketColor },
+    ],
+    colors: {
+      'editor.background': `#${editorBackground}`,
+      'editor.foreground': '#ffffff',
+      'editorLineNumber.foreground': `#${lineNumberColor}`,
+      'editor.selectionBackground': '#404040',
+      'editor.lineHighlightBackground': '#2d2d2d',
+      'editorBracketHighlight.foreground1': `#${bracketColor}`,
+      'editorBracketHighlight.foreground2': `#${bracketColor}`,
+      'editorBracketHighlight.foreground3': `#${bracketColor}`,
+      'editorBracketHighlight.foreground4': `#${bracketColor}`,
+      'editorBracketHighlight.foreground5': `#${bracketColor}`,
+      'editorBracketHighlight.foreground6': `#${bracketColor}`,
+      'editorBracketPairGuide.activeBackground1': `#${bracketColor}`,
+      'editorBracketPairGuide.activeBackground2': `#${bracketColor}`,
+      'editorBracketPairGuide.activeBackground3': `#${bracketColor}`,
+      'editorBracketPairGuide.activeBackground4': `#${bracketColor}`,
+      'editorBracketPairGuide.activeBackground5': `#${bracketColor}`,
+      'editorBracketPairGuide.activeBackground6': `#${bracketColor}`,
+      'editorBracketHighlight.unexpectedBracket.foreground': `#${bracketColor}`,
+    },
+  });
+  monaco.editor.setTheme('restbro-json');
+  themeRegistered = true;
+}
+
 const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
-  ({ value, onChange, label, decorations, onValidityChange }, ref) => {
+  (
+    { value, onChange, label, decorations, onValidityChange, onDropFile },
+    ref
+  ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
     const decorationsRef = useRef<string[]>([]);
-    const decorationMapRef = useRef<Map<string, DiffDecoration>>(new Map());
     const errorDecorationsRef = useRef<string[]>([]);
+    const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+      null
+    );
     const [isValid, setIsValid] = useState(true);
-    const [errorMsg, setErrorMsg] = useState<string>('');
+    const [errorMsg, setErrorMsg] = useState('');
+    const [isDragging, setIsDragging] = useState(false);
 
-    const getCssHexVariable = (name: string) => {
-      const color = getComputedStyle(document.documentElement)
-        .getPropertyValue(name)
-        .trim();
-      return color.replace('#', '');
-    };
+    const validateJson = useCallback(
+      (text: string) => {
+        if (!text.trim()) {
+          clearErrorDecorations();
+          setIsValid(true);
+          setErrorMsg('');
+          onValidityChange(true);
+          return;
+        }
+        try {
+          JSON.parse(text);
+          clearErrorDecorations();
+          setIsValid(true);
+          setErrorMsg('');
+          onValidityChange(true);
+        } catch (err) {
+          const msg = (err as Error).message;
+          addErrorDecoration(msg);
+          setIsValid(false);
+          setErrorMsg(msg);
+          onValidityChange(false, msg);
+        }
+      },
+      [onValidityChange]
+    );
 
-    // Helper to update Monaco theme with current app theme
-    const updateMonacoTheme = () => {
-      const themeColor = getCssHexVariable('--primary-color');
-      const valueColor = getCssHexVariable('--text-primary') || 'ffffff';
-      const bracketColor = getCssHexVariable('--json-bracket') || 'da70d6';
-      const editorBackground = getCssHexVariable('--bg-primary') || '1a1a1a';
-      const lineNumberColor =
-        getCssHexVariable('--json-line-number') || '6e6e6e';
+    const scheduleValidate = useCallback(
+      (text: string) => {
+        if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+        validationTimerRef.current = setTimeout(() => validateJson(text), 200);
+      },
+      [validateJson]
+    );
 
-      monaco.editor.defineTheme('restbro-json', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [
-          {
-            token: 'string.key.json',
-            foreground: themeColor,
-            fontStyle: 'bold',
-          },
-          { token: 'string.value.json', foreground: valueColor },
-          { token: 'string.json', foreground: valueColor },
-          { token: 'number.json', foreground: valueColor },
-          { token: 'keyword.json', foreground: valueColor },
-          {
-            token: 'delimiter.bracket.json',
-            foreground: bracketColor,
-            fontStyle: 'bold',
-          },
-          { token: 'delimiter.colon.json', foreground: valueColor },
-          { token: 'delimiter.comma.json', foreground: bracketColor },
-        ],
-        colors: {
-          'editor.background': `#${editorBackground}`,
-          'editor.foreground': '#ffffff',
-          'editorLineNumber.foreground': `#${lineNumberColor}`,
-          'editor.selectionBackground': '#404040',
-          'editor.lineHighlightBackground': '#2d2d2d',
-          'editorBracketHighlight.foreground1': `#${bracketColor}`,
-          'editorBracketHighlight.foreground2': `#${bracketColor}`,
-          'editorBracketHighlight.foreground3': `#${bracketColor}`,
-          'editorBracketHighlight.foreground4': `#${bracketColor}`,
-          'editorBracketHighlight.foreground5': `#${bracketColor}`,
-          'editorBracketHighlight.foreground6': `#${bracketColor}`,
-          'editorBracketPairGuide.activeBackground1': `#${bracketColor}`,
-          'editorBracketPairGuide.activeBackground2': `#${bracketColor}`,
-          'editorBracketPairGuide.activeBackground3': `#${bracketColor}`,
-          'editorBracketPairGuide.activeBackground4': `#${bracketColor}`,
-          'editorBracketPairGuide.activeBackground5': `#${bracketColor}`,
-          'editorBracketPairGuide.activeBackground6': `#${bracketColor}`,
-          'editorBracketHighlight.unexpectedBracket.foreground': `#${bracketColor}`,
-        },
-      });
-
-      // Apply theme globally (affects all Monaco editors)
-      monaco.editor.setTheme('restbro-json');
-    };
-
-    // Initialize Monaco editor
-    useEffect(() => {
-      if (!containerRef.current) return;
-
-      // Define initial theme
-      updateMonacoTheme();
-
-      const editor = monaco.editor.create(containerRef.current, {
-        value,
-        language: 'json',
-        theme: 'restbro-json',
-        automaticLayout: true,
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        fontSize: 12,
-        lineNumbers: 'on',
-        folding: true,
-        formatOnPaste: true,
-        formatOnType: true,
-        fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
-        glyphMargin: false,
-        lineDecorationsWidth: 4,
-        lineNumbersMinChars: 3,
-        bracketPairColorization: {
-          enabled: false,
-        },
-      });
-
-      editorRef.current = editor;
-
-      // Listen to content changes
-      const changeDisposable = editor.onDidChangeModelContent(() => {
-        const newValue = editor.getValue();
-        onChange(newValue);
-        validateJson(newValue);
-      });
-
-      validateJson(value);
-
-      // Listen for theme changes
-      const handleThemeChange = () => {
-        updateMonacoTheme();
-      };
-
-      document.addEventListener('theme-changed', handleThemeChange);
-
-      return () => {
-        changeDisposable.dispose();
-        editor.dispose();
-        document.removeEventListener('theme-changed', handleThemeChange);
-      };
-    }, []);
-
-    // Update editor value when prop changes
-    useEffect(() => {
-      if (editorRef.current && editorRef.current.getValue() !== value) {
-        editorRef.current.setValue(value);
-        validateJson(value);
-      }
-    }, [value]);
-
-    // Clear error decorations
     const clearErrorDecorations = () => {
       if (!editorRef.current) return;
       errorDecorationsRef.current = editorRef.current.deltaDecorations(
@@ -170,25 +152,17 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
       );
     };
 
-    // Add error decoration at position
-    const addErrorDecoration = (text: string, errorMessage: string) => {
+    const addErrorDecoration = (errorMessage: string) => {
       if (!editorRef.current) return;
-
-      // Parse error position from error message
-      const positionMatch = errorMessage.match(/position (\d+)/);
-      if (!positionMatch) {
+      const m = errorMessage.match(/position (\d+)/);
+      if (!m) {
         clearErrorDecorations();
         return;
       }
-
-      const position = parseInt(positionMatch[1], 10);
+      const position = parseInt(m[1], 10);
       const model = editorRef.current.getModel();
       if (!model) return;
-
-      // Convert character position to line/column
       const pos = model.getPositionAt(position);
-
-      // Highlight the error position
       errorDecorationsRef.current = editorRef.current.deltaDecorations(
         errorDecorationsRef.current,
         [
@@ -211,67 +185,84 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
           },
         ]
       );
-
-      // Scroll to the error
       editorRef.current.revealPositionInCenter(pos);
     };
 
-    // Validate JSON
-    const validateJson = (text: string) => {
-      if (!text.trim()) {
-        clearErrorDecorations();
-        setIsValid(true);
-        setErrorMsg('');
-        onValidityChange(true);
-        return;
-      }
+    // ---------- mount Monaco ----------
+    useEffect(() => {
+      if (!containerRef.current) return;
+      if (!themeRegistered) registerOrUpdateTheme();
 
-      try {
-        JSON.parse(text);
-        clearErrorDecorations();
-        setIsValid(true);
-        setErrorMsg('');
-        onValidityChange(true);
-      } catch (err) {
-        const error = err as Error;
-        const msg = error.message;
-        addErrorDecoration(text, msg);
-        setIsValid(false);
-        setErrorMsg(msg);
-        onValidityChange(false, msg);
-      }
-    };
+      const editor = monaco.editor.create(containerRef.current, {
+        value,
+        language: 'json',
+        theme: 'restbro-json',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        fontSize: 12,
+        lineNumbers: 'on',
+        folding: true,
+        formatOnPaste: true,
+        formatOnType: true,
+        fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+        glyphMargin: false,
+        lineDecorationsWidth: 4,
+        lineNumbersMinChars: 3,
+        bracketPairColorization: { enabled: false },
+      });
+      editorRef.current = editor;
 
-    // Apply decorations
+      const changeDisposable = editor.onDidChangeModelContent(() => {
+        const newValue = editor.getValue();
+        onChange(newValue);
+        scheduleValidate(newValue);
+      });
+      validateJson(value);
+
+      const onThemeChanged = () => registerOrUpdateTheme();
+      document.addEventListener('theme-changed', onThemeChanged);
+
+      return () => {
+        changeDisposable.dispose();
+        editor.dispose();
+        document.removeEventListener('theme-changed', onThemeChanged);
+        if (validationTimerRef.current)
+          clearTimeout(validationTimerRef.current);
+      };
+    }, []);
+
+    // ---------- sync prop value into editor ----------
+    useEffect(() => {
+      if (editorRef.current && editorRef.current.getValue() !== value) {
+        editorRef.current.setValue(value);
+        validateJson(value);
+      }
+    }, [value, validateJson]);
+
+    // ---------- apply diff decorations ----------
     useEffect(() => {
       if (!editorRef.current) return;
-
-      decorationMapRef.current = new Map();
-
-      const monacoDecorations = decorations.map((dec) => {
-        decorationMapRef.current.set(dec.path, dec);
-        return {
-          range: new monaco.Range(
-            dec.startLine,
-            dec.startColumn,
-            dec.endLine,
-            dec.endColumn
-          ),
-          options: {
-            className: `diff-${dec.type}`,
-            isWholeLine: false,
-            inlineClassName: `diff-inline-${dec.type}`,
-          },
-        };
-      });
-
+      const monacoDecorations = decorations.map((dec) => ({
+        range: new monaco.Range(
+          dec.startLine,
+          dec.startColumn,
+          dec.endLine,
+          dec.endColumn
+        ),
+        options: {
+          className: `diff-${dec.type}`,
+          isWholeLine: false,
+          inlineClassName: `diff-inline-${dec.type}`,
+        },
+      }));
       decorationsRef.current = editorRef.current.deltaDecorations(
         decorationsRef.current,
         monacoDecorations
       );
     }, [decorations]);
 
-    // Expose methods via ref
+    // ---------- imperative API ----------
     useImperativeHandle(ref, () => ({
       revealPath: (path: string) => {
         const editor = editorRef.current;
@@ -279,7 +270,6 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
         const model = editor.getModel();
         if (!model) return;
 
-        // Parse JSON Pointer segments (RFC 6901)
         const segments =
           path === ''
             ? []
@@ -296,7 +286,6 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
 
         let targetRange: monaco.Range | null = null;
 
-        // Prefer exact path → range mapping so array-item navigation lands on the precise element.
         const exact = findTextRangeForPath(model.getValue(), path);
         if (exact) {
           targetRange = new monaco.Range(
@@ -306,13 +295,11 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
             exact.endColumn
           );
         } else {
-          // Fallback: key-name walk (best effort when exact parsing fails)
+          // Fallback: key-name walk (best effort).
           const lineCount = model.getLineCount();
           let searchStartLine = 1;
-
           for (const seg of segments) {
-            if (!isNaN(Number(seg))) continue; // array index — no key to find
-
+            if (!isNaN(Number(seg))) continue;
             const searchRange = new monaco.Range(
               searchStartLine,
               1,
@@ -329,7 +316,6 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
               false
             );
             if (matches.length === 0) break;
-
             targetRange = matches[0].range;
             searchStartLine = targetRange.startLineNumber + 1;
           }
@@ -344,42 +330,50 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
         }
         editor.focus();
       },
-      focusEditor: () => {
-        editorRef.current?.focus();
-      },
+      focusEditor: () => editorRef.current?.focus(),
     }));
 
+    // ---------- drag-drop ----------
+    const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+    };
+    const handleDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+    };
+    const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const f = e.dataTransfer.files?.[0];
+      if (f && onDropFile) onDropFile(f);
+    };
+
     return (
-      <div className="json-editor-wrapper">
+      <div
+        className={`json-editor-wrapper ${isDragging ? 'is-dragging' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <div className="json-editor-header">
           <span className="editor-label">{label}</span>
-          <span className={`validity-badge ${isValid ? 'valid' : 'invalid'}`}>
-            {isValid ? (
-              <>
-                <svg
-                  className="ui-icon ui-icon--sm"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M5 12l4 4 10-10" />
-                </svg>
-                Valid
-              </>
-            ) : (
-              <>
-                <svg
-                  className="ui-icon ui-icon--sm"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M6 6l12 12M18 6l-12 12" />
-                </svg>
-                Invalid
-              </>
-            )}
+          <span
+            className={`validity-badge ${isValid ? 'valid' : 'invalid'}`}
+            role="status"
+            aria-live="polite"
+            title={errorMsg || (isValid ? 'Valid JSON' : 'Invalid JSON')}
+          >
+            <Icon name={isValid ? 'check' : 'close'} />
+            {isValid ? 'Valid' : 'Invalid'}
           </span>
         </div>
         <div ref={containerRef} className="monaco-container" />
+        {isDragging && (
+          <div className="json-editor-drop-overlay" aria-hidden="true">
+            Drop file to load JSON
+          </div>
+        )}
       </div>
     );
   }

@@ -73,7 +73,20 @@
 // Search components
 @import 'search';
 
-// JSON viewer styles (split into modular components)
+// Toast notifications
+@import 'toast';
+
+// History modal panel
+@import 'history-panel';
+
+// In-app JSON export picker
+@import 'export-modal';
+
+// Collections export dialog (themed)
+@import 'export-collections-dialog';
+
+// Previous-responses dropdown next to response timestamp
+@import 'response-history-dropdown';
 @import 'json-viewer-core';
 @import 'json-viewer-nodes';
 @import 'json-viewer-modal';
@@ -113,3 +126,6 @@
 
 // Auto-update notification banner
 @import 'update-banner';
+
+// Network speed test (header button + popup)
+@import 'speed-test';

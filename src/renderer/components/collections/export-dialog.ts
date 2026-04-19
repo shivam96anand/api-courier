@@ -58,82 +58,46 @@ export function showExportDialog(
 
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-    `;
+    overlay.className = 'export-collections-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'export-dialog';
-    dialog.style.cssText = `
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      width: 520px;
-      max-height: 85vh;
-      display: flex;
-      flex-direction: column;
-    `;
-    const styleEl = document.createElement('style');
-    styleEl.textContent = `
-      .export-dialog input[type="checkbox"] { accent-color: var(--primary-color); }
-    `;
-    dialog.appendChild(styleEl);
+    dialog.className = 'export-collections-dialog';
 
     const header = document.createElement('div');
-    header.style.cssText = `padding: 16px 20px; border-bottom: 1px solid var(--border-color);`;
+    header.className = 'export-collections-dialog__header';
     const title = document.createElement('h2');
     title.textContent = 'Export';
-    title.style.cssText = `margin: 0; color: var(--text-primary); font-size: 18px; font-weight: 600;`;
+    title.className = 'export-collections-dialog__title';
     const subtitle = document.createElement('div');
     subtitle.textContent =
       'Choose collections, environments, and globals to include in the export file.';
-    subtitle.style.cssText = `margin-top: 6px; color: var(--text-secondary); font-size: 13px;`;
+    subtitle.className = 'export-collections-dialog__subtitle';
     header.appendChild(title);
     header.appendChild(subtitle);
 
     const body = document.createElement('div');
-    body.style.cssText = `padding: 16px 20px; overflow-y: auto; flex: 1;`;
+    body.className = 'export-collections-dialog__body';
 
     // --- Collections section ---
     const collSection = document.createElement('div');
-    collSection.style.cssText = `margin-bottom: 16px;`;
+    collSection.className = 'export-collections-dialog__section';
     const collLabel = document.createElement('div');
     collLabel.textContent = 'Collections';
-    collLabel.style.cssText = `
-      font-weight: 600; color: var(--text-primary); font-size: 13px; margin-bottom: 8px;
-      display: flex; align-items: center; gap: 8px;
-    `;
+    collLabel.className = 'export-collections-dialog__section-label';
     const selectAllColl = document.createElement('button');
     selectAllColl.textContent = 'Select all';
     selectAllColl.type = 'button';
-    selectAllColl.style.cssText = `
-      font-size: 12px; color: var(--primary-color); background: none; border: none; cursor: pointer; padding: 0;
-    `;
+    selectAllColl.className = 'export-collections-dialog__link-btn';
     const deselectAllColl = document.createElement('button');
     deselectAllColl.textContent = 'Deselect all';
     deselectAllColl.type = 'button';
-    deselectAllColl.style.cssText = `
-      font-size: 12px; color: var(--primary-color); background: none; border: none; cursor: pointer; padding: 0;
-    `;
+    deselectAllColl.className = 'export-collections-dialog__link-btn';
     collLabel.appendChild(selectAllColl);
-    collLabel.appendChild(document.createTextNode(' · '));
+    collLabel.appendChild(document.createTextNode(' \u00B7 '));
     collLabel.appendChild(deselectAllColl);
 
     const collTree = document.createElement('div');
-    collTree.style.cssText = `
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 8px;
-      background: var(--bg-tertiary);
-      max-height: 220px;
-      overflow-y: auto;
-    `;
+    collTree.className = 'export-collections-dialog__tree';
 
     function setCollectionChecked(id: string, checked: boolean): void {
       if (checked) {
@@ -171,10 +135,8 @@ export function showExportDialog(
 
     function renderCollectionItem(c: Collection, level: number): void {
       const row = document.createElement('div');
-      row.style.cssText = `
-        display: flex; align-items: center; gap: 4px; padding: 2px 6px; min-height: 24px;
-        padding-left: ${level * 16 + 6}px;
-      `;
+      row.className = 'export-collections-dialog__row';
+      row.style.paddingLeft = `${level * 16 + 6}px`;
 
       if (c.type === 'folder') {
         const expanded = expandedFolderIds.has(c.id);
@@ -189,12 +151,8 @@ export function showExportDialog(
           'aria-label',
           expanded ? 'Collapse folder' : 'Expand folder'
         );
-        caretBtn.style.cssText = `
-          width: 20px; height: 20px; padding: 0; border: none; background: none; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          color: var(--text-secondary); flex-shrink: 0; font-size: 10px; line-height: 1;
-        `;
-        caretBtn.textContent = expanded ? '\u25BC' : '\u25B6'; // ▼ expanded, ▶ collapsed
+        caretBtn.className = 'export-collections-dialog__caret';
+        caretBtn.textContent = expanded ? '\u25BC' : '\u25B6';
         if (hasChildren) {
           caretBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -220,8 +178,7 @@ export function showExportDialog(
         });
         const name = document.createElement('span');
         name.textContent = c.name;
-        name.style.cssText =
-          'color: var(--text-primary); font-size: 13px; cursor: pointer; flex: 1;';
+        name.className = 'export-collections-dialog__name is-folder';
         name.addEventListener('click', () => {
           if (hasChildren) {
             if (expandedFolderIds.has(c.id)) expandedFolderIds.delete(c.id);
@@ -241,7 +198,7 @@ export function showExportDialog(
         }
       } else {
         const spacer = document.createElement('span');
-        spacer.style.cssText = 'width: 20px; flex-shrink: 0;';
+        spacer.className = 'export-collections-dialog__spacer';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = checkedCollectionIds.has(c.id);
@@ -257,7 +214,7 @@ export function showExportDialog(
         name.textContent = c.request
           ? `${c.request.method ?? 'GET'} ${c.name}`
           : c.name;
-        name.style.cssText = 'color: var(--text-primary); font-size: 13px;';
+        name.className = 'export-collections-dialog__name';
         row.appendChild(spacer);
         row.appendChild(cb);
         row.appendChild(icon);
@@ -283,22 +240,15 @@ export function showExportDialog(
 
     // --- Environments section ---
     const envSection = document.createElement('div');
-    envSection.style.cssText = `margin-bottom: 16px;`;
+    envSection.className = 'export-collections-dialog__section';
     const envLabel = document.createElement('div');
     envLabel.textContent = 'Environments';
-    envLabel.style.cssText = `font-weight: 600; color: var(--text-primary); font-size: 13px; margin-bottom: 8px;`;
+    envLabel.className = 'export-collections-dialog__section-label';
     const envList = document.createElement('div');
-    envList.style.cssText = `
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 8px;
-      background: var(--bg-tertiary);
-      max-height: 120px;
-      overflow-y: auto;
-    `;
+    envList.className = 'export-collections-dialog__list';
     environments.forEach((env) => {
       const label = document.createElement('label');
-      label.style.cssText = `display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer;`;
+      label.className = 'export-collections-dialog__check-row';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = true;
@@ -312,7 +262,7 @@ export function showExportDialog(
       });
       const name = document.createElement('span');
       name.textContent = env.name;
-      name.style.cssText = 'color: var(--text-primary); font-size: 13px;';
+      name.className = 'export-collections-dialog__name';
       label.appendChild(cb);
       label.appendChild(icon);
       label.appendChild(name);
@@ -325,9 +275,9 @@ export function showExportDialog(
     // --- Globals ---
     if (hasAnyGlobals) {
       const globSection = document.createElement('div');
-      globSection.style.cssText = `margin-bottom: 8px;`;
+      globSection.className = 'export-collections-dialog__section';
       const globLabel = document.createElement('label');
-      globLabel.style.cssText = `display: flex; align-items: center; gap: 8px; cursor: pointer;`;
+      globLabel.className = 'export-collections-dialog__check-row';
       const globCb = document.createElement('input');
       globCb.type = 'checkbox';
       globCb.checked = true;
@@ -336,7 +286,7 @@ export function showExportDialog(
       });
       const globText = document.createElement('span');
       globText.textContent = `Include globals (${Object.keys(globals?.variables ?? {}).length} variables)`;
-      globText.style.cssText = 'color: var(--text-primary); font-size: 13px;';
+      globText.className = 'export-collections-dialog__name';
       globLabel.appendChild(globCb);
       globLabel.appendChild(globText);
       globSection.appendChild(globLabel);
@@ -344,38 +294,15 @@ export function showExportDialog(
     }
 
     const footer = document.createElement('div');
-    footer.style.cssText = `
-      padding: 12px 20px;
-      border-top: 1px solid var(--border-color);
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    `;
+    footer.className = 'export-collections-dialog__footer';
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
     cancelBtn.type = 'button';
-    cancelBtn.style.cssText = `
-      padding: 8px 16px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      color: var(--text-primary);
-      cursor: pointer;
-      font-size: 14px;
-    `;
+    cancelBtn.className = 'export-collections-dialog__btn-secondary';
     const exportBtn = document.createElement('button');
     exportBtn.textContent = 'Export';
     exportBtn.type = 'button';
-    exportBtn.style.cssText = `
-      padding: 8px 20px;
-      background: var(--primary-color);
-      border: none;
-      border-radius: 4px;
-      color: white;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-    `;
+    exportBtn.className = 'export-collections-dialog__btn-primary';
 
     function cleanup(): void {
       if (document.body.contains(overlay)) document.body.removeChild(overlay);

@@ -36,6 +36,7 @@ export class TabsManager {
     this.eventHandler.setupEventListeners();
     this.setupKeyboardShortcuts();
     this.setupTabReorderListener();
+    this.setupTabRenameListener();
     this.renderer.renderTabs(
       this.stateManager.getTabs(),
       this.stateManager.getActiveTabId()
@@ -51,6 +52,34 @@ export class TabsManager {
     document.addEventListener('tab-reorder', ((e: CustomEvent) => {
       const { sourceTabId, targetTabId, dropBefore } = e.detail;
       this.stateManager.reorderTab(sourceTabId, targetTabId, dropBefore);
+      this.renderer.renderTabs(
+        this.stateManager.getTabs(),
+        this.stateManager.getActiveTabId()
+      );
+    }) as EventListener);
+  }
+
+  private setupTabRenameListener(): void {
+    document.addEventListener('tab-rename', ((e: CustomEvent) => {
+      const { tabId, newName } = e.detail || {};
+      if (!tabId || typeof newName !== 'string') return;
+      this.stateManager.renameTab(tabId, newName);
+      this.renderer.renderTabs(
+        this.stateManager.getTabs(),
+        this.stateManager.getActiveTabId()
+      );
+    }) as EventListener);
+
+    // After a Save round-trip the request is in sync with the collection \u2014
+    // clear isModified so the dirty marker dot disappears.
+    document.addEventListener('request-saved', ((e: CustomEvent) => {
+      const { requestId } = e.detail || {};
+      if (!requestId) return;
+      this.stateManager.updateTabByRequestId(
+        requestId,
+        { isModified: false },
+        false
+      );
       this.renderer.renderTabs(
         this.stateManager.getTabs(),
         this.stateManager.getActiveTabId()
@@ -82,6 +111,21 @@ export class TabsManager {
       if (modifierKey && key === 'w') {
         e.preventDefault();
         this.closeActiveTab();
+      }
+
+      // Cmd/Ctrl+S to save active tab back to its source collection.
+      // Cmd/Ctrl+Shift+S → Save As (forces a destination prompt).
+      if (modifierKey && key === 's') {
+        e.preventDefault();
+        const activeTab = this.stateManager.getActiveTab();
+        if (!activeTab) return;
+        const detail = {
+          tabId: activeTab.id,
+          request: activeTab.request,
+          collectionId: activeTab.collectionId,
+          forceSaveAs: e.shiftKey,
+        };
+        document.dispatchEvent(new CustomEvent('request-save-tab', { detail }));
       }
     });
   }

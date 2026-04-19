@@ -160,6 +160,14 @@ export class ResponseManager {
         this.handleRequestCancelled();
       }
     });
+
+    // When the user toggles REST <-> SOAP on the active request, the
+    // previously displayed response is no longer meaningful (different
+    // protocol/body shape). Clear it so the right-hand panel doesn't
+    // misleadingly show the old REST response next to a SOAP request.
+    document.addEventListener('request-mode-changed', () => {
+      this.clearResponse();
+    });
   }
 
   private listenToTabChanges(): void {
@@ -288,6 +296,7 @@ export class ResponseManager {
     this.viewer.setRequestId(this.currentRequestId);
     await this.viewer.displayResponse(response, requestMode);
     this.tabs.updateTabs(response);
+    this.tabs.setPrevResponsesContext(this.activeTabRequestId, response);
     this.actions.updateVisibility(
       response,
       this.state.activeTab,
@@ -304,6 +313,7 @@ export class ResponseManager {
     this.state.currentResponse = null;
     this.viewer.clear();
     this.actions.hide();
+    this.tabs.setPrevResponsesContext(null, null);
     this.hideLoadingState();
   }
 

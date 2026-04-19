@@ -1,4 +1,5 @@
 import { RequestTab, ApiRequest, ApiResponse } from '../../../shared/types';
+import { cloneApiRequest } from '../../../shared/clone-request';
 import { showConfirmDialog } from '../../utils/confirm-dialog';
 
 export class TabsStateManager {
@@ -149,6 +150,24 @@ export class TabsStateManager {
       );
       this.saveState();
     }
+  }
+
+  /**
+   * Inline-rename support: updates the tab label and the underlying
+   * `request.name`. Marks the tab as modified so the user can save the new
+   * name back to the collection.
+   */
+  renameTab(tabId: string, newName: string): void {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    if (tab.name === trimmed && tab.request.name === trimmed) return;
+    tab.name = trimmed;
+    tab.request.name = trimmed;
+    tab.isModified = true;
+    this.saveState();
+    this.onNotifyTabChange();
   }
 
   updateTabByRequestId(
@@ -385,25 +404,7 @@ export class TabsStateManager {
   }
 
   private cloneRequest(request: ApiRequest): ApiRequest {
-    return {
-      ...request,
-      params: Array.isArray(request.params)
-        ? request.params.map((param) => ({ ...param }))
-        : request.params
-          ? { ...request.params }
-          : request.params,
-      headers: Array.isArray(request.headers)
-        ? request.headers.map((header) => ({ ...header }))
-        : { ...request.headers },
-      body: request.body ? { ...request.body } : request.body,
-      auth: request.auth
-        ? { ...request.auth, config: { ...request.auth.config } }
-        : request.auth,
-      soap: request.soap ? { ...request.soap } : request.soap,
-      variables: request.variables
-        ? { ...request.variables }
-        : request.variables,
-    };
+    return cloneApiRequest(request);
   }
 
   private mergeTabUpdates(

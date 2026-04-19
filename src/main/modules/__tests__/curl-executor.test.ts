@@ -206,4 +206,30 @@ describe('curl-executor.ts — parseCurlCommand', () => {
     );
     expect(result.method).toBe('POST');
   });
+
+  it('strips trailing shell pipelines (| jq …)', () => {
+    const result = parseCurlCommand(
+      "curl -s https://api.example.com/repos | jq '.[].assets[] | {name}'"
+    );
+    expect(result.url).toBe('https://api.example.com/repos');
+    // jq tokens must not leak into flags
+    expect(result.flags.some((f) => f.includes('jq'))).toBe(false);
+    expect(result.flags.some((f) => f.includes('|'))).toBe(false);
+  });
+
+  it('strips shell redirects and command separators', () => {
+    const result = parseCurlCommand(
+      'curl https://api.example.com > out.json && echo done'
+    );
+    expect(result.url).toBe('https://api.example.com');
+    expect(result.flags.some((f) => f.includes('echo'))).toBe(false);
+  });
+
+  it('does not strip pipes inside quoted arguments', () => {
+    const result = parseCurlCommand(
+      "curl -H 'X-Filter: a|b' https://api.example.com"
+    );
+    expect(result.url).toBe('https://api.example.com');
+    expect(result.headers['X-Filter']).toBe('a|b');
+  });
 });

@@ -190,6 +190,25 @@ export class CollectionsRenderer {
         countBadge.textContent = childCount.toString();
         countBadge.title = `${childCount} item${childCount !== 1 ? 's' : ''}`;
         contentWrapper.appendChild(countBadge);
+
+        // Hover-revealed "Run folder" button. Dispatches a custom event the
+        // collections-manager listens for; keeps this renderer free of any
+        // request-execution logic.
+        const runBtn = document.createElement('button');
+        runBtn.className = 'folder-run-btn';
+        runBtn.title = 'Run all requests in this folder';
+        runBtn.setAttribute('aria-label', `Run folder ${collection.name}`);
+        runBtn.innerHTML = '\u25B6';
+        runBtn.dataset.folderId = collection.id;
+        runBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          document.dispatchEvent(
+            new CustomEvent('folder-run-requested', {
+              detail: { folderId: collection.id },
+            })
+          );
+        });
+        contentWrapper.appendChild(runBtn);
       }
     }
 

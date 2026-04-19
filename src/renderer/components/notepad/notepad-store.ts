@@ -1,9 +1,32 @@
-import { NotepadState, NotepadTab } from '../../../shared/types';
+/**
+ * Notepad state store. Lives in the renderer; persists via the main-process
+ * store (debounced) and exposes a small pub/sub for subscribers.
+ *
+ * Dirty-tracking is based on `savedContent` (the snapshot last written to disk
+ * or the empty initial buffer). This means undo-to-saved-state correctly
+ * clears the dirty flag.
+ */
+import {
+  NotepadSettings,
+  NotepadState,
+  NotepadTab,
+} from '../../../shared/types';
+
+export const DEFAULT_SETTINGS: NotepadSettings = {
+  fontSize: 14,
+  wordWrap: 'on',
+  tabSize: 2,
+  formatOnSave: false,
+  trimTrailingWhitespace: false,
+  insertFinalNewline: false,
+  promptOnExit: true,
+};
 
 const DEFAULT_STATE: NotepadState = {
   tabs: [],
   activeTabId: undefined,
   untitledCounter: 1,
+  settings: { ...DEFAULT_SETTINGS },
 };
 
 const generateId = (): string => {
@@ -19,10 +42,17 @@ const normalizeTab = (tab: NotepadTab): NotepadTab => ({
   updatedAt: Number(tab.updatedAt) || Date.now(),
   isDirty: Boolean(tab.isDirty),
   content: tab.content ?? '',
+  // Backfill savedContent for tabs persisted before this field existed: if the
+  // tab was marked dirty, treat saved as empty so it stays dirty; otherwise
+  // assume saved matches current content.
+  savedContent: tab.savedContent ?? (tab.isDirty ? '' : (tab.content ?? '')),
 });
 
 export class NotepadStore {
-  private state: NotepadState = { ...DEFAULT_STATE };
+  private state: NotepadState = {
+    ...DEFAULT_STATE,
+    settings: { ...DEFAULT_SETTINGS },
+  };
   private subscribers: Array<(state: NotepadState) => void> = [];
   private persistTimer: number | null = null;
 
@@ -34,7 +64,7 @@ export class NotepadStore {
     notepad?: NotepadState;
   }): Promise<NotepadState> {
     const stored = prefetchedState ?? (await window.restbro.store.get());
-    const persisted = (stored as any).notepad as NotepadState | undefined;
+    const persisted = (stored as { notepad?: NotepadState }).notepad;
 
     if (persisted) {
       this.state = {
@@ -44,9 +74,13 @@ export class NotepadStore {
         activeTabId: persisted.activeTabId,
         untitledCounter:
           persisted.untitledCounter || DEFAULT_STATE.untitledCounter,
+        settings: { ...DEFAULT_SETTINGS, ...(persisted.settings || {}) },
       };
     } else {
-      this.state = { ...DEFAULT_STATE };
+      this.state = {
+        ...DEFAULT_STATE,
+        settings: { ...DEFAULT_SETTINGS },
+      };
     }
 
     this.notify();
@@ -64,6 +98,15 @@ export class NotepadStore {
     return this.state;
   }
 
+  getSettings(): NotepadSettings {
+    return this.state.settings ?? { ...DEFAULT_SETTINGS };
+  }
+
+  updateSettings(updates: Partial<NotepadSettings>): void {
+    this.state.settings = { ...this.getSettings(), ...updates };
+    this.touch();
+  }
+
   getActiveTab(): NotepadTab | undefined {
     return this.state.tabs.find((t) => t.id === this.state.activeTabId);
   }
@@ -73,18 +116,29 @@ export class NotepadStore {
     return this.state.tabs.find((t) => t.filePath === filePath);
   }
 
+  hasDirtyTabs(): boolean {
+    return this.state.tabs.some((t) => t.isDirty);
+  }
+
   createTab(
-    initial?: Partial<Pick<NotepadTab, 'title' | 'content' | 'filePath'>>
+    initial?: Partial<
+      Pick<NotepadTab, 'title' | 'content' | 'filePath' | 'language'>
+    >
   ): NotepadTab {
     const title = initial?.title || 'Untitled';
     const now = Date.now();
+    const content = initial?.content ?? '';
 
     const tab: NotepadTab = {
       id: generateId(),
       title,
-      content: initial?.content ?? '',
+      content,
+      // For freshly opened files, savedContent matches disk content → not dirty.
+      // For new empty tabs, savedContent === '' so typing flips dirty correctly.
+      savedContent: content,
       filePath: initial?.filePath,
-      isDirty: false, // Only mark dirty after user edits
+      language: initial?.language,
+      isDirty: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -96,7 +150,22 @@ export class NotepadStore {
   }
 
   setActiveTab(tabId?: string): void {
+    if (this.state.activeTabId === tabId) return;
     this.state.activeTabId = tabId;
+    this.touch();
+  }
+
+  /**
+   * Reorder tabs by moving the tab at `fromIdx` to `toIdx`.
+   * Both indices clamp to valid bounds; out-of-range or no-op moves are silent.
+   */
+  reorderTabs(fromIdx: number, toIdx: number): void {
+    const tabs = this.state.tabs;
+    if (fromIdx < 0 || fromIdx >= tabs.length) return;
+    const target = Math.max(0, Math.min(toIdx, tabs.length - 1));
+    if (fromIdx === target) return;
+    const [moved] = tabs.splice(fromIdx, 1);
+    tabs.splice(target, 0, moved);
     this.touch();
   }
 
@@ -114,16 +183,23 @@ export class NotepadStore {
     this.touch();
   }
 
+  /**
+   * Update a tab's content. Dirty is computed by comparing against the
+   * `savedContent` snapshot (not the previous in-memory content), so undo back
+   * to the saved state correctly clears the dirty marker.
+   */
   updateContent(tabId: string, content: string, markDirty = true): void {
     const tab = this.state.tabs.find((t) => t.id === tabId);
     if (!tab) return;
-    const isDirty = markDirty
-      ? content !== tab.content || tab.isDirty
-      : tab.isDirty;
-
+    const savedContent = tab.savedContent ?? '';
+    const isDirty = markDirty ? content !== savedContent : tab.isDirty;
     this.updateTab(tabId, { content, isDirty });
   }
 
+  /**
+   * Persist the tab's current content as the "saved" snapshot. Updates
+   * filePath/title if the tab was just saved-as.
+   */
   markSaved(tabId: string, filePath?: string): void {
     const tab = this.state.tabs.find((t) => t.id === tabId);
     if (!tab) return;
@@ -131,9 +207,18 @@ export class NotepadStore {
     const title = filePath ? this.getFileName(filePath) : tab.title;
     this.updateTab(tabId, {
       isDirty: false,
+      savedContent: tab.content,
       filePath: filePath || tab.filePath,
       title,
     });
+  }
+
+  /** Persist Monaco editor view state (cursor, scroll, folding) for a tab. */
+  setViewState(tabId: string, viewState: unknown): void {
+    const tab = this.state.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    // Mutate in place to avoid re-triggering renders for view-state updates.
+    tab.viewState = viewState;
   }
 
   closeTab(tabId: string): NotepadTab | undefined {
@@ -198,12 +283,14 @@ export class NotepadStore {
 
   /**
    * Immediately persist current state, cancelling any pending debounced write.
+   * Returns the underlying IPC promise so callers can await full persistence
+   * before the app shuts down.
    */
-  flushPersist(): void {
+  async flushPersist(): Promise<void> {
     if (this.persistTimer) {
       clearTimeout(this.persistTimer);
       this.persistTimer = null;
     }
-    window.restbro.store.set({ notepad: this.state });
+    await window.restbro.store.set({ notepad: this.state });
   }
 }
