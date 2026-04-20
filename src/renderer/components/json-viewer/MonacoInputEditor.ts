@@ -38,7 +38,7 @@ export class MonacoInputEditor {
   private updateMonacoTheme(): void {
     const themeColor = this.getCssHexVariable('--primary-color');
     const valueColor = this.getCssHexVariable('--text-primary') || 'ffffff';
-    const bracketColor = this.getCssHexVariable('--json-bracket') || 'da70d6';
+    const bracketColor = this.getCssHexVariable('--primary-color') || 'da70d6';
     const editorBackground = this.getCssHexVariable('--bg-primary') || '1a1a1a';
     const lineNumberColor =
       this.getCssHexVariable('--json-line-number') || '6e6e6e';

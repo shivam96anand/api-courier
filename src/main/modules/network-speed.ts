@@ -1,29 +1,32 @@
 /**
  * Network speed test (download + upload) implemented in the main process.
  *
- * Uses Cloudflare's public speed-test endpoints (`speed.cloudflare.com`) to
- * measure throughput in megabits per second. These are the same endpoints
- * Cloudflare's own speed test page uses, are CORS/HTTPS-friendly, and do
- * not require any account or telemetry.
+ * Uses Cloudflare's public speed-test endpoints (`speed.cloudflare.com`) with
+ * multiple parallel streams and a warm-up period for accurate measurements.
  *
  * Flow:
- *   - DOWNLOAD: GET https://speed.cloudflare.com/__down?bytes=<N>
- *   - UPLOAD:   POST https://speed.cloudflare.com/__up   (body of N random bytes)
+ *   - PING:     GET /__down?bytes=0  (time-to-first-byte)
+ *   - DOWNLOAD: 4 parallel GET /__down for ~7 s, discard first 1.5 s (TCP slow-start)
+ *   - UPLOAD:   4 parallel POST /__up for ~6 s, same warm-up
  *
- * The renderer triggers a run via `runSpeedTest()`; live progress is emitted
- * to the renderer over the `NETWORK_SPEED_TEST_PROGRESS` IPC channel and the
- * final summary is returned from the invoke promise.
+ * Total test duration: ~14 s (10–15 s range).
  */
 import { request as httpsRequest } from 'https';
 import { randomBytes } from 'crypto';
-import type { IncomingMessage, RequestOptions } from 'http';
+import type { ClientRequest, IncomingMessage, RequestOptions } from 'http';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc';
 
 const HOST = 'speed.cloudflare.com';
-const DOWNLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
-const UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB
-const HARD_TIMEOUT_MS = 30_000;
+const STREAMS = 4; // parallel connections
+const DL_DURATION_MS = 7_000; // download phase length
+const UL_DURATION_MS = 6_000; // upload phase length
+const WARMUP_MS = 1_500; // discard TCP slow-start
+const DL_BYTES_PER_STREAM = 200 * 1024 * 1024; // request size (aborted early)
+const UL_BYTES_PER_STREAM = 200 * 1024 * 1024; // max upload per stream
+const UL_CHUNK = 64 * 1024; // write chunk size
+const HARD_TIMEOUT_MS = 30_000; // per-request safety timeout
+const EMIT_MS = 120; // progress update interval
 
 export interface SpeedTestProgress {
   phase: 'starting' | 'download' | 'upload' | 'done' | 'error';
@@ -123,50 +126,88 @@ function measureDownload(
   isAborted: () => boolean
 ): Promise<number> {
   return new Promise((resolve, reject) => {
-    const opts: RequestOptions = {
-      method: 'GET',
-      host: HOST,
-      path: `/__down?bytes=${DOWNLOAD_BYTES}`,
-      timeout: HARD_TIMEOUT_MS,
-    };
     const start = Date.now();
-    let received = 0;
-    let lastEmit = 0;
+    let totalBytes = 0,
+      warmupBytes = 0,
+      warmupEnd = 0,
+      lastEmit = 0,
+      ended = 0;
+    let warmedUp = false,
+      settled = false;
+    const reqs: ClientRequest[] = [];
 
-    const req = httpsRequest(opts, (res: IncomingMessage) => {
-      if (res.statusCode && res.statusCode >= 400) {
-        reject(new Error(`download HTTP ${res.statusCode}`));
-        return;
-      }
-      res.on('data', (chunk: Buffer) => {
-        if (isAborted()) {
-          req.destroy(new Error('cancelled'));
-          return;
-        }
-        received += chunk.length;
-        const now = Date.now();
-        if (now - lastEmit > 120) {
-          lastEmit = now;
-          const elapsedSec = Math.max((now - start) / 1000, 0.001);
-          emit({
-            phase: 'download',
-            mbps: bytesToMbps(received, elapsedSec),
-            ratio: Math.min(received / DOWNLOAD_BYTES, 1),
+    const mbps = (): number =>
+      warmedUp
+        ? bytesToMbps(
+            totalBytes - warmupBytes,
+            Math.max((Date.now() - warmupEnd) / 1000, 0.001)
+          )
+        : bytesToMbps(totalBytes, Math.max((Date.now() - start) / 1000, 0.001));
+    const teardown = (): void => {
+      clearTimeout(timer);
+      for (const r of reqs) r.destroy();
+    };
+    const settle = (): void => {
+      if (settled) return;
+      settled = true;
+      teardown();
+      emit({ phase: 'download', mbps: mbps(), ratio: 1 });
+      resolve(mbps());
+    };
+    const fail = (err: Error): void => {
+      if (settled) return;
+      settled = true;
+      teardown();
+      reject(err);
+    };
+    const timer = setTimeout(settle, DL_DURATION_MS);
+
+    for (let i = 0; i < STREAMS; i++) {
+      const req = httpsRequest(
+        {
+          method: 'GET',
+          host: HOST,
+          path: `/__down?bytes=${DL_BYTES_PER_STREAM}`,
+          timeout: HARD_TIMEOUT_MS,
+        },
+        (res: IncomingMessage) => {
+          if (res.statusCode && res.statusCode >= 400) {
+            fail(new Error(`download HTTP ${res.statusCode}`));
+            return;
+          }
+          res.on('data', (chunk: Buffer) => {
+            if (isAborted()) {
+              fail(new Error('cancelled'));
+              return;
+            }
+            totalBytes += chunk.length;
+            const now = Date.now(),
+              elapsed = now - start;
+            if (!warmedUp && elapsed >= WARMUP_MS) {
+              warmedUp = true;
+              warmupBytes = totalBytes;
+              warmupEnd = now;
+            }
+            if (now - lastEmit > EMIT_MS) {
+              lastEmit = now;
+              emit({
+                phase: 'download',
+                mbps: mbps(),
+                ratio: Math.min(elapsed / DL_DURATION_MS, 0.99),
+              });
+            }
           });
+          res.on('end', () => {
+            if (++ended === STREAMS) settle();
+          });
+          res.on('error', (e) => fail(e));
         }
-      });
-      res.on('end', () => {
-        const elapsedSec = Math.max((Date.now() - start) / 1000, 0.001);
-        const mbps = bytesToMbps(received, elapsedSec);
-        emit({ phase: 'download', mbps, ratio: 1 });
-        resolve(mbps);
-      });
-      res.on('error', reject);
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => req.destroy(new Error('download timeout')));
-    req.end();
+      );
+      req.on('error', (e) => fail(e));
+      req.on('timeout', () => req.destroy(new Error('download timeout')));
+      reqs.push(req);
+      req.end();
+    }
   });
 }
 
@@ -175,72 +216,100 @@ function measureUpload(
   isAborted: () => boolean
 ): Promise<number> {
   return new Promise((resolve, reject) => {
-    const payload = randomBytes(UPLOAD_BYTES);
-
-    const opts: RequestOptions = {
-      method: 'POST',
-      host: HOST,
-      path: '/__up',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': payload.length,
-      },
-      timeout: HARD_TIMEOUT_MS,
-    };
-
+    const buf = randomBytes(UL_CHUNK);
     const start = Date.now();
-    let sent = 0;
-    let lastEmit = 0;
-    const CHUNK = 64 * 1024;
+    let totalBytes = 0,
+      warmupBytes = 0,
+      warmupEnd = 0,
+      lastEmit = 0,
+      ended = 0;
+    let warmedUp = false,
+      settled = false;
+    const reqs: ClientRequest[] = [];
 
-    const req = httpsRequest(opts, (res: IncomingMessage) => {
-      if (res.statusCode && res.statusCode >= 400) {
-        reject(new Error(`upload HTTP ${res.statusCode}`));
-        return;
-      }
-      res.resume();
-      res.on('end', () => {
-        const elapsedSec = Math.max((Date.now() - start) / 1000, 0.001);
-        const mbps = bytesToMbps(payload.length, elapsedSec);
-        emit({ phase: 'upload', mbps, ratio: 1 });
-        resolve(mbps);
-      });
-      res.on('error', reject);
-    });
+    const mbps = (): number =>
+      warmedUp
+        ? bytesToMbps(
+            totalBytes - warmupBytes,
+            Math.max((Date.now() - warmupEnd) / 1000, 0.001)
+          )
+        : bytesToMbps(totalBytes, Math.max((Date.now() - start) / 1000, 0.001));
+    const teardown = (): void => {
+      clearTimeout(timer);
+      for (const r of reqs) r.destroy();
+    };
+    const settle = (): void => {
+      if (settled) return;
+      settled = true;
+      teardown();
+      emit({ phase: 'upload', mbps: mbps(), ratio: 1 });
+      resolve(mbps());
+    };
+    const fail = (err: Error): void => {
+      if (settled) return;
+      settled = true;
+      teardown();
+      reject(err);
+    };
+    const timer = setTimeout(settle, UL_DURATION_MS);
 
-    req.on('error', reject);
-    req.on('timeout', () => req.destroy(new Error('upload timeout')));
-
-    const writeNext = (): void => {
-      if (isAborted()) {
-        req.destroy(new Error('cancelled'));
-        return;
-      }
-      while (sent < payload.length) {
-        const end = Math.min(sent + CHUNK, payload.length);
-        const slice = payload.subarray(sent, end);
-        sent = end;
-
-        const now = Date.now();
-        if (now - lastEmit > 120) {
-          lastEmit = now;
-          const elapsedSec = Math.max((now - start) / 1000, 0.001);
-          emit({
-            phase: 'upload',
-            mbps: bytesToMbps(sent, elapsedSec),
-            ratio: Math.min(sent / payload.length, 1),
+    for (let i = 0; i < STREAMS; i++) {
+      const req = httpsRequest(
+        {
+          method: 'POST',
+          host: HOST,
+          path: '/__up',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': UL_BYTES_PER_STREAM,
+          },
+          timeout: HARD_TIMEOUT_MS,
+        },
+        (res: IncomingMessage) => {
+          if (res.statusCode && res.statusCode >= 400) {
+            fail(new Error(`upload HTTP ${res.statusCode}`));
+            return;
+          }
+          res.resume();
+          res.on('end', () => {
+            if (++ended === STREAMS) settle();
           });
+          res.on('error', (e) => fail(e));
         }
+      );
+      req.on('error', (e) => fail(e));
+      req.on('timeout', () => req.destroy(new Error('upload timeout')));
+      reqs.push(req);
 
-        const ok = req.write(slice);
-        if (!ok) {
-          req.once('drain', writeNext);
+      const pump = (): void => {
+        if (settled || isAborted()) {
+          if (isAborted() && !settled) fail(new Error('cancelled'));
           return;
         }
-      }
-      req.end();
-    };
-    writeNext();
+        let ok = true;
+        while (ok && !settled) {
+          totalBytes += buf.length;
+          const now = Date.now(),
+            elapsed = now - start;
+          if (!warmedUp && elapsed >= WARMUP_MS) {
+            warmedUp = true;
+            warmupBytes = totalBytes;
+            warmupEnd = now;
+          }
+          if (now - lastEmit > EMIT_MS) {
+            lastEmit = now;
+            emit({
+              phase: 'upload',
+              mbps: mbps(),
+              ratio: Math.min(elapsed / UL_DURATION_MS, 0.99),
+            });
+          }
+          ok = req.write(buf);
+        }
+        if (!settled) req.once('drain', pump);
+      };
+      pump();
+    }
   });
 }
 

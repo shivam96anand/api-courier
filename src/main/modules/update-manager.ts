@@ -16,7 +16,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 class UpdateManager {
   private checkInterval: NodeJS.Timeout | null = null;
   private updateReady = false;
-  private readonly CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+  private readonly CHECK_INTERVAL_MS = 1 * 60 * 60 * 1000; // 1 hour
 
   initialize(): void {
     // Auto-updates only make sense in signed, packaged production builds.

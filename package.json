@@ -1,6 +1,6 @@
 {
   "name": "restbro",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A modern API testing tool similar to Postman and Insomnia",
   "main": "dist/main/main/index.js",
   "scripts": {

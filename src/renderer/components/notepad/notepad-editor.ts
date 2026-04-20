@@ -28,7 +28,7 @@ function getCssHexVariable(name: string): string {
 export function updateMonacoTheme(): void {
   const themeColor = getCssHexVariable('--primary-color');
   const valueColor = getCssHexVariable('--text-primary') || 'ffffff';
-  const bracketColor = getCssHexVariable('--json-bracket') || 'da70d6';
+  const bracketColor = getCssHexVariable('--primary-color') || 'da70d6';
   const editorBackground = getCssHexVariable('--bg-primary') || '1a1a1a';
   const lineNumberColor = getCssHexVariable('--json-line-number') || '6e6e6e';
 

@@ -158,14 +158,12 @@
   }
 }
 
-// Pin Monaco's bracket-pair colorization classes to a single bracket color.
-// MonacoJsonEditor disables bracketPairColorization and maps every
-// `delimiter.*.json` token in its theme, but Monaco can still emit the
-// `bracket-highlighting-N` decoration classes during the first paint /
-// background tokenization pass — which produced the rainbow flash that
-// "fixed itself" after a tab switch (re-tokenize with theme). This rule is
-// the defensive root-cause fix: regardless of when Monaco gets around to
-// applying our theme, brackets stay magenta from the very first frame.
+// Defensive: pin Monaco's bracket-pair colorization classes to the theme
+// primary color in case Monaco ever emits them despite our
+// `bracketPairColorization: { enabled: false }` option (this was the source
+// of the historical "rainbow brace" flash that "fixed itself" after a tab
+// switch). Brackets must always match the keys, so we use --primary-color
+// directly — same source of truth as MonacoJsonEditor's token theme rules.
 .monaco-editor {
   .bracket-highlighting-0,
   .bracket-highlighting-1,
@@ -177,6 +175,6 @@
   .bracket-highlighting-7,
   .bracket-highlighting-8,
   .bracket-highlighting-9 {
-    color: var(--json-bracket) !important;
+    color: var(--primary-color) !important;
   }
 }

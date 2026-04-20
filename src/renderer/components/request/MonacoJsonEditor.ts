@@ -39,7 +39,12 @@ export class MonacoJsonEditor {
   private updateMonacoTheme(): void {
     const themeColor = this.getCssHexVariable('--primary-color');
     const valueColor = this.getCssHexVariable('--text-primary') || 'ffffff';
-    const bracketColor = this.getCssHexVariable('--json-bracket') || 'da70d6';
+    // Brackets must always match the theme primary color. Reading
+    // --primary-color directly (instead of the parallel --json-bracket var)
+    // removes a sync hazard where the two variables briefly disagreed and
+    // brackets rendered in the SCSS default magenta while keys already used
+    // the user's selected theme color.
+    const bracketColor = themeColor || 'da70d6';
     const editorBackground = this.getCssHexVariable('--bg-primary') || '1a1a1a';
     const lineNumberColor =
       this.getCssHexVariable('--json-line-number') || '6e6e6e';

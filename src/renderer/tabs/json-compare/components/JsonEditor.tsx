@@ -48,7 +48,7 @@ function readCssHex(name: string): string {
 function registerOrUpdateTheme(): void {
   const themeColor = readCssHex('--primary-color');
   const valueColor = readCssHex('--text-primary') || 'ffffff';
-  const bracketColor = readCssHex('--json-bracket') || 'da70d6';
+  const bracketColor = readCssHex('--primary-color') || 'da70d6';
   const editorBackground = readCssHex('--bg-primary') || '1a1a1a';
   const lineNumberColor = readCssHex('--json-line-number') || '6e6e6e';
 
