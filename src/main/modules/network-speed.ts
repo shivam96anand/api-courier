@@ -18,6 +18,14 @@ import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc';
 
 const HOST = 'speed.cloudflare.com';
+// Cloudflare returns 403 for requests without a recognizable User-Agent
+// (bot/abuse protection), so identify ourselves as a real client.
+const DEFAULT_HEADERS: Record<string, string | number> = {
+  'User-Agent':
+    'Mozilla/5.0 (Restbro Speed Test) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: '*/*',
+  'Accept-Encoding': 'identity',
+};
 const STREAMS = 4; // parallel connections
 const DL_DURATION_MS = 7_000; // download phase length
 const UL_DURATION_MS = 6_000; // upload phase length
@@ -105,6 +113,7 @@ function measurePing(isAborted: () => boolean): Promise<number> {
       method: 'GET',
       host: HOST,
       path: '/__down?bytes=0',
+      headers: { ...DEFAULT_HEADERS },
       timeout: 5_000,
     };
     const req = httpsRequest(opts, (res: IncomingMessage) => {
@@ -168,6 +177,7 @@ function measureDownload(
           method: 'GET',
           host: HOST,
           path: `/__down?bytes=${DL_BYTES_PER_STREAM}`,
+          headers: { ...DEFAULT_HEADERS },
           timeout: HARD_TIMEOUT_MS,
         },
         (res: IncomingMessage) => {
@@ -260,6 +270,7 @@ function measureUpload(
           host: HOST,
           path: '/__up',
           headers: {
+            ...DEFAULT_HEADERS,
             'Content-Type': 'application/octet-stream',
             'Content-Length': UL_BYTES_PER_STREAM,
           },
