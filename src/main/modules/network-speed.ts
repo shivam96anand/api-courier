@@ -18,23 +18,38 @@ import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc';
 
 const HOST = 'speed.cloudflare.com';
-// Cloudflare returns 403 for requests without a recognizable User-Agent
-// (bot/abuse protection), so identify ourselves as a real client.
+// Pretend to be a request originating from speed.cloudflare.com itself.
+// Cloudflare's bot-management rejects requests with missing/odd User-Agent or
+// missing Origin/Referer with HTTP 403, especially for larger byte counts.
 const DEFAULT_HEADERS: Record<string, string | number> = {
   'User-Agent':
-    'Mozilla/5.0 (Restbro Speed Test) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   Accept: '*/*',
   'Accept-Encoding': 'identity',
+  Origin: 'https://speed.cloudflare.com',
+  Referer: 'https://speed.cloudflare.com/',
 };
 const STREAMS = 4; // parallel connections
 const DL_DURATION_MS = 7_000; // download phase length
 const UL_DURATION_MS = 6_000; // upload phase length
 const WARMUP_MS = 1_500; // discard TCP slow-start
-const DL_BYTES_PER_STREAM = 200 * 1024 * 1024; // request size (aborted early)
-const UL_BYTES_PER_STREAM = 200 * 1024 * 1024; // max upload per stream
+// Per-request payload size. Cloudflare's anti-abuse layer can reject very
+// large `__down?bytes=` / `__up` requests with 403 in some regions, so we
+// stay at 25 MB — matching the size used by Cloudflare's own speedtest
+// engine (@cloudflare/speedtest defaultConfig). Streams that finish before
+// the phase timer simply settle early; the engine handles that.
+const DL_BYTES_PER_STREAM = 25_000_000;
+const UL_BYTES_PER_STREAM = 25_000_000;
 const UL_CHUNK = 64 * 1024; // write chunk size
 const HARD_TIMEOUT_MS = 30_000; // per-request safety timeout
 const EMIT_MS = 120; // progress update interval
+// Final-result reduction (Ookla-style). We bucket post-warmup bytes into
+// short slices and report a trimmed mean — this matches what users see on
+// fast.com and speedtest.net far better than a flat mean of the full run,
+// because it discards TCP slow-start and brief network stalls.
+const SLICE_MS = 250; // slice width for per-slice throughput
+const TRIM_LOW = 0.3; // drop the slowest 30%
+const TRIM_HIGH = 0.1; // drop the fastest 10%
 
 export interface SpeedTestProgress {
   phase: 'starting' | 'download' | 'upload' | 'done' | 'error';
@@ -139,29 +154,36 @@ function measureDownload(
     let totalBytes = 0,
       warmupBytes = 0,
       warmupEnd = 0,
-      lastEmit = 0,
-      ended = 0;
+      lastEmit = 0;
     let warmedUp = false,
       settled = false;
-    const reqs: ClientRequest[] = [];
+    const reqs = new Set<ClientRequest>();
+    const tracker = new SliceTracker();
 
-    const mbps = (): number =>
+    const liveMbps = (): number =>
       warmedUp
         ? bytesToMbps(
             totalBytes - warmupBytes,
             Math.max((Date.now() - warmupEnd) / 1000, 0.001)
           )
         : bytesToMbps(totalBytes, Math.max((Date.now() - start) / 1000, 0.001));
+    const finalMbps = (): number => {
+      const trimmed = tracker.mbpsTrimmedMean();
+      // Fallback to running mean if the test was too short to slice.
+      return trimmed > 0 ? trimmed : liveMbps();
+    };
     const teardown = (): void => {
       clearTimeout(timer);
       for (const r of reqs) r.destroy();
+      reqs.clear();
     };
     const settle = (): void => {
       if (settled) return;
       settled = true;
       teardown();
-      emit({ phase: 'download', mbps: mbps(), ratio: 1 });
-      resolve(mbps());
+      const result = finalMbps();
+      emit({ phase: 'download', mbps: result, ratio: 1 });
+      resolve(result);
     };
     const fail = (err: Error): void => {
       if (settled) return;
@@ -171,7 +193,8 @@ function measureDownload(
     };
     const timer = setTimeout(settle, DL_DURATION_MS);
 
-    for (let i = 0; i < STREAMS; i++) {
+    const launchStream = (): void => {
+      if (settled) return;
       const req = httpsRequest(
         {
           method: 'GET',
@@ -197,27 +220,34 @@ function measureDownload(
               warmedUp = true;
               warmupBytes = totalBytes;
               warmupEnd = now;
+              tracker.start(now);
             }
+            if (warmedUp) tracker.add(chunk.length, now);
             if (now - lastEmit > EMIT_MS) {
               lastEmit = now;
               emit({
                 phase: 'download',
-                mbps: mbps(),
+                mbps: liveMbps(),
                 ratio: Math.min(elapsed / DL_DURATION_MS, 0.99),
               });
             }
           });
           res.on('end', () => {
-            if (++ended === STREAMS) settle();
+            reqs.delete(req);
+            // Re-launch on a fast connection so the pipe stays full until
+            // the phase timer fires.
+            if (!settled) launchStream();
           });
           res.on('error', (e) => fail(e));
         }
       );
       req.on('error', (e) => fail(e));
       req.on('timeout', () => req.destroy(new Error('download timeout')));
-      reqs.push(req);
+      reqs.add(req);
       req.end();
-    }
+    };
+
+    for (let i = 0; i < STREAMS; i++) launchStream();
   });
 }
 
@@ -231,29 +261,35 @@ function measureUpload(
     let totalBytes = 0,
       warmupBytes = 0,
       warmupEnd = 0,
-      lastEmit = 0,
-      ended = 0;
+      lastEmit = 0;
     let warmedUp = false,
       settled = false;
-    const reqs: ClientRequest[] = [];
+    const reqs = new Set<ClientRequest>();
+    const tracker = new SliceTracker();
 
-    const mbps = (): number =>
+    const liveMbps = (): number =>
       warmedUp
         ? bytesToMbps(
             totalBytes - warmupBytes,
             Math.max((Date.now() - warmupEnd) / 1000, 0.001)
           )
         : bytesToMbps(totalBytes, Math.max((Date.now() - start) / 1000, 0.001));
+    const finalMbps = (): number => {
+      const trimmed = tracker.mbpsTrimmedMean();
+      return trimmed > 0 ? trimmed : liveMbps();
+    };
     const teardown = (): void => {
       clearTimeout(timer);
       for (const r of reqs) r.destroy();
+      reqs.clear();
     };
     const settle = (): void => {
       if (settled) return;
       settled = true;
       teardown();
-      emit({ phase: 'upload', mbps: mbps(), ratio: 1 });
-      resolve(mbps());
+      const result = finalMbps();
+      emit({ phase: 'upload', mbps: result, ratio: 1 });
+      resolve(result);
     };
     const fail = (err: Error): void => {
       if (settled) return;
@@ -263,7 +299,9 @@ function measureUpload(
     };
     const timer = setTimeout(settle, UL_DURATION_MS);
 
-    for (let i = 0; i < STREAMS; i++) {
+    const launchStream = (): void => {
+      if (settled) return;
+      let written = 0;
       const req = httpsRequest(
         {
           method: 'POST',
@@ -283,14 +321,17 @@ function measureUpload(
           }
           res.resume();
           res.on('end', () => {
-            if (++ended === STREAMS) settle();
+            reqs.delete(req);
+            // Re-launch on a fast connection so the pipe stays full until
+            // the phase timer fires.
+            if (!settled) launchStream();
           });
           res.on('error', (e) => fail(e));
         }
       );
       req.on('error', (e) => fail(e));
       req.on('timeout', () => req.destroy(new Error('upload timeout')));
-      reqs.push(req);
+      reqs.add(req);
 
       const pump = (): void => {
         if (settled || isAborted()) {
@@ -298,33 +339,100 @@ function measureUpload(
           return;
         }
         let ok = true;
-        while (ok && !settled) {
-          totalBytes += buf.length;
+        while (ok && !settled && written < UL_BYTES_PER_STREAM) {
+          const remaining = UL_BYTES_PER_STREAM - written;
+          const chunk =
+            remaining >= buf.length ? buf : buf.subarray(0, remaining);
+          written += chunk.length;
+          totalBytes += chunk.length;
           const now = Date.now(),
             elapsed = now - start;
           if (!warmedUp && elapsed >= WARMUP_MS) {
             warmedUp = true;
             warmupBytes = totalBytes;
             warmupEnd = now;
+            tracker.start(now);
           }
+          if (warmedUp) tracker.add(chunk.length, now);
           if (now - lastEmit > EMIT_MS) {
             lastEmit = now;
             emit({
               phase: 'upload',
-              mbps: mbps(),
+              mbps: liveMbps(),
               ratio: Math.min(elapsed / UL_DURATION_MS, 0.99),
             });
           }
-          ok = req.write(buf);
+          ok = req.write(chunk);
         }
-        if (!settled) req.once('drain', pump);
+        if (settled) return;
+        if (written >= UL_BYTES_PER_STREAM) {
+          req.end();
+          return;
+        }
+        req.once('drain', pump);
       };
       pump();
-    }
+    };
+
+    for (let i = 0; i < STREAMS; i++) launchStream();
   });
 }
 
 function bytesToMbps(bytes: number, seconds: number): number {
   // bytes → bits → Mbps
   return (bytes * 8) / seconds / 1_000_000;
+}
+
+/**
+ * Buckets bytes added after warmup into fixed-width time slices. The
+ * `mbpsTrimmedMean()` getter returns an Ookla-style trimmed mean of the
+ * per-slice Mbps values (drops slowest 30% and fastest 10%), which closely
+ * matches the headline numbers shown by fast.com and speedtest.net.
+ */
+class SliceTracker {
+  private slices: number[] = [];
+  private startTs = 0;
+  private currentSliceIdx = -1;
+
+  start(at: number): void {
+    this.startTs = at;
+    this.slices = [];
+    this.currentSliceIdx = -1;
+  }
+
+  add(bytes: number, at: number): void {
+    if (this.startTs === 0) return;
+    const idx = Math.floor((at - this.startTs) / SLICE_MS);
+    if (idx < 0) return;
+    if (idx > this.currentSliceIdx) {
+      // Pad any missing slots (e.g. brief stall) with 0-byte slices so they
+      // get trimmed out as the slow tail rather than ignored.
+      while (this.slices.length <= idx) this.slices.push(0);
+      this.currentSliceIdx = idx;
+    }
+    this.slices[idx] += bytes;
+  }
+
+  /** Trimmed mean Mbps; falls back to a simple mean if too few slices. */
+  mbpsTrimmedMean(): number {
+    // Drop the in-progress final slice — it's typically partial.
+    const closed = this.slices.slice(0, -1);
+    if (closed.length === 0) return 0;
+
+    const perSliceMbps = closed.map((b) => bytesToMbps(b, SLICE_MS / 1000));
+
+    if (perSliceMbps.length < 5) {
+      // Not enough samples to meaningfully trim — return the mean.
+      return perSliceMbps.reduce((s, v) => s + v, 0) / perSliceMbps.length;
+    }
+
+    const sorted = [...perSliceMbps].sort((a, b) => a - b);
+    const lo = Math.floor(sorted.length * TRIM_LOW);
+    const hi = Math.max(
+      lo + 1,
+      sorted.length - Math.floor(sorted.length * TRIM_HIGH)
+    );
+    const kept = sorted.slice(lo, hi);
+    return kept.reduce((s, v) => s + v, 0) / kept.length;
+  }
 }

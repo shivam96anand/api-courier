@@ -21,6 +21,7 @@
   height: 30px;
   position: relative;
   overflow: hidden;
+  white-space: nowrap;
 
   &::before {
     content: '';
