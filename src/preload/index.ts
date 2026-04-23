@@ -32,6 +32,8 @@ const IPC_CHANNELS = {
 
   // Import channels
   IMPORT_PARSE_PREVIEW: 'import:parse-preview',
+  IMPORT_PARSE_FOLDER_PREVIEW: 'import:parse-folder-preview',
+  IMPORT_PICK_FOLDER: 'import:pick-folder',
   IMPORT_COMMIT: 'import:commit',
 
   // Collections UI state channels
@@ -540,6 +542,12 @@ const restbroAPI = {
       fileContent: string
     ): Promise<{ success: boolean; preview?: any; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.IMPORT_PARSE_PREVIEW, fileContent),
+    pickFolder: (): Promise<{ canceled: boolean; folderPath?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.IMPORT_PICK_FOLDER),
+    parseFolderPreview: (
+      folderPath: string
+    ): Promise<{ success: boolean; preview?: any; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.IMPORT_PARSE_FOLDER_PREVIEW, folderPath),
     commit: (preview: any): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.IMPORT_COMMIT, preview),
   },

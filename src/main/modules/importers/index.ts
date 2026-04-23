@@ -11,6 +11,25 @@ import {
 } from './postman';
 import { mapInsomniaExport, isInsomniaExport } from './insomnia';
 import { isRestbroExport, mapRestbroExport } from './restbro';
+import {
+  isHoppscotchCollection,
+  isHoppscotchEnvironment,
+  mapHoppscotchCollection,
+  mapHoppscotchEnvironment,
+} from './hoppscotch';
+import { isBrunoCollectionDir, mapBrunoCollection } from './bruno';
+import { isOpenApiDocument, mapOpenApiDocument } from './openapi';
+import { isHarDocument, mapHarDocument } from './har';
+import {
+  isThunderClientCollection,
+  isThunderClientEnvironment,
+  mapThunderClientCollection,
+  mapThunderClientEnvironment,
+} from './thunder-client';
+import { isPawExport, mapPawExport } from './paw';
+import { isRestClientText, mapRestClientText } from './rest-client';
+import { isWsdlDocument, mapWsdlDocument } from './wsdl';
+import { isCurlCommand, mapCurlCommand } from './curl';
 import * as yaml from 'js-yaml';
 
 export type ImportKind =
@@ -18,6 +37,17 @@ export type ImportKind =
   | 'postman-collection'
   | 'postman-environment'
   | 'insomnia'
+  | 'hoppscotch-collection'
+  | 'hoppscotch-environment'
+  | 'bruno'
+  | 'openapi'
+  | 'har'
+  | 'thunder-client-collection'
+  | 'thunder-client-environment'
+  | 'paw'
+  | 'rest-client'
+  | 'wsdl'
+  | 'curl'
   | 'unknown';
 
 export interface ImportResult {
@@ -42,7 +72,7 @@ export interface ImportPreview {
 }
 
 /**
- * Detects the type of import file and parses it
+ * Detects the type of import file (JSON/YAML payloads) and parses it.
  */
 export function detectAndParse(jsonData: any): ImportResult {
   // Detect Restbro native export first
@@ -89,7 +119,122 @@ export function detectAndParse(jsonData: any): ImportResult {
     };
   }
 
+  // Detect OpenAPI / Swagger (checked before Hoppscotch/Paw because the
+  // signature is unambiguous: explicit `openapi:` or `swagger:` field).
+  if (isOpenApiDocument(jsonData)) {
+    const { rootFolder, environments } = mapOpenApiDocument(jsonData);
+    return {
+      kind: 'openapi',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+
+  // Detect HAR (HTTP Archive). Unambiguous: top-level `log.entries[]`.
+  if (isHarDocument(jsonData)) {
+    const { rootFolder, environments } = mapHarDocument(jsonData);
+    return {
+      kind: 'har',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+
+  // Detect Thunder Client (collection then environment).
+  if (isThunderClientCollection(jsonData)) {
+    const { rootFolder, environments } = mapThunderClientCollection(jsonData);
+    return {
+      kind: 'thunder-client-collection',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+  if (isThunderClientEnvironment(jsonData)) {
+    const env = mapThunderClientEnvironment(jsonData);
+    return {
+      kind: 'thunder-client-environment',
+      name: env.name,
+      environments: [env],
+    };
+  }
+
+  // Detect Hoppscotch collection (checked after the formats above because
+  // Hoppscotch JSON has no schema URL and is structurally permissive).
+  if (isHoppscotchCollection(jsonData)) {
+    const { rootFolder, environments } = mapHoppscotchCollection(jsonData);
+    return {
+      kind: 'hoppscotch-collection',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+
+  // Detect Hoppscotch environment
+  if (isHoppscotchEnvironment(jsonData)) {
+    const environments = mapHoppscotchEnvironment(jsonData);
+    return {
+      kind: 'hoppscotch-environment',
+      name: environments[0]?.name ?? 'Hoppscotch Environment',
+      environments,
+    };
+  }
+
+  // Detect Paw export last among JSON formats — its signature is the
+  // loosest (numeric-keyed objects), so anything more specific must win.
+  if (isPawExport(jsonData)) {
+    const { rootFolder, environments } = mapPawExport(jsonData);
+    return {
+      kind: 'paw',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+
   // Unknown format
+  return {
+    kind: 'unknown',
+    name: 'Unknown Format',
+    environments: [],
+  };
+}
+
+/**
+ * Detect and parse text-based import payloads that aren't JSON/YAML
+ * (REST Client `.http`, WSDL XML, raw cURL command).
+ */
+export function detectAndParseText(rawText: string): ImportResult {
+  if (isWsdlDocument(rawText)) {
+    const { rootFolder, environments } = mapWsdlDocument(rawText);
+    return {
+      kind: 'wsdl',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+  if (isCurlCommand(rawText)) {
+    const { rootFolder, environments } = mapCurlCommand(rawText);
+    return {
+      kind: 'curl',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+  if (isRestClientText(rawText)) {
+    const { rootFolder, environments } = mapRestClientText(rawText);
+    return {
+      kind: 'rest-client',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
   return {
     kind: 'unknown',
     name: 'Unknown Format',
@@ -179,4 +324,30 @@ export function parseJsonFile(content: string): any {
       );
     }
   }
+}
+
+/**
+ * Detect and parse a Bruno collection from a folder path. Bruno collections
+ * are filesystem-based (a tree of `.bru` files) and therefore cannot go
+ * through `detectAndParse` like JSON-based formats. Returns an `ImportResult`
+ * shaped identically to the JSON path so the renderer/preview pipeline can
+ * stay shared.
+ */
+export async function detectAndParseFolder(
+  folderPath: string
+): Promise<ImportResult> {
+  if (await isBrunoCollectionDir(folderPath)) {
+    const { rootFolder, environments } = await mapBrunoCollection(folderPath);
+    return {
+      kind: 'bruno',
+      name: rootFolder.name,
+      rootFolder,
+      environments,
+    };
+  }
+  return {
+    kind: 'unknown',
+    name: 'Unknown Format',
+    environments: [],
+  };
 }

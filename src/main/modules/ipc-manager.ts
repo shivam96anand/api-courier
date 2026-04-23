@@ -35,6 +35,8 @@ import {
 import { randomUUID } from 'crypto';
 import {
   detectAndParse,
+  detectAndParseFolder,
+  detectAndParseText,
   generatePreview,
   parseJsonFile,
   ImportPreview,
@@ -43,6 +45,7 @@ import {
 class IpcManager {
   // Track file paths approved by user via native dialogs
   private approvedFilePaths = new Set<string>();
+  private approvedFolderPaths = new Set<string>();
 
   initialize(): void {
     ipcMain.handle(IPC_CHANNELS.STORE_GET, (): AppState => {
@@ -271,9 +274,28 @@ class IpcManager {
         const result = await dialog.showOpenDialog({
           properties: ['openFile', 'multiSelections'],
           filters: [
-            { name: 'Collection Files', extensions: ['json', 'yaml', 'yml'] },
+            {
+              name: 'Collection Files',
+              extensions: [
+                'json',
+                'yaml',
+                'yml',
+                'har',
+                'http',
+                'rest',
+                'wsdl',
+                'xml',
+                'curl',
+                'sh',
+                'txt',
+              ],
+            },
             { name: 'JSON Files', extensions: ['json'] },
             { name: 'YAML Files', extensions: ['yaml', 'yml'] },
+            { name: 'HAR Files', extensions: ['har'] },
+            { name: 'REST Client Files', extensions: ['http', 'rest'] },
+            { name: 'WSDL / XML', extensions: ['wsdl', 'xml'] },
+            { name: 'cURL / Shell', extensions: ['curl', 'sh', 'txt'] },
             { name: 'All Files', extensions: ['*'] },
           ],
         });
@@ -394,13 +416,28 @@ class IpcManager {
       IPC_CHANNELS.IMPORT_PARSE_PREVIEW,
       async (_, fileContent: string) => {
         try {
-          const jsonData = parseJsonFile(fileContent);
-          const importResult = detectAndParse(jsonData);
+          // Try JSON/YAML first; fall back to text-based importers
+          // (REST Client, WSDL, raw cURL command) when parsing fails or
+          // the structured detector returns 'unknown'.
+          let importResult;
+          try {
+            const jsonData = parseJsonFile(fileContent);
+            importResult = detectAndParse(jsonData);
+          } catch {
+            importResult = detectAndParseText(fileContent);
+          }
 
           if (importResult.kind === 'unknown') {
-            throw new Error(
-              'Unknown or unsupported file format. Please import a valid Postman or Insomnia file.'
-            );
+            // Last chance: maybe JSON parsed but didn't match anything
+            // structured — try the text detectors anyway.
+            const textResult = detectAndParseText(fileContent);
+            if (textResult.kind !== 'unknown') {
+              importResult = textResult;
+            } else {
+              throw new Error(
+                'Unknown or unsupported file format. Supported: Postman, Insomnia, Hoppscotch, Bruno, OpenAPI/Swagger, HAR, Thunder Client, Paw, REST Client (.http), WSDL, cURL.'
+              );
+            }
           }
 
           const preview = generatePreview(importResult);
@@ -412,6 +449,58 @@ class IpcManager {
               error instanceof Error
                 ? error.message
                 : 'Failed to parse import file',
+          };
+        }
+      }
+    );
+
+    // Folder picker for filesystem-based importers (currently Bruno).
+    ipcMain.handle(IPC_CHANNELS.IMPORT_PICK_FOLDER, async () => {
+      try {
+        const result = await dialog.showOpenDialog({
+          properties: ['openDirectory'],
+          title: 'Select Bruno collection folder',
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+          return { canceled: true };
+        }
+        const folderPath = result.filePaths[0];
+        this.approvedFolderPaths.add(folderPath);
+        return { canceled: false, folderPath };
+      } catch (error) {
+        throw new Error(
+          error instanceof Error
+            ? error.message
+            : 'Failed to open folder dialog'
+        );
+      }
+    });
+
+    // Parse a folder-based import (Bruno) into a preview.
+    ipcMain.handle(
+      IPC_CHANNELS.IMPORT_PARSE_FOLDER_PREVIEW,
+      async (_, folderPath: string) => {
+        try {
+          if (!this.approvedFolderPaths.has(folderPath)) {
+            throw new Error(
+              'Folder access not permitted. Pick the folder using the dialog first.'
+            );
+          }
+          const importResult = await detectAndParseFolder(folderPath);
+          if (importResult.kind === 'unknown') {
+            throw new Error(
+              'Selected folder does not look like a Bruno collection.'
+            );
+          }
+          const preview = generatePreview(importResult);
+          return { success: true, preview };
+        } catch (error) {
+          return {
+            success: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to parse folder import',
           };
         }
       }

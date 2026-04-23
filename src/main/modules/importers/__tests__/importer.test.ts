@@ -106,6 +106,36 @@ describe('importers/index.ts', () => {
       expect(result.rootFolder).toBeDefined();
     });
 
+    it('detects Hoppscotch collection', () => {
+      const result = detectAndParse({
+        v: 2,
+        name: 'H',
+        folders: [],
+        requests: [
+          {
+            v: 2,
+            name: 'Ping',
+            method: 'GET',
+            endpoint: 'https://x/ping',
+            params: [],
+            headers: [],
+          },
+        ],
+      });
+      expect(result.kind).toBe('hoppscotch-collection');
+      expect(result.name).toBe('H');
+      expect(result.rootFolder!.children).toHaveLength(1);
+    });
+
+    it('detects Hoppscotch environment', () => {
+      const result = detectAndParse({
+        name: 'Dev',
+        variables: [{ key: 'baseUrl', value: 'http://x' }],
+      });
+      expect(result.kind).toBe('hoppscotch-environment');
+      expect(result.environments[0].variables).toEqual({ baseUrl: 'http://x' });
+    });
+
     it('returns unknown for unrecognized format', () => {
       const result = detectAndParse({ random: 'data', foo: 'bar' });
 
