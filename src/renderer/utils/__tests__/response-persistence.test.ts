@@ -4,6 +4,10 @@ import {
   sanitizeTabsForPersistence,
   sanitizeHistoryForPersistence,
 } from '../response-persistence';
+import {
+  HISTORY_ITEM_BODY_LIMIT,
+  HISTORY_TOTAL_BODY_BUDGET,
+} from '../../../shared/history-persistence';
 import { ApiResponse, HistoryItem, RequestTab } from '../../../shared/types';
 
 function makeResponse(bodySize: number): ApiResponse {
@@ -123,10 +127,32 @@ describe('response-persistence.ts', () => {
       expect(result[0].response.body.length).toBe(5000);
     });
 
-    it('strips response body when it exceeds the history cap', () => {
-      const history = [makeHistoryItem({ response: makeResponse(1_000_001) })];
+    it('strips a single response body larger than the per-item cap', () => {
+      const history = [
+        makeHistoryItem({
+          response: makeResponse(HISTORY_ITEM_BODY_LIMIT + 1),
+        }),
+      ];
       const result = sanitizeHistoryForPersistence(history);
       expect(result[0].response.body).toBe('');
+    });
+
+    it('keeps bodies for recent items within the total budget and strips older ones', () => {
+      // History is newest-first. With each body at the per-item cap, the
+      // cumulative budget is reached after `budget / itemLimit` items; any
+      // older items beyond that lose their bodies (metadata is kept).
+      const perItem = HISTORY_ITEM_BODY_LIMIT;
+      const keepCount = Math.floor(HISTORY_TOTAL_BODY_BUDGET / perItem);
+      const history = Array.from({ length: keepCount + 1 }, (_, i) =>
+        makeHistoryItem({ id: `hist-${i}`, response: makeResponse(perItem) })
+      );
+
+      const result = sanitizeHistoryForPersistence(history);
+
+      for (let i = 0; i < keepCount; i++) {
+        expect(result[i].response.body.length).toBe(perItem);
+      }
+      expect(result[keepCount].response.body).toBe('');
     });
 
     it('preserves other response fields in history', () => {

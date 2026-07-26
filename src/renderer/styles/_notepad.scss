@@ -32,8 +32,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .notepad-tabs {
@@ -126,6 +129,19 @@
   align-items: center;
   gap: 8px;
   color: #ffffff;
+  // Keep the action buttons pinned to the right of the top bar now that the
+  // tab strip lives inside each pane rather than beside the actions.
+  margin-left: auto;
+}
+
+// Editor tools relocated from the status bar to the left of the top bar:
+// Find / Replace / Format / language picker / zoom.
+.notepad-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  flex-wrap: wrap;
 }
 
 .np-btn {
@@ -142,6 +158,12 @@
   &:hover {
     transform: translateY(-1px);
     background: rgba(255, 255, 255, 0.08);
+  }
+
+  // Component-scoped hide (no global .hidden utility) so the JSON-only Format
+  // button collapses when the active tab isn't JSON.
+  &.hidden {
+    display: none;
   }
 
   &.primary {
@@ -336,6 +358,53 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+// ── Split panes: two side-by-side editors with a draggable divider ───────
+.notepad-panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+.notepad-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+
+  &.hidden {
+    display: none;
+  }
+}
+// When split, gently accent the focused pane and dim the other.
+.notepad-panes.split .notepad-pane .notepad-tabs-area {
+  transition:
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.notepad-panes.split .notepad-pane:not(.focused) {
+  opacity: 0.92;
+}
+.notepad-panes.split .notepad-pane.focused .notepad-tabs-area {
+  border-bottom-color: var(--primary-color);
+}
+.notepad-pane-divider {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--border-color);
+  transition: background 0.15s ease;
+
+  &:hover,
+  &:active {
+    background: var(--primary-color);
+  }
+
+  &.hidden {
+    display: none;
+  }
 }
 
 // ── Editor area: side-by-side split when preview is on ────────────────────
@@ -610,51 +679,22 @@ body.notepad-resizing {
 
 // ── Status bar additions ──────────────────────────────────────────────────
 .status-language-picker {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 1px 4px;
-  font-size: 11px;
-  margin-right: 4px;
-}
-
-// Compact action buttons that live in the status bar (Format, zoom). Sized to
-// match the language picker so the status bar keeps its existing height.
-.np-status-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 1px 8px;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
   cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
-
-  // Component-scoped hide (there is no global .hidden utility) so the JSON-only
-  // Format button collapses when the active tab isn't JSON.
-  &.hidden {
-    display: none;
-  }
+  transition: all 0.2s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
 
   &:hover {
-    background: rgba(var(--primary-color-rgb, 102, 187, 255), 0.18);
-    border-color: var(--primary-color);
-  }
-
-  &.zoom {
-    min-width: 26px;
-    padding: 1px 6px;
-    font-weight: 700;
-    letter-spacing: 0.2px;
+    background: rgba(255, 255, 255, 0.08);
   }
 }
 
+// Compact zoom buttons (A- / A+) are grouped tightly together.
 .np-zoom-group {
   display: inline-flex;
   align-items: center;

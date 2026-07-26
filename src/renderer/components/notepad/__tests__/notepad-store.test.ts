@@ -335,4 +335,219 @@ describe('NotepadStore', () => {
       );
     });
   });
+
+  describe('split view', () => {
+    it('is disabled by default', () => {
+      store.createTab();
+      expect(store.isSplitEnabled()).toBe(false);
+      expect(store.getFocusedPaneId()).toBe(0);
+    });
+
+    it('enableSplit moves the active tab to pane 1 and fills pane 0', () => {
+      const only = store.createTab({ title: 'Solo' });
+      store.enableSplit();
+      expect(store.isSplitEnabled()).toBe(true);
+      // The moved tab is on the right and focused.
+      expect(store.getTabsForPane(1).map((t) => t.id)).toEqual([only.id]);
+      expect(store.getFocusedPaneId()).toBe(1);
+      expect(store.getState().activeTabId).toBe(only.id);
+      // A fresh Untitled tab keeps pane 0 populated.
+      expect(store.getTabsForPane(0)).toHaveLength(1);
+    });
+
+    it('enableSplit with two tabs leaves one on each side', () => {
+      const a = store.createTab({ title: 'A' });
+      const b = store.createTab({ title: 'B' }); // active
+      store.enableSplit();
+      expect(store.getTabsForPane(1).map((t) => t.id)).toEqual([b.id]);
+      expect(store.getTabsForPane(0).map((t) => t.id)).toEqual([a.id]);
+    });
+
+    it('moveTabToPane enables the split and focuses the moved tab', () => {
+      const a = store.createTab({ title: 'A' });
+      const b = store.createTab({ title: 'B' });
+      store.moveTabToPane(a.id, 1);
+      expect(store.isSplitEnabled()).toBe(true);
+      expect(store.getTabsForPane(0).map((t) => t.id)).toEqual([b.id]);
+      expect(store.getTabsForPane(1).map((t) => t.id)).toEqual([a.id]);
+      expect(store.getFocusedPaneId()).toBe(1);
+    });
+
+    it('collapses the split when a pane empties via close', () => {
+      const a = store.createTab({ title: 'A' });
+      const b = store.createTab({ title: 'B' });
+      store.moveTabToPane(a.id, 1);
+      expect(store.isSplitEnabled()).toBe(true);
+      store.closeTab(a.id); // pane 1 now empty
+      expect(store.isSplitEnabled()).toBe(false);
+      expect(store.getTabsForPane(0).map((t) => t.id)).toEqual([b.id]);
+    });
+
+    it('disableSplit returns every tab to pane 0 keeping the focused tab', () => {
+      const a = store.createTab({ title: 'A' });
+      store.createTab({ title: 'B' });
+      store.moveTabToPane(a.id, 1); // a on right, focused
+      store.disableSplit();
+      expect(store.isSplitEnabled()).toBe(false);
+      expect(store.getState().activeTabId).toBe(a.id);
+      expect(store.getTabsForPane(0)).toHaveLength(2);
+      expect(store.getTabsForPane(1)).toHaveLength(0);
+    });
+
+    it('setFocusedPane switches focus and mirrors activeTabId', () => {
+      const a = store.createTab({ title: 'A' });
+      store.createTab({ title: 'B' });
+      store.moveTabToPane(a.id, 1); // focus pane 1 (a)
+      store.setFocusedPane(0);
+      expect(store.getFocusedPaneId()).toBe(0);
+      expect(store.getState().activeTabId).toBe(store.getPaneActiveTabId(0));
+    });
+
+    it('setSplitRatio clamps and persists without notifying', () => {
+      const handler = vi.fn();
+      store.createTab();
+      store.subscribe(handler);
+      handler.mockClear();
+      store.setSplitRatio(0.95);
+      expect(store.getSplitRatio()).toBe(0.8);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('reorders tabs within a pane', () => {
+      const a = store.createTab({ title: 'A' });
+      const b = store.createTab({ title: 'B' });
+      const c = store.createTab({ title: 'C' });
+      store.moveTabWithinPane(0, 0, 2); // move A to the end
+      expect(store.getTabsForPane(0).map((t) => t.id)).toEqual([
+        b.id,
+        c.id,
+        a.id,
+      ]);
+    });
+  });
+
+  describe('split hydrate/migration', () => {
+    it('migrates legacy state (no paneId) into a single pane', async () => {
+      const state = await store.hydrate({
+        notepad: {
+          tabs: [
+            {
+              id: 't1',
+              title: 'One',
+              content: '',
+              isDirty: false,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+          ],
+          activeTabId: 't1',
+          untitledCounter: 1,
+        } as any,
+      });
+      expect(state.splitEnabled).toBe(false);
+      expect(state.tabs[0].paneId).toBe(0);
+      expect(state.activeTabId).toBe('t1');
+    });
+
+    it('collapses a persisted split that has no tabs on one side', async () => {
+      const state = await store.hydrate({
+        notepad: {
+          tabs: [
+            {
+              id: 't1',
+              title: 'One',
+              content: '',
+              isDirty: false,
+              paneId: 0,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+          ],
+          activeTabId: 't1',
+          untitledCounter: 1,
+          splitEnabled: true,
+          activePaneId: 1,
+          paneActiveTabIds: ['t1', undefined],
+        } as any,
+      });
+      expect(state.splitEnabled).toBe(false);
+      expect(state.activePaneId).toBe(0);
+      expect(state.activeTabId).toBe('t1');
+    });
+
+    it('restores a valid persisted split', async () => {
+      const state = await store.hydrate({
+        notepad: {
+          tabs: [
+            {
+              id: 'l1',
+              title: 'Left',
+              content: '',
+              isDirty: false,
+              paneId: 0,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+            {
+              id: 'r1',
+              title: 'Right',
+              content: '',
+              isDirty: false,
+              paneId: 1,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            },
+          ],
+          activeTabId: 'r1',
+          untitledCounter: 1,
+          splitEnabled: true,
+          activePaneId: 1,
+          paneActiveTabIds: ['l1', 'r1'],
+        } as any,
+      });
+      expect(state.splitEnabled).toBe(true);
+      expect(store.getTabsForPane(0).map((t) => t.id)).toEqual(['l1']);
+      expect(store.getTabsForPane(1).map((t) => t.id)).toEqual(['r1']);
+      expect(state.activeTabId).toBe('r1');
+    });
+  });
+
+  describe('closeTabsToLeft / closeTabsToRight', () => {
+    it('closes tabs to the left within the pane, keeping the anchor active', () => {
+      const a = store.createTab({ title: 'A' });
+      const b = store.createTab({ title: 'B' });
+      const c = store.createTab({ title: 'C' });
+      store.closeTabsToLeft(c.id);
+      expect(store.getState().tabs.map((t) => t.id)).toEqual([c.id]);
+      expect(store.getState().activeTabId).toBe(c.id);
+      expect([a.id, b.id]).not.toContain(store.getState().activeTabId);
+    });
+
+    it('closes tabs to the right within the pane', () => {
+      const a = store.createTab({ title: 'A' });
+      store.createTab({ title: 'B' });
+      store.createTab({ title: 'C' });
+      store.closeTabsToRight(a.id);
+      expect(store.getState().tabs.map((t) => t.id)).toEqual([a.id]);
+      expect(store.getState().activeTabId).toBe(a.id);
+    });
+
+    it('is a no-op when there are no tabs on that side', () => {
+      const a = store.createTab({ title: 'A' });
+      store.createTab({ title: 'B' });
+      store.closeTabsToLeft(a.id); // nothing to the left
+      expect(store.getState().tabs).toHaveLength(2);
+    });
+
+    it('only closes tabs within the anchor tab pane when split', () => {
+      const a = store.createTab({ title: 'A' });
+      const b = store.createTab({ title: 'B' });
+      const c = store.createTab({ title: 'C' });
+      store.moveTabToPane(c.id, 1); // c → right pane; a, b on left
+      store.closeTabsToLeft(b.id); // closes a only (left pane)
+      expect(store.getTabsForPane(0).map((t) => t.id)).toEqual([b.id]);
+      expect(store.getTabsForPane(1).map((t) => t.id)).toEqual([c.id]);
+      expect(store.isSplitEnabled()).toBe(true);
+    });
+  });
 });

@@ -106,6 +106,10 @@ export const IPC_CHANNELS = {
   NETWORK_SPEED_TEST_PROGRESS: 'network:speed-test-progress',
   /** Renderer → main: cancel an in-flight test. */
   NETWORK_SPEED_TEST_CANCEL: 'network:speed-test-cancel',
+
+  // Application menu channel
+  /** Main → renderer push: a native menu item was activated. */
+  MENU_ACTION: 'menu:action',
 } as const;
 
 export type IpcChannelKey = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

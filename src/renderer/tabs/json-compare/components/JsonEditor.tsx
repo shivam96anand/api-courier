@@ -88,6 +88,11 @@ function registerOrUpdateTheme(): void {
       'editorBracketPairGuide.activeBackground5': `#${bracketColor}`,
       'editorBracketPairGuide.activeBackground6': `#${bracketColor}`,
       'editorBracketHighlight.unexpectedBracket.foreground': `#${bracketColor}`,
+      // Theme-aware scrollbar sliders — matches the app-wide native scrollbars
+      // defined in `_scrollbars.scss`.
+      'scrollbarSlider.background': '#ffffff26',
+      'scrollbarSlider.hoverBackground': `#${themeColor}66`,
+      'scrollbarSlider.activeBackground': `#${themeColor}99`,
     },
   });
   monaco.editor.setTheme('restbro-json');
@@ -200,6 +205,13 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
         automaticLayout: true,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
+        scrollbar: {
+          verticalScrollbarSize: 12,
+          horizontalScrollbarSize: 12,
+          useShadows: false,
+        },
+        // Copy as plain text only (no syntax-highlighted HTML on the clipboard).
+        copyWithSyntaxHighlighting: false,
         fontSize: 12,
         lineNumbers: 'on',
         folding: true,

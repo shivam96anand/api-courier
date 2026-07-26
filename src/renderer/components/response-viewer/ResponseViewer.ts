@@ -4,6 +4,7 @@ import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
 import { MonacoXmlEditor } from '../request/MonacoXmlEditor';
 import { JsonViewerUtilities } from '../json-viewer/utilities';
 import { jsonPathAtOffset } from './response-json-path';
+import { formatResponseTimestamp } from '../../utils/format-timestamp';
 
 export type ResponseViewMode = 'pretty' | 'raw';
 
@@ -431,6 +432,7 @@ export class ResponseViewer {
           /* read-only, no-op */
         },
         readOnly: true,
+        toggleFindShortcut: true,
       });
       this.tryRestoreMonacoViewState();
       return true;
@@ -918,17 +920,7 @@ export class ResponseViewer {
     const timestampElement = document.getElementById('response-timestamp');
     if (!timestampElement) return;
 
-    const date = new Date(timestamp);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear().toString().slice(-2);
-    const hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-
-    timestampElement.textContent = `${day}/${month}/${year} ${displayHours}:${minutes}:${seconds} ${ampm}`;
+    timestampElement.textContent = formatResponseTimestamp(timestamp);
   }
 
   public switchTab(tab: string): void {

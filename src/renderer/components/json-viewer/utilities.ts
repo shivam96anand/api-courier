@@ -224,6 +224,7 @@ export class JsonViewerUtilities {
         /* read-only, no-op */
       },
       readOnly: true,
+      toggleFindShortcut: true,
     });
 
     // Action button handlers
@@ -245,7 +246,8 @@ export class JsonViewerUtilities {
       '#fs-search-btn'
     ) as HTMLButtonElement;
     searchBtn?.addEventListener('click', () => {
-      fullscreenEditor.triggerFind();
+      // Toggle: clicking Search again closes the find widget if it's open.
+      fullscreenEditor.toggleFind();
     });
 
     const collapseBtn = modal.querySelector(

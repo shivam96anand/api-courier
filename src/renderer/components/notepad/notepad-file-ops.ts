@@ -7,7 +7,7 @@
  * - All errors surface to the user as toasts (not console-only) and the tab's
  *   dirty flag is preserved on failure.
  */
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { NotepadSettings, NotepadTab } from '../../../shared/types';
 import { NotepadStore } from './notepad-store';
 import {
@@ -152,6 +152,10 @@ export async function saveTab(
   ctx.flushPendingContent();
   const activeTabId = ctx.getActiveTabId();
   let tab = tabIn;
+  // Re-fetch after the flush: flushPendingContent replaces the tab object in
+  // the store, so the `tabIn` reference (and its isDirty flag) may be stale.
+  const flushed = ctx.store.getState().tabs.find((t) => t.id === tab.id);
+  if (flushed) tab = flushed;
   if (tab.id === activeTabId) {
     const liveValue = ctx.getEditorValue();
     if (liveValue !== undefined && liveValue !== tab.content) {
@@ -159,6 +163,12 @@ export async function saveTab(
       const refreshed = ctx.store.getState().tabs.find((t) => t.id === tab.id);
       if (refreshed) tab = refreshed;
     }
+  }
+
+  // No-op for a plain Save on an already-saved tab with no unsaved changes:
+  // no disk write and no toast. "Save As" (forceSaveAs) always proceeds.
+  if (!forceSaveAs && tab.filePath && !tab.isDirty) {
+    return true;
   }
 
   // Apply on-save transformations.

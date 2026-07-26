@@ -387,7 +387,7 @@ export class VariableContextHandler {
    * the Params editor, and reflects the full "what will be sent" URL in:
    *  - the URL input's native `title` (hover tooltip), and
    *  - the visible `#url-preview` row below the URL bar (Insomnia-style).
-   * Cleared when the result is identical to the raw URL (nothing to preview).
+   * Always shown while the URL bar has a value; cleared only when it's empty.
    */
   private updateResolvedUrlPreview(urlInput: HTMLInputElement): void {
     const previewEl = document.getElementById('url-preview');
@@ -422,9 +422,10 @@ export class VariableContextHandler {
         this.collectResolvedParams()
       );
 
-      // Only surface the preview when it adds information beyond the raw URL
-      // (variables were resolved and/or query params were appended).
-      if (finalUrl && finalUrl !== raw) {
+      // Always surface the preview so the exact URL that will be sent is
+      // visible — regardless of whether variables were resolved or query
+      // params were appended. `raw` is non-empty here, so `finalUrl` is too.
+      if (finalUrl) {
         urlInput.title = `Resolved: ${finalUrl}`;
         if (valueEl) {
           valueEl.textContent = finalUrl;

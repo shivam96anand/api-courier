@@ -274,7 +274,7 @@ export class ResponseManager {
   private listenForSearchTrigger(): void {
     document.addEventListener('trigger-response-search', () => {
       if (this.state.currentResponse) {
-        this.triggerMonacoSearch();
+        this.toggleMonacoSearch();
       }
     });
   }
@@ -569,10 +569,6 @@ export class ResponseManager {
         detail: { text: JSON.stringify(parsed), title: 'response.json' },
       })
     );
-  }
-
-  private triggerMonacoSearch(): void {
-    this.viewer.triggerMonacoSearch();
   }
 
   private toggleMonacoSearch(): void {

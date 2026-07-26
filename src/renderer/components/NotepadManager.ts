@@ -1,20 +1,14 @@
 /**
- * Orchestrates the Notepad tab: layout, editor, store, file operations,
- * shortcuts, drag-drop, markdown preview, settings, and OS file-association.
- *
- * Single responsibility per helper module; this class only wires them.
+ * Coordinates the Notepad tab: global chrome (top-bar actions, status bar,
+ * context menu, dirty modal, settings) plus one or two `PaneController`s for
+ * the (optional) side-by-side split view. Per-editor concerns live in
+ * `PaneController`; this class owns the store, cross-pane operations, focus
+ * tracking and file/OS integration.
  */
-import * as monaco from 'monaco-editor';
 import { NotepadState, NotepadTab } from '../../shared/types';
 import { NotepadStore } from './notepad/notepad-store';
 import { buildNotepadLayout, NotepadElements } from './notepad/notepad-layout';
-import {
-  createNotepadEditor,
-  setEditorLanguage,
-  triggerFind,
-  triggerGoToLine,
-  triggerReplace,
-} from './notepad/notepad-editor';
+import { PaneController, PaneHost } from './notepad/notepad-pane';
 import {
   openFile,
   openFileByPath,
@@ -23,11 +17,7 @@ import {
   saveTabById,
   FileOperationsContext,
 } from './notepad/notepad-file-ops';
-import {
-  CursorPosition,
-  renderTabs,
-  updateStatusBar,
-} from './notepad/notepad-tabs-ui';
+import { updateStatusBar } from './notepad/notepad-tabs-ui';
 import {
   createKeyboardHandler,
   handleContextMenuAction,
@@ -35,35 +25,23 @@ import {
 } from './notepad/notepad-keyboard';
 import { DirtyModal } from './notepad/notepad-modal';
 import { SettingsMenu } from './notepad/notepad-settings';
-import {
-  detectLanguageFromContent,
-  detectLanguageFromPath,
-} from './notepad/notepad-language';
-import { renderMarkdown } from './notepad/notepad-markdown';
-import { isSwaggerContent, renderSwagger } from './notepad/notepad-swagger';
 import { showNotepadToast } from './notepad/notepad-toast';
 import { formatJson } from './notepad/notepad-json';
 
+// Re-export for callers that imported this helper from the old module.
+export { detectLanguageFromPath } from './notepad/notepad-language';
+
 export class NotepadManager {
-  private container: HTMLElement;
+  private readonly container: HTMLElement;
   private elements!: NotepadElements;
-  private editor: monaco.editor.IStandaloneCodeEditor | null = null;
-  private store = new NotepadStore();
-  private isApplyingState = false;
-  private contentTimer: number | null = null;
-  private previewTimer: number | null = null;
-  private cursorPosition: CursorPosition = {
-    lineNumber: 1,
-    column: 1,
-    selectionLength: 0,
-  };
+  private readonly store = new NotepadStore();
+  private panes: PaneController[] = [];
   private modal!: DirtyModal;
   private settingsMenu!: SettingsMenu;
   private keyHandler: KeyboardHandler | null = null;
   private beforeQuitDispose: (() => void) | null = null;
   private initialized = false;
-  /** Last activeTabId we rendered the editor for. Drives editor reload on switch. */
-  private lastEditorTabId: string | undefined;
+  private pendingRatio: number | null = null;
 
   constructor(container?: HTMLElement | null) {
     this.container = container || document.createElement('div');
@@ -88,392 +66,193 @@ export class NotepadManager {
     // Hydrate BEFORE attaching keyboard listeners so a Cmd+S between init and
     // hydrate can't save an empty buffer over a real file.
     await this.store.hydrate();
-    const state = this.store.getState();
-    if (!state.tabs.length) this.store.createTab();
-    if (!state.activeTabId && this.store.getState().tabs.length) {
+    if (!this.store.getState().tabs.length) this.store.createTab();
+    if (!this.store.getActiveTab() && this.store.getState().tabs.length) {
       this.store.setActiveTab(this.store.getState().tabs[0].id);
     }
 
-    this.initializeEditor();
     this.renderState(this.store.getState());
-    this.loadActiveTabIntoEditor();
-    this.lastEditorTabId = this.store.getActiveTab()?.id;
-
     this.attachListeners();
-    this.store.subscribe((updated) => {
-      this.renderState(updated);
-      // Any state change that flips the active tab (new tab, close, reorder)
-      // must reload the editor with the new tab's content.
-      if (updated.activeTabId !== this.lastEditorTabId) {
-        this.lastEditorTabId = updated.activeTabId;
-        this.loadActiveTabIntoEditor();
-      }
-    });
+    this.store.subscribe((updated) => this.renderState(updated));
+    this.focusedPane().focus();
   }
 
   private buildLayout(): void {
     this.elements = buildNotepadLayout(this.container, {
       onZoomOut: () => this.adjustZoom(-1),
       onZoomIn: () => this.adjustZoom(1),
-      onAddTab: () => this.createNewTab(),
       onOpenFile: () => void openFile(this.getFileOpsContext()),
       onSave: () => void saveActiveTab(this.getFileOpsContext()),
       onTogglePreview: () => this.togglePreview(),
-      onPreviewClose: () => this.closePreview(),
+      onToggleSplit: () => this.toggleSplit(),
       onFormatJson: () => this.formatActiveTabJson(),
       onSettingsClick: (anchor) =>
         this.settingsMenu.toggle(anchor, this.store.getSettings()),
       onLanguageChange: (lang) => this.setActiveTabLanguage(lang),
-      onFind: () => this.editor && triggerFind(this.editor),
-      onReplace: () => this.editor && triggerReplace(this.editor),
+      onFind: () => this.focusedPane().find(),
+      onReplace: () => this.focusedPane().replace(),
     });
+
+    const host = this.getPaneHost();
+    this.panes = [
+      new PaneController(0, this.elements.pane0Root, host),
+      new PaneController(1, this.elements.pane1Root, host),
+    ];
+    this.panes.forEach((p) => p.init());
 
     this.modal = new DirtyModal(this.elements.dirtyModal, {
       titleEl: this.elements.dirtyModalTitle,
       bodyEl: this.elements.dirtyModalBody,
     });
-
     this.settingsMenu = new SettingsMenu(this.elements.settingsHost, {
       onChange: (updates) => {
         this.store.updateSettings(updates);
-        this.applySettingsToEditor();
+        this.applySettingsToEditors();
       },
     });
+
+    this.attachDivider();
   }
 
-  private attachListeners(): void {
-    const isMac = navigator.platform.toLowerCase().includes('mac');
-    this.keyHandler = createKeyboardHandler(isMac, {
-      onSave: (saveAs) => void saveActiveTab(this.getFileOpsContext(), saveAs),
-      onOpenFile: () => void openFile(this.getFileOpsContext()),
-      onNewTab: () => this.createNewTab(),
-      onCloseActiveTab: () => {
-        const active = this.store.getActiveTab();
-        if (active) void this.requestCloseTab(active.id);
-      },
-      onNextTab: () => this.switchTab(1),
-      onPrevTab: () => this.switchTab(-1),
-      onFind: () => this.editor && triggerFind(this.editor),
-      onReplace: () => this.editor && triggerReplace(this.editor),
-      onGoToLine: () => this.editor && triggerGoToLine(this.editor),
-      onZoomIn: () => this.adjustZoom(1),
-      onZoomOut: () => this.adjustZoom(-1),
-    });
-    document.addEventListener('keydown', this.keyHandler);
-
-    // ESC key closes the preview pane
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        const active = this.store.getActiveTab();
-        if (active?.previewMode) {
-          e.preventDefault();
-          this.closePreview();
+  private getPaneHost(): PaneHost {
+    return {
+      store: this.store,
+      getSettings: () => this.store.getSettings(),
+      getToastHost: () => this.elements.root,
+      onFocusPane: (paneId) => this.focusPane(paneId),
+      onActivateTab: (paneId, tabId) => this.activateTab(paneId, tabId),
+      onCloseTab: (tabId) => void this.requestCloseTab(tabId),
+      onRenameTab: (tabId) => this.renameTab(tabId),
+      onNewTab: (paneId) => this.createNewTab(paneId),
+      onContextMenu: (tabId, x, y, hasFile) =>
+        this.showContextMenu(tabId, x, y, hasFile),
+      onReorderInPane: (paneId, from, to) =>
+        this.store.moveTabWithinPane(paneId, from, to),
+      onEditorActivity: (paneId) => {
+        if (this.store.getFocusedPaneId() === paneId) {
+          this.doUpdateStatusBar(this.store.getActiveTab());
         }
-      }
-    });
-
-    window.addEventListener('beforeunload', () => {
-      // Best-effort sync flush; the proper async path goes through the
-      // before-quit confirmation IPC below.
-      void this.store.flushPersist();
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('#notepad-context-menu'))
-        this.hideContextMenu();
-    });
-
-    this.elements.contextMenu.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      const action = target.dataset.action;
-      const tabId = this.elements.contextMenu.dataset.tabId;
-      if (!action) return;
-      e.preventDefault();
-      this.hideContextMenu();
-      handleContextMenuAction(action, tabId, {
-        onNew: () => this.createNewTab(),
-        onRename: (id) => this.renameTab(id),
-        onSave: (id) => void saveTabById(this.getFileOpsContext(), id),
-        onSaveAs: (id) => void saveTabById(this.getFileOpsContext(), id, true),
-        onClose: (id) => void this.requestCloseTab(id),
-        onCloseOthers: (id) => this.store.closeOthers(id),
-        onCloseAll: () => void this.closeAllTabs(),
-        onReveal: (id) => this.revealTab(id),
-        onCopyPath: (id) => void this.copyTabPath(id),
-      });
-    });
-
-    this.attachDragDropListeners();
-
-    // App-wide before-quit IPC: flush notepad state and allow quit.
-    // The notepad content is auto-persisted to database.json, so the state
-    // will be fully restored on the next launch. Save/Don't-save prompts are
-    // only shown when the user explicitly closes individual notepad tabs.
-    this.beforeQuitDispose = window.restbro.notepad.onBeforeQuit(
-      async (requestId) => {
-        await this.store.flushPersist();
-        window.restbro.notepad.sendQuitDecision(requestId, true);
-      }
-    );
-
-    this.attachResizeSplitter();
-  }
-
-  /**
-   * Makes the preview pane resizable by dragging the splitter handle.
-   * The ratio is applied via flex-basis so it survives window resizes.
-   */
-  private attachResizeSplitter(): void {
-    const splitter = this.elements.resizeSplitter;
-    const area = this.elements.editorArea;
-    const editorHost = this.elements.editorHost;
-    const preview = this.elements.previewPane;
-
-    let dragging = false;
-
-    const onMouseMove = (e: MouseEvent): void => {
-      if (!dragging) return;
-      const rect = area.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const totalWidth = rect.width;
-      // Clamp between 20% and 80% of the editor area.
-      const ratio = Math.max(0.2, Math.min(0.8, offsetX / totalWidth));
-      editorHost.style.flex = `0 0 ${ratio * 100}%`;
-      preview.style.flex = `0 0 ${(1 - ratio) * 100}%`;
-      // Tell Monaco the container changed size.
-      this.editor?.layout();
-    };
-
-    const onMouseUp = (): void => {
-      if (!dragging) return;
-      dragging = false;
-      document.body.classList.remove('notepad-resizing');
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    splitter.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      dragging = true;
-      document.body.classList.add('notepad-resizing');
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    });
-  }
-
-  private attachDragDropListeners(): void {
-    const overlay = this.elements.dropOverlay;
-    const area = this.elements.editorArea;
-    let dragDepth = 0;
-    area.addEventListener('dragenter', (e) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      dragDepth += 1;
-      overlay.classList.remove('hidden');
-    });
-    area.addEventListener('dragover', (e) => {
-      if (!e.dataTransfer?.types.includes('Files')) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-    });
-    area.addEventListener('dragleave', () => {
-      dragDepth = Math.max(0, dragDepth - 1);
-      if (dragDepth === 0) overlay.classList.add('hidden');
-    });
-    area.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      dragDepth = 0;
-      overlay.classList.add('hidden');
-      const files = Array.from(e.dataTransfer?.files || []);
-      for (const file of files) {
-        // Electron exposes a non-standard `path` property on dropped files.
-        const filePath = (file as File & { path?: string }).path;
-        if (!filePath) continue;
-        await openFileByPath(this.getFileOpsContext(), filePath);
-      }
-    });
-  }
-
-  private initializeEditor(): void {
-    const settings = this.store.getSettings();
-    this.editor = createNotepadEditor(
-      this.elements.editorHost,
-      {
-        fontSize: settings.fontSize,
-        wordWrap: settings.wordWrap,
-        tabSize: settings.tabSize,
       },
-      {
-        onContentChange: (value) => {
-          if (this.isApplyingState) return;
-          const activeTab = this.store.getActiveTab();
-          if (!activeTab) return;
-          // Reset language to plaintext when the buffer is cleared so the
-          // next paste can be re-detected. Full detection only runs on paste
-          // (see the onDidPaste handler below) — never on individual keystrokes.
-          if (!value.trim()) this.maybeAutoDetectLanguage(activeTab.id, value);
-          this.doUpdateStatusBar(activeTab, value);
-          this.schedulePreviewRender(value);
-          if (this.contentTimer) clearTimeout(this.contentTimer);
-          const tabId = activeTab.id;
-          this.contentTimer = window.setTimeout(() => {
-            this.contentTimer = null;
-            // Tab may have been closed during the debounce window — verify.
-            const stillExists = this.store
-              .getState()
-              .tabs.some((t) => t.id === tabId);
-            if (!stillExists) return;
-            this.store.updateContent(tabId, value, true);
-          }, 300);
-        },
-        onCursorChange: (lineNumber, column, selectionLength) => {
-          this.cursorPosition = { lineNumber, column, selectionLength };
-          const activeTab = this.store.getActiveTab();
-          if (activeTab) this.doUpdateStatusBar(activeTab);
-        },
-      }
-    );
+      onDropFiles: (paneId, paths) => void this.handleDropFiles(paneId, paths),
+    };
+  }
 
-    // Auto-detect language only when the user pastes — never on individual
-    // keystrokes. Monaco fires onDidPaste after the model has been updated,
-    // so editor.getValue() already contains the pasted content.
-    this.editor.onDidPaste(() => {
-      if (this.isApplyingState) return;
-      const activeTab = this.store.getActiveTab();
-      if (!activeTab) return;
-      this.maybeAutoDetectLanguage(activeTab.id, this.editor?.getValue() ?? '');
-    });
+  private focusedPane(): PaneController {
+    return this.panes[this.store.getFocusedPaneId()] ?? this.panes[0];
+  }
+
+  private focusPane(paneId: number): void {
+    if (this.store.getFocusedPaneId() === paneId) return;
+    if (!this.store.getTabsForPane(paneId).length) return;
+    this.store.setFocusedPane(paneId);
   }
 
   private renderState(state: NotepadState): void {
-    renderTabs(
-      {
-        tabStrip: this.elements.tabStrip,
-        store: this.store,
-        onTabClick: (id) => this.activateTab(id),
-        onTabClose: (id) => void this.requestCloseTab(id),
-        onTabRename: (id) => this.renameTab(id),
-        onContextMenu: (id, x, y, hasFile) =>
-          this.showContextMenu(id, x, y, hasFile),
-        onReorder: (from, to) => this.store.reorderTabs(from, to),
-      },
-      state
-    );
+    this.applySplitLayout();
+    const focused = this.store.getFocusedPaneId();
+    this.panes.forEach((p) => p.setFocused(p.paneId === focused));
+    this.panes.forEach((p) => p.sync(state));
+    this.updateGlobalChrome();
+  }
 
-    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-    // JSON-only actions: only meaningful when the active tab is JSON.
-    const isJsonTab = activeTab?.language === 'json';
-    this.elements.formatJsonBtn.classList.toggle('hidden', !isJsonTab);
-    // Preview is redundant for JSON (Format handles pretty-printing) — disable.
-    this.elements.previewToggleBtn.disabled = isJsonTab;
-    if (activeTab) {
-      this.doUpdateStatusBar(activeTab);
-      this.elements.languagePicker.value = activeTab.language ?? 'plaintext';
-      // Keep editor language in sync.
-      if (this.editor) {
-        const desired = activeTab.language ?? 'plaintext';
-        const model = this.editor.getModel();
-        if (model && model.getLanguageId() !== desired) {
-          setEditorLanguage(this.editor, desired);
-        }
-      }
-      // Reflect preview-mode toggle button state.
-      this.elements.previewToggleBtn.classList.toggle(
-        'active',
-        Boolean(activeTab.previewMode)
-      );
-      this.elements.previewPane.classList.toggle(
-        'hidden',
-        !activeTab.previewMode
-      );
-      this.elements.resizeSplitter.classList.toggle(
-        'hidden',
-        !activeTab.previewMode
-      );
-      if (activeTab.previewMode) {
-        this.renderPreview(activeTab.content, activeTab.language);
-      } else {
-        // Clear any leftover inline flex sizing from a prior resize so the
-        // editor reclaims the full width when the preview pane is hidden.
-        this.clearSplitSizing();
-      }
+  /** Show/hide the second pane + divider and apply the split ratio. */
+  private applySplitLayout(): void {
+    const split = this.store.isSplitEnabled();
+    this.elements.pane1Root.classList.toggle('hidden', !split);
+    this.elements.paneDivider.classList.toggle('hidden', !split);
+    this.elements.panesHost.classList.toggle('split', split);
+    if (split) {
+      const ratio = this.store.getSplitRatio();
+      this.elements.pane0Root.style.flex = `0 0 ${ratio * 100}%`;
+      this.elements.pane1Root.style.flex = '1 1 0';
     } else {
-      this.applyContentToEditor('', undefined);
-      this.doUpdateStatusBar(undefined);
-      this.elements.previewPane.classList.add('hidden');
-      this.elements.resizeSplitter.classList.add('hidden');
-      this.clearSplitSizing();
+      this.elements.pane0Root.style.flex = '';
+      this.elements.pane1Root.style.flex = '';
     }
+  }
+
+  /** Update global chrome (status bar, toolbar button states) for the focused pane. */
+  private updateGlobalChrome(): void {
+    const active = this.store.getActiveTab();
+    const isJson = active?.language === 'json';
+    this.elements.formatJsonBtn.classList.toggle('hidden', !isJson);
+    this.elements.previewToggleBtn.disabled = isJson;
+    this.elements.previewToggleBtn.classList.toggle(
+      'active',
+      Boolean(active?.previewMode)
+    );
+    this.elements.languagePicker.value = active?.language ?? 'plaintext';
+
+    const split = this.store.isSplitEnabled();
+    this.elements.splitBtn.classList.toggle('active', split);
+    this.elements.splitBtn.setAttribute('aria-pressed', String(split));
+    this.elements.splitBtn.textContent = split ? 'Unsplit' : 'Split';
+
+    this.doUpdateStatusBar(active);
   }
 
   private getFileOpsContext(): FileOperationsContext {
     return {
       store: this.store,
-      getEditorValue: () => this.editor?.getValue(),
+      getEditorValue: () => this.focusedPane().getEditorValue(),
       getActiveTabId: () => this.store.getActiveTab()?.id,
-      loadActiveTabIntoEditor: () => this.loadActiveTabIntoEditor(),
-      getEditor: () => this.editor,
+      loadActiveTabIntoEditor: () => this.focusedPane().focus(),
+      getEditor: () => this.focusedPane().getEditor(),
       getToastHost: () => this.elements.root,
-      flushPendingContent: () => this.flushPendingContent(),
+      // Flush every pane so a Save/switch/quit never writes a stale buffer,
+      // regardless of which pane the target tab lives in.
+      flushPendingContent: () => this.panes.forEach((p) => p.flushPending()),
     };
   }
 
-  /**
-   * Switch to a tab, persisting the current tab's view state first so we can
-   * restore cursor + scroll on the next switch back.
-   */
-  private activateTab(id: string): void {
-    if (this.editor) {
-      const current = this.store.getActiveTab();
-      if (current && current.id !== id) {
-        const viewState = this.editor.saveViewState();
-        if (viewState) this.store.setViewState(current.id, viewState);
-        this.flushPendingContent();
-      }
-    }
-    this.store.setActiveTab(id);
+  private activateTab(paneId: number, tabId: string): void {
+    this.store.setActiveTab(tabId, paneId);
+    this.panes[paneId]?.focus();
+  }
+
+  private createNewTab(paneId?: number): void {
+    const p = paneId ?? this.store.getFocusedPaneId();
+    this.store.createTab(undefined, p);
+    this.panes[p]?.focus();
+  }
+
+  /** Toggle the split view (Split ↔ Unsplit toolbar button). */
+  private toggleSplit(): void {
+    this.panes.forEach((pane) => {
+      pane.flushPending();
+      pane.saveViewState(this.store.getPaneActiveTabId(pane.paneId));
+    });
+    if (this.store.isSplitEnabled()) this.store.disableSplit();
+    else this.store.enableSplit();
+    requestAnimationFrame(() => {
+      this.panes.forEach((p) => p.layout());
+      this.focusedPane().focus();
+    });
+  }
+
+  /** Move a tab to the other pane (context-menu "Move to Other View"). */
+  private moveTabToOtherView(tabId: string): void {
+    const tab = this.store.getState().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const target = (tab.paneId ?? 0) === 0 ? 1 : 0;
+    this.panes.forEach((p) => p.flushPending());
+    this.store.moveTabToPane(tabId, target);
+    requestAnimationFrame(() => {
+      this.panes.forEach((p) => p.layout());
+      this.focusedPane().focus();
+    });
   }
 
   /**
-   * Create a new tab, preserving view state of the current tab. The store
-   * subscriber will switch the editor over once the new active tab is set.
-   */
-  private createNewTab(): void {
-    if (this.editor) {
-      const current = this.store.getActiveTab();
-      if (current) {
-        const viewState = this.editor.saveViewState();
-        if (viewState) this.store.setViewState(current.id, viewState);
-        this.flushPendingContent();
-      }
-    }
-    this.store.createTab();
-  }
-
-  /**
-   * Open a new Notepad tab containing pretty-printed JSON. This is the
-   * replacement entry point for the removed standalone JSON Viewer: callers
-   * (e.g. the response viewer's "Open in Notepad" action) hand over raw JSON
-   * text and the user lands on a formatted, syntax-highlighted json tab.
-   *
-   * Invalid JSON is opened as-is with a non-blocking notice so the payload is
-   * never lost.
+   * Open a new Notepad tab containing pretty-printed JSON. Entry point for the
+   * response viewer's "Open in Notepad" action. Invalid JSON opens as-is with a
+   * non-blocking notice so the payload is never lost.
    */
   async openJson(text: string, title = 'response.json'): Promise<void> {
     await this.ensureInitialized();
-
-    // Preserve the outgoing tab's view state / pending edits before switching.
-    if (this.editor) {
-      const current = this.store.getActiveTab();
-      if (current) {
-        const viewState = this.editor.saveViewState();
-        if (viewState) this.store.setViewState(current.id, viewState);
-        this.flushPendingContent();
-      }
-    }
-
     const formatted = formatJson(text);
     this.store.createTab({ title, content: formatted.text, language: 'json' });
-
+    this.focusedPane().focus();
     if (!formatted.ok) {
       showNotepadToast(
         this.elements.root,
@@ -483,11 +262,48 @@ export class NotepadManager {
     }
   }
 
-  private loadActiveTabIntoEditor(): void {
-    const activeTab = this.store.getActiveTab();
-    if (!activeTab) return;
-    this.applyContentToEditor(activeTab.content, activeTab);
-    this.doUpdateStatusBar(activeTab);
+  /**
+   * Open a file by absolute path (used by the app-level OS file-open bridge).
+   * De-dupes: `openFileByPath` re-activates an existing tab for the same path.
+   */
+  async openPath(filePath: string): Promise<void> {
+    await this.ensureInitialized();
+    await openFileByPath(this.getFileOpsContext(), filePath);
+    this.focusedPane().focus();
+  }
+
+  /** Open the OS file picker in the Notepad (application menu "Open File…"). */
+  async openFileDialog(): Promise<void> {
+    await this.ensureInitialized();
+    await openFile(this.getFileOpsContext());
+  }
+
+  /** Save the active Notepad tab (application menu Save / Save As). */
+  async saveActive(saveAs = false): Promise<void> {
+    await this.ensureInitialized();
+    if (saveAs) {
+      const active = this.store.getActiveTab();
+      if (active) await saveTabById(this.getFileOpsContext(), active.id, true);
+      return;
+    }
+    await saveActiveTab(this.getFileOpsContext());
+  }
+
+  /** Close the active Notepad tab (application menu Close Tab). */
+  async closeActive(): Promise<void> {
+    await this.ensureInitialized();
+    const active = this.store.getActiveTab();
+    if (active) await this.requestCloseTab(active.id);
+  }
+
+  private async handleDropFiles(
+    paneId: number,
+    paths: string[]
+  ): Promise<void> {
+    this.focusPane(paneId);
+    for (const p of paths) {
+      await openFileByPath(this.getFileOpsContext(), p);
+    }
   }
 
   private adjustZoom(delta: number): void {
@@ -495,100 +311,78 @@ export class NotepadManager {
     const next = Math.min(24, Math.max(10, settings.fontSize + delta));
     if (next === settings.fontSize) return;
     this.store.updateSettings({ fontSize: next });
-    this.editor?.updateOptions({ fontSize: next });
+    this.applySettingsToEditors();
   }
 
-  private applySettingsToEditor(): void {
-    if (!this.editor) return;
+  private applySettingsToEditors(): void {
     const s = this.store.getSettings();
-    this.editor.updateOptions({
-      fontSize: s.fontSize,
-      wordWrap: s.wordWrap,
-      tabSize: s.tabSize,
-    });
+    this.panes.forEach((p) => p.applySettings(s));
   }
 
-  /**
-   * Format the active JSON tab in place. Preserves Monaco's undo stack via
-   * executeEdits. No-op (with a toast) when the buffer isn't valid JSON. Only
-   * reachable when the active tab's language is `json`.
-   */
   private formatActiveTabJson(): void {
-    if (!this.editor) return;
-    const activeTab = this.store.getActiveTab();
-    if (!activeTab) return;
-    const current = this.editor.getValue();
-    const result = formatJson(current);
-    if (!result.ok) {
+    if (!this.focusedPane().formatJson()) {
       showNotepadToast(
         this.elements.root,
         'Invalid JSON — nothing changed.',
         'error'
       );
-      return;
     }
-    if (result.text === current) return;
-    const model = this.editor.getModel();
-    if (!model) return;
-    this.editor.executeEdits('notepad-json', [
-      { range: model.getFullModelRange(), text: result.text },
-    ]);
-    this.editor.pushUndoStop();
   }
 
   private switchTab(direction: 1 | -1): void {
-    const tabs = this.store.getState().tabs;
+    const p = this.store.getFocusedPaneId();
+    const tabs = this.store.getTabsForPane(p);
     if (tabs.length < 2) return;
-    const activeId = this.store.getState().activeTabId;
-    let idx = tabs.findIndex((tab) => tab.id === activeId);
+    const activeId = this.store.getPaneActiveTabId(p);
+    let idx = tabs.findIndex((t) => t.id === activeId);
     if (idx === -1) idx = 0;
-    const nextIdx = (idx + direction + tabs.length) % tabs.length;
-    this.activateTab(tabs[nextIdx].id);
+    const next = (idx + direction + tabs.length) % tabs.length;
+    this.activateTab(p, tabs[next].id);
   }
 
-  /**
-   * Replace the editor's value with `content`. Restores view state if `tab`
-   * has one stored; otherwise leaves the cursor at (1,1).
-   */
-  private applyContentToEditor(
-    content: string,
-    tab: NotepadTab | undefined
-  ): void {
-    if (!this.editor) return;
-    if (this.contentTimer) {
-      clearTimeout(this.contentTimer);
-      this.contentTimer = null;
-    }
-    this.isApplyingState = true;
-    this.editor.setValue(content);
-    if (tab?.viewState) {
-      try {
-        this.editor.restoreViewState(
-          tab.viewState as monaco.editor.ICodeEditorViewState
-        );
-      } catch {
-        // Stored view state is from an older Monaco version — ignore and reset.
-      }
-    } else {
-      this.cursorPosition = { lineNumber: 1, column: 1, selectionLength: 0 };
-    }
-    this.isApplyingState = false;
-    this.editor.focus();
+  private setActiveTabLanguage(language: string): void {
+    const active = this.store.getActiveTab();
+    if (!active) return;
+    this.store.updateTab(active.id, { language });
+    this.focusedPane().setLanguage(language);
   }
 
-  /**
-   * Force-flush any in-flight content debounce into the store. Used before
-   * persistence-sensitive operations (save, tab switch, app exit).
-   */
-  private flushPendingContent(): void {
-    if (this.contentTimer === null) return;
-    clearTimeout(this.contentTimer);
-    this.contentTimer = null;
-    const activeTab = this.store.getActiveTab();
-    const value = this.editor?.getValue();
-    if (activeTab && value !== undefined) {
-      this.store.updateContent(activeTab.id, value, true);
-    }
+  private togglePreview(): void {
+    const active = this.store.getActiveTab();
+    if (!active) return;
+    this.store.updateTab(active.id, { previewMode: !active.previewMode });
+    requestAnimationFrame(() => this.focusedPane().layout());
+  }
+
+  private doUpdateStatusBar(tab?: NotepadTab): void {
+    const pane = this.focusedPane();
+    const model = pane.getEditor()?.getModel() ?? null;
+    const metrics =
+      tab && model
+        ? {
+            lines: model.getLineCount(),
+            chars: model.getValueLength(),
+            eol: (model.getEOL() === '\r\n' ? 'CRLF' : 'LF') as 'LF' | 'CRLF',
+          }
+        : undefined;
+    updateStatusBar(
+      {
+        statusFile: this.elements.statusFile,
+        statusState: this.elements.statusState,
+        statusCursor: this.elements.statusCursor,
+        statusLines: this.elements.statusLines,
+        statusChars: this.elements.statusChars,
+        statusLanguage: this.elements.statusLanguage,
+        statusSelection: this.elements.statusSelection,
+        statusEol: this.elements.statusEol,
+        statusIndent: this.elements.statusIndent,
+      },
+      pane.getCursor(),
+      { tabSize: this.store.getSettings().tabSize },
+      tab,
+      undefined,
+      metrics
+    );
   }
 
   private async requestCloseTab(tabId: string): Promise<void> {
@@ -598,7 +392,6 @@ export class NotepadManager {
       this.performClose(tabId);
       return;
     }
-
     const decision = await this.modal.prompt();
     if (decision === 'cancel') return;
     if (decision === 'save') {
@@ -616,7 +409,7 @@ export class NotepadManager {
   private async closeAllTabs(): Promise<void> {
     const tabs = [...this.store.getState().tabs];
     for (const tab of tabs) {
-      if (!this.store.getState().tabs.find((t) => t.id === tab.id)) continue;
+      if (!this.store.getState().tabs.some((t) => t.id === tab.id)) continue;
       await this.requestCloseTab(tab.id);
     }
     if (this.store.getState().tabs.length === 0) this.store.createTab();
@@ -646,196 +439,118 @@ export class NotepadManager {
     );
   }
 
-  private setActiveTabLanguage(language: string): void {
-    const active = this.store.getActiveTab();
-    if (!active) return;
-    this.store.updateTab(active.id, { language });
-    if (this.editor) setEditorLanguage(this.editor, language);
-  }
+  private attachListeners(): void {
+    const isMac = navigator.platform.toLowerCase().includes('mac');
+    this.keyHandler = createKeyboardHandler(isMac, {
+      onSave: (saveAs) => void saveActiveTab(this.getFileOpsContext(), saveAs),
+      onOpenFile: () => void openFile(this.getFileOpsContext()),
+      onNewTab: () => this.createNewTab(),
+      onCloseActiveTab: () => {
+        const active = this.store.getActiveTab();
+        if (active) void this.requestCloseTab(active.id);
+      },
+      onNextTab: () => this.switchTab(1),
+      onPrevTab: () => this.switchTab(-1),
+      onFind: () => this.focusedPane().find(),
+      onReplace: () => this.focusedPane().replace(),
+      onGoToLine: () => this.focusedPane().goToLine(),
+      onZoomIn: () => this.adjustZoom(1),
+      onZoomOut: () => this.adjustZoom(-1),
+    });
+    document.addEventListener('keydown', this.keyHandler);
 
-  private togglePreview(): void {
-    const active = this.store.getActiveTab();
-    if (!active) return;
-    const next = !active.previewMode;
-    this.store.updateTab(active.id, { previewMode: next });
-    // Show / hide the resize splitter together with the preview.
-    this.elements.resizeSplitter.classList.toggle('hidden', !next);
-    if (next && this.editor) {
-      this.renderPreview(this.editor.getValue(), active.language);
-      this.editor.layout();
-    } else {
-      // Reset any inline flex set by the resize splitter so the editor
-      // expands to fill the now-empty preview area.
-      this.clearSplitSizing();
-      this.editor?.layout();
-    }
-  }
-
-  private closePreview(): void {
-    const active = this.store.getActiveTab();
-    if (!active) return;
-    this.store.updateTab(active.id, { previewMode: false });
-    this.elements.resizeSplitter.classList.add('hidden');
-    this.elements.previewToggleBtn.classList.remove('active');
-    this.clearSplitSizing();
-    this.editor?.layout();
-  }
-
-  /** Remove inline flex sizing applied by the resize splitter. */
-  private clearSplitSizing(): void {
-    this.elements.editorHost.style.flex = '';
-    this.elements.previewPane.style.flex = '';
-  }
-
-  private schedulePreviewRender(value: string): void {
-    const active = this.store.getActiveTab();
-    if (!active?.previewMode) return;
-    if (this.previewTimer) clearTimeout(this.previewTimer);
-    this.previewTimer = window.setTimeout(() => {
-      this.previewTimer = null;
-      this.renderPreview(value, this.store.getActiveTab()?.language);
-    }, 200);
-  }
-
-  /**
-   * Render the preview pane. Behaviour depends on the tab's language:
-   *  - `html`     → sandboxed iframe (no scripts / same-origin).
-   *  - `markdown` → parsed markdown → sanitised HTML.
-   *  - anything else → syntax-highlighted `<pre><code>` block so JSON, XML,
-   *    YAML, etc. are shown verbatim instead of being misinterpreted as markdown.
-   */
-  private renderPreview(source: string, language?: string): void {
-    const lang = language ?? 'plaintext';
-    const headerEl = this.elements.previewHeaderText;
-
-    if (lang === 'html') {
-      if (headerEl) headerEl.textContent = 'HTML Preview';
-      this.elements.previewBody.innerHTML = '';
-      const iframe = document.createElement('iframe');
-      iframe.className = 'notepad-preview-iframe';
-      iframe.setAttribute('sandbox', '');
-      iframe.srcdoc = source;
-      this.elements.previewBody.appendChild(iframe);
-      return;
-    }
-
-    if (lang === 'markdown') {
-      if (headerEl) headerEl.textContent = 'Markdown Preview';
-      this.elements.previewBody.innerHTML = renderMarkdown(source);
-      return;
-    }
-
-    if (lang === 'swagger') {
-      if (headerEl) headerEl.textContent = 'Swagger/OpenAPI Preview';
-      void renderSwagger(source, this.elements.previewBody);
-      return;
-    }
-
-    // All other languages — show as formatted code. JSON is pretty-printed so
-    // the Preview pane gives a readable view of a minified payload (invalid
-    // JSON falls back to the raw text).
-    const isJson = lang === 'json';
-    if (headerEl) {
-      headerEl.textContent = isJson
-        ? 'JSON Preview'
-        : `${lang.charAt(0).toUpperCase() + lang.slice(1)} Preview`;
-    }
-    const pre = document.createElement('pre');
-    pre.className = 'notepad-code-preview';
-    const code = document.createElement('code');
-    code.textContent = isJson ? formatJson(source).text : source;
-    pre.appendChild(code);
-    this.elements.previewBody.innerHTML = '';
-    this.elements.previewBody.appendChild(pre);
-  }
-
-  /**
-   * Detect the language from content and apply it when the tab is still
-   * "unset" (no language, or stuck at plaintext from a fresh untitled tab).
-   * Once a language has been applied (auto or manual), we never overwrite it.
-   * Also auto-enable preview for markdown and swagger files.
-   */
-  private maybeAutoDetectLanguage(tabId: string, value: string): void {
-    const tab = this.store.getState().tabs.find((t) => t.id === tabId);
-    if (!tab) return;
-
-    // If content is empty, reset language so the next paste can be re-detected.
-    if (!value.trim()) {
-      if (tab.language && tab.language !== 'plaintext') {
-        this.store.updateTab(tabId, { language: 'plaintext' });
-        if (this.editor && tabId === this.store.getActiveTab()?.id) {
-          setEditorLanguage(this.editor, 'plaintext');
+    // ESC closes the preview pane of the focused tab.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const active = this.store.getActiveTab();
+        if (active?.previewMode) {
+          e.preventDefault();
+          this.store.updateTab(active.id, { previewMode: false });
         }
       }
-      return;
-    }
+    });
 
-    // If the tab was auto-detected as swagger but the content no longer
-    // validates as swagger, reset to plaintext so the new type can be picked up.
-    let effectiveLang = tab.language;
-    if (effectiveLang === 'swagger' && !isSwaggerContent(value)) {
-      this.store.updateTab(tabId, { language: 'plaintext' });
-      if (this.editor && tabId === this.store.getActiveTab()?.id) {
-        setEditorLanguage(this.editor, 'plaintext');
+    window.addEventListener('beforeunload', () => {
+      this.panes.forEach((p) => p.flushPending());
+      void this.store.flushPersist();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('#notepad-context-menu')) {
+        this.hideContextMenu();
       }
-      effectiveLang = 'plaintext';
-    }
+    });
 
-    // Only auto-detect when no language has been locked in.
-    if (effectiveLang && effectiveLang !== 'plaintext') return;
+    this.elements.contextMenu.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const action = target.dataset.action;
+      const tabId = this.elements.contextMenu.dataset.tabId;
+      if (!action) return;
+      e.preventDefault();
+      this.hideContextMenu();
+      handleContextMenuAction(action, tabId, {
+        onNew: () => this.createNewTab(),
+        onRename: (id) => this.renameTab(id),
+        onSave: (id) => void saveTabById(this.getFileOpsContext(), id),
+        onSaveAs: (id) => void saveTabById(this.getFileOpsContext(), id, true),
+        onMoveToOtherView: (id) => this.moveTabToOtherView(id),
+        onClose: (id) => void this.requestCloseTab(id),
+        onCloseOthers: (id) => this.store.closeOthers(id),
+        onCloseLeft: (id) => this.store.closeTabsToLeft(id),
+        onCloseRight: (id) => this.store.closeTabsToRight(id),
+        onCloseAll: () => void this.closeAllTabs(),
+        onReveal: (id) => this.revealTab(id),
+        onCopyPath: (id) => void this.copyTabPath(id),
+      });
+    });
 
-    const detected = detectLanguageFromContent(value);
-    if (!detected || detected === tab.language) return;
-    this.store.updateTab(tabId, { language: detected });
-    if (this.editor && tabId === this.store.getActiveTab()?.id) {
-      setEditorLanguage(this.editor, detected);
-    }
-
-    // Auto-enable preview for markdown and swagger
-    if (
-      (detected === 'markdown' || detected === 'swagger') &&
-      !tab.previewMode
-    ) {
-      // Flush the editor content to the store immediately so the first
-      // renderState call (triggered by the previewMode change below) already
-      // sees the full content instead of stale/empty data from the debounce.
-      if (this.contentTimer) {
-        clearTimeout(this.contentTimer);
-        this.contentTimer = null;
+    // App-wide before-quit IPC: flush notepad state and allow quit.
+    this.beforeQuitDispose = window.restbro.notepad.onBeforeQuit(
+      async (requestId) => {
+        this.panes.forEach((p) => p.flushPending());
+        await this.store.flushPersist();
+        window.restbro.notepad.sendQuitDecision(requestId, true);
       }
-      this.store.updateContent(tabId, value, true);
-      this.store.updateTab(tabId, { previewMode: true });
-    }
-  }
-
-  /**
-   * Open a file by absolute path in the Notepad, initializing it on demand.
-   * Used by the app-level OS file-open bridge (see renderer `index.ts`).
-   * De-dupes: `openFileByPath` re-activates an existing tab for the same path.
-   */
-  async openPath(filePath: string): Promise<void> {
-    await this.ensureInitialized();
-    await openFileByPath(this.getFileOpsContext(), filePath);
-  }
-
-  private doUpdateStatusBar(tab?: NotepadTab, valueOverride?: string): void {
-    updateStatusBar(
-      {
-        statusFile: this.elements.statusFile,
-        statusState: this.elements.statusState,
-        statusCursor: this.elements.statusCursor,
-        statusLines: this.elements.statusLines,
-        statusChars: this.elements.statusChars,
-        statusLanguage: this.elements.statusLanguage,
-        statusSelection: this.elements.statusSelection,
-        statusEol: this.elements.statusEol,
-        statusIndent: this.elements.statusIndent,
-      },
-      this.cursorPosition,
-      { tabSize: this.store.getSettings().tabSize },
-      tab,
-      valueOverride
     );
+  }
+
+  /** Make the split divider draggable; persists the ratio on release. */
+  private attachDivider(): void {
+    const divider = this.elements.paneDivider;
+    const host = this.elements.panesHost;
+    let dragging = false;
+
+    const onMove = (e: MouseEvent): void => {
+      if (!dragging) return;
+      const rect = host.getBoundingClientRect();
+      const ratio = Math.max(
+        0.2,
+        Math.min(0.8, (e.clientX - rect.left) / rect.width)
+      );
+      this.pendingRatio = ratio;
+      this.elements.pane0Root.style.flex = `0 0 ${ratio * 100}%`;
+      this.elements.pane1Root.style.flex = '1 1 0';
+      this.panes.forEach((p) => p.layout());
+    };
+    const onUp = (): void => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('notepad-resizing');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (this.pendingRatio !== null) {
+        this.store.setSplitRatio(this.pendingRatio);
+        this.pendingRatio = null;
+      }
+    };
+
+    divider.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      document.body.classList.add('notepad-resizing');
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
   }
 
   private showContextMenu(
@@ -849,14 +564,21 @@ export class NotepadManager {
     this.elements.contextMenu.style.top = `${y}px`;
     this.elements.contextMenu.dataset.tabId = tabId;
     this.elements.contextMenu.classList.remove('hidden');
-    const togglePathBtn = (action: string) => {
+    const toggle = (action: string, show: boolean): void => {
       const btn = this.elements.contextMenu.querySelector(
         `[data-action="${action}"]`
       ) as HTMLElement | null;
-      if (btn) btn.style.display = hasFile ? 'block' : 'none';
+      if (btn) btn.style.display = show ? 'block' : 'none';
     };
-    togglePathBtn('reveal');
-    togglePathBtn('copyPath');
+    toggle('reveal', hasFile);
+    toggle('copyPath', hasFile);
+    // Only offer "Close to the Left/Right" when there are tabs on that side
+    // within the tab's own pane.
+    const tab = this.store.getState().tabs.find((t) => t.id === tabId);
+    const inPane = this.store.getTabsForPane(tab?.paneId ?? 0);
+    const idx = inPane.findIndex((t) => t.id === tabId);
+    toggle('closeLeft', idx > 0);
+    toggle('closeRight', idx >= 0 && idx < inPane.length - 1);
   }
 
   private hideContextMenu(): void {
@@ -864,6 +586,3 @@ export class NotepadManager {
     delete this.elements.contextMenu.dataset.tabId;
   }
 }
-
-// Re-export for any callers that destructured from the old module.
-export { detectLanguageFromPath };

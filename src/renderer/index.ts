@@ -29,6 +29,7 @@ import { resizeManager } from './utils/resize-manager';
 import { EnvironmentManager } from './components/environments/environment-manager';
 import { ImportManager } from './components/import/import-manager';
 import { setupEventListeners } from './event-listeners';
+import { setupMenuActions } from './components/menu-action-router';
 import { BackupManager } from './components/backup-manager';
 import { ThemeOnboarding } from './components/theme-onboarding';
 import { LayoutToggleManager } from './components/layout-toggle-manager';
@@ -121,6 +122,16 @@ class RestbroRenderer {
       historyManager: this.historyManager,
       environmentManager: this.environmentManager,
       askAiTab: this.askAiTab,
+      saveState: this.saveState.bind(this),
+    });
+
+    // Route native application-menu commands to existing managers/DOM events.
+    setupMenuActions({
+      tabsManager: this.tabsManager,
+      notepadManager: this.notepadManager,
+      themeManager: this.themeManager,
+      themeOnboarding: this.themeOnboarding,
+      settingsModal: this.settingsModal,
       saveState: this.saveState.bind(this),
     });
 

@@ -17,10 +17,10 @@
 // Insomnia-style resolved-URL preview row: shows the full URL that will be
 // sent — `{{vars}}` expanded (active environment / globals / folder) plus the
 // enabled query params appended from the Params tab. Sits just under the URL
-// bar and is hidden until there is something to preview, i.e. variables
-// resolved and/or params were appended (JS toggles `.is-visible`). The URL is
-// always shown in full (wrapped across lines); the copy button copies the full
-// resolved URL to the clipboard. Theme-driven via CSS variables.
+// bar and is shown whenever the URL bar has a value; it's hidden only when the
+// URL is empty (JS toggles `.is-visible`). The URL is always shown in full
+// (wrapped across lines); the copy button copies the full resolved URL to the
+// clipboard. Theme-driven via CSS variables.
 .url-preview {
   display: none;
   align-items: flex-start;

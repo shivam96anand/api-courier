@@ -6,6 +6,7 @@ import { aiEngine } from './modules/ai-engine';
 import { mockServerManager } from './modules/mock-server-manager';
 import { disposeSwaggerPreviewServer } from './modules/notepad-swagger-preview';
 import { updateManager } from './modules/update-manager';
+import { menuManager } from './modules/menu-manager';
 import { notepadIpc } from './modules/notepad-ipc';
 import * as path from 'path';
 
@@ -69,6 +70,7 @@ class RestbroApp {
     storeManager.startAutoBackup();
     ipcManager.initialize();
     updateManager.initialize();
+    menuManager.build();
     this.createWindow();
     updateManager.notifyIfJustUpdated();
     this.setupEventHandlers();

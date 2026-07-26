@@ -2,6 +2,7 @@
  * Notepad Monaco editor: theme + factory + editor-action helpers.
  */
 import * as monaco from 'monaco-editor';
+import { forceInitialViewportTokenization } from '../request/monaco-tokenization';
 
 export interface NotepadEditorOptions {
   fontSize: number;
@@ -28,7 +29,6 @@ function getCssHexVariable(name: string): string {
 export function updateMonacoTheme(): void {
   const themeColor = getCssHexVariable('--primary-color');
   const valueColor = getCssHexVariable('--text-primary') || 'ffffff';
-  const bracketColor = getCssHexVariable('--primary-color') || 'da70d6';
   const editorBackground = getCssHexVariable('--bg-primary') || '1a1a1a';
   const lineNumberColor = getCssHexVariable('--json-line-number') || '6e6e6e';
 
@@ -42,13 +42,13 @@ export function updateMonacoTheme(): void {
       { token: 'string.json', foreground: valueColor },
       { token: 'number.json', foreground: valueColor },
       { token: 'keyword.json', foreground: valueColor },
-      {
-        token: 'delimiter.bracket.json',
-        foreground: bracketColor,
-        fontStyle: 'bold',
-      },
+      // Clean/classic look: punctuation (braces, brackets, colons, commas)
+      // renders in the neutral value color — no primary tint, no bold. Combined
+      // with bracketPairColorization disabled this removes the "rainbow braces".
+      { token: 'delimiter.bracket.json', foreground: valueColor },
+      { token: 'delimiter.array.json', foreground: valueColor },
       { token: 'delimiter.colon.json', foreground: valueColor },
-      { token: 'delimiter.comma.json', foreground: bracketColor },
+      { token: 'delimiter.comma.json', foreground: valueColor },
     ],
     colors: {
       'editor.background': `#${editorBackground}`,
@@ -56,6 +56,20 @@ export function updateMonacoTheme(): void {
       'editorLineNumber.foreground': `#${lineNumberColor}`,
       'editor.selectionBackground': '#404040',
       'editor.lineHighlightBackground': '#2d2d2d',
+      // Keep bracket-pair highlight uniform (neutral) as a safety net in case
+      // colorization is ever re-enabled — prevents rainbow braces.
+      'editorBracketHighlight.foreground1': `#${valueColor}`,
+      'editorBracketHighlight.foreground2': `#${valueColor}`,
+      'editorBracketHighlight.foreground3': `#${valueColor}`,
+      'editorBracketHighlight.foreground4': `#${valueColor}`,
+      'editorBracketHighlight.foreground5': `#${valueColor}`,
+      'editorBracketHighlight.foreground6': `#${valueColor}`,
+      'editorBracketHighlight.unexpectedBracket.foreground': `#${valueColor}`,
+      // Theme-aware scrollbar sliders — matches the app-wide native scrollbars
+      // defined in `_scrollbars.scss`.
+      'scrollbarSlider.background': '#ffffff26',
+      'scrollbarSlider.hoverBackground': `#${themeColor}66`,
+      'scrollbarSlider.activeBackground': `#${themeColor}99`,
     },
   });
 
@@ -76,12 +90,23 @@ export function createNotepadEditor(
     automaticLayout: true,
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
+    scrollbar: {
+      verticalScrollbarSize: 12,
+      horizontalScrollbarSize: 12,
+      useShadows: false,
+    },
+    // Copy as plain text only (no syntax-highlighted HTML on the clipboard).
+    copyWithSyntaxHighlighting: false,
     fontSize: options.fontSize,
     lineNumbers: 'on',
     wordWrap: options.wordWrap ?? 'on',
     tabSize: options.tabSize ?? 2,
     padding: { top: 12, bottom: 12 },
-    bracketPairColorization: { enabled: true },
+    // Clean/classic JSON: no rainbow bracket-pair colorization.
+    bracketPairColorization: { enabled: false },
+    // Allow far more foldable regions than Monaco's default (5000) so deeply
+    // nested nodes in very large JSON keep their fold/expand controls.
+    foldingMaximumRegions: 65000,
     renderWhitespace: 'selection',
     fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', monospace",
     quickSuggestions: false,
@@ -97,6 +122,18 @@ export function createNotepadEditor(
       invisibleCharacters: false,
       nonBasicASCII: false,
     },
+  });
+
+  // Tokenize the initial viewport synchronously so the first paint is already
+  // themed — avoids the white-then-colored flash / "late line" when switching
+  // to a large JSON document.
+  forceInitialViewportTokenization(editor);
+
+  // Re-assert the theme and keep bracket-pair colorization disabled after the
+  // first render; Monaco can re-enable colorization internally on create.
+  requestAnimationFrame(() => {
+    updateMonacoTheme();
+    editor.updateOptions({ bracketPairColorization: { enabled: false } });
   });
 
   editor.onDidChangeModelContent(() => {
@@ -118,7 +155,10 @@ export function createNotepadEditor(
   });
 
   // Theme changes from the rest of the app.
-  document.addEventListener('theme-changed', () => updateMonacoTheme());
+  document.addEventListener('theme-changed', () => {
+    updateMonacoTheme();
+    editor.updateOptions({ bracketPairColorization: { enabled: false } });
+  });
 
   return editor;
 }
@@ -130,6 +170,11 @@ export function setEditorLanguage(
 ): void {
   const model = editor.getModel();
   if (model) monaco.editor.setModelLanguage(model, language);
+  // Keep fold/expand controls permanently visible for JSON; otherwise fall
+  // back to Monaco's default (icons appear only on gutter hover).
+  editor.updateOptions({
+    showFoldingControls: language === 'json' ? 'always' : 'mouseover',
+  });
 }
 
 /** Trigger Monaco's built-in find widget. */

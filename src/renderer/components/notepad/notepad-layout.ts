@@ -1,19 +1,18 @@
 /**
- * Notepad layout builder. Constructs the full DOM for the tab and returns
- * references to interactive elements. Wires button click handlers; everything
- * else is wired by `NotepadManager`.
+ * Notepad layout builder. Constructs the global chrome (top-bar actions, status
+ * bar, context menu, dirty modal, settings host) plus two pane host elements
+ * with a divider between them. Each pane's inner DOM + editor is built by
+ * `PaneController`; `NotepadManager` wires everything together.
  */
 import { PICKABLE_LANGUAGES } from './notepad-language';
+import { attachThemedSelect } from '../../utils/themed-select';
 
 export interface NotepadElements {
   root: HTMLElement;
-  tabStrip: HTMLElement;
-  editorArea: HTMLElement;
-  editorHost: HTMLElement;
-  previewPane: HTMLElement;
-  previewBody: HTMLElement;
-  previewCloseBtn: HTMLButtonElement;
-  dropOverlay: HTMLElement;
+  panesHost: HTMLElement;
+  pane0Root: HTMLElement;
+  pane1Root: HTMLElement;
+  paneDivider: HTMLElement;
   statusFile: HTMLElement;
   statusState: HTMLElement;
   statusCursor: HTMLElement;
@@ -31,19 +30,17 @@ export interface NotepadElements {
   previewToggleBtn: HTMLButtonElement;
   formatJsonBtn: HTMLButtonElement;
   settingsBtn: HTMLButtonElement;
+  splitBtn: HTMLButtonElement;
   languagePicker: HTMLSelectElement;
-  previewHeaderText: HTMLElement;
-  resizeSplitter: HTMLElement;
 }
 
 export interface NotepadLayoutCallbacks {
   onZoomOut: () => void;
   onZoomIn: () => void;
-  onAddTab: () => void;
   onOpenFile: () => void;
   onSave: () => void;
   onTogglePreview: () => void;
-  onPreviewClose: () => void;
+  onToggleSplit: () => void;
   onFormatJson: () => void;
   onSettingsClick: (anchor: HTMLElement) => void;
   onLanguageChange: (language: string) => void;
@@ -62,30 +59,31 @@ export function buildNotepadLayout(
   container.innerHTML = `
     <div class="notepad-layout">
       <div class="notepad-topbar">
-        <div class="notepad-tabs-area">
-          <div class="notepad-tabs" id="notepad-tab-strip"></div>
-          <button class="notepad-tab add" id="np-add-tab" title="New Tab">+</button>
+        <div class="notepad-tools">
+          <button class="np-btn ghost" id="np-find" title="Find (Ctrl/Cmd+F)">Find</button>
+          <button class="np-btn ghost" id="np-replace" title="Replace (Ctrl/Cmd+H)">Replace</button>
+          <button class="np-btn ghost hidden" id="np-format-json" title="Format JSON">Format</button>
+          <select class="status-language-picker" id="np-status-language-picker"
+            title="Change syntax language">
+            ${languageOptions}
+          </select>
+          <div class="np-zoom-group">
+            <button class="np-btn ghost icon" id="np-zoom-out" title="Zoom Out (Ctrl/Cmd+-)">A-</button>
+            <button class="np-btn ghost icon" id="np-zoom-in" title="Zoom In (Ctrl/Cmd++)">A+</button>
+          </div>
         </div>
         <div class="notepad-actions">
           <button class="np-btn primary" id="np-toggle-preview" title="Toggle Preview">Preview</button>
           <button class="np-btn ghost" id="np-open-file" title="Open File (Ctrl/Cmd+O)">Open</button>
           <button class="np-btn ghost" id="np-save" title="Save (Ctrl/Cmd+S)">Save</button>
+          <button class="np-btn ghost" id="np-split" title="Split into two side-by-side panes" aria-pressed="false">Split</button>
           <button class="np-btn settings" id="np-settings" title="Notepad Settings" aria-haspopup="menu" aria-label="Notepad Settings">▾</button>
         </div>
       </div>
-      <div class="notepad-editor-area" id="notepad-editor-area">
-        <div class="notepad-editor" id="notepad-editor"></div>
-        <div class="notepad-resize-splitter hidden" id="notepad-resize-splitter" title="Drag to resize"></div>
-        <div class="notepad-preview hidden" id="notepad-preview" aria-label="Preview">
-          <div class="notepad-preview-header">
-            <span id="notepad-preview-header-text">Markdown Preview</span>
-            <button class="notepad-preview-close" id="notepad-preview-close" title="Close preview (Esc)">✕</button>
-          </div>
-          <div class="notepad-preview-body" id="notepad-preview-body"></div>
-        </div>
-        <div class="notepad-drop-overlay hidden" id="notepad-drop-overlay">
-          <div class="notepad-drop-overlay-inner">Drop files to open in Notepad</div>
-        </div>
+      <div class="notepad-panes" id="notepad-panes">
+        <div data-pane-root="0"></div>
+        <div class="notepad-pane-divider hidden" id="notepad-pane-divider" title="Drag to resize panes"></div>
+        <div class="notepad-pane hidden" data-pane-root="1"></div>
       </div>
       <div class="notepad-status-bar">
         <div class="status-left">
@@ -93,13 +91,6 @@ export function buildNotepadLayout(
           <span class="status-state" id="np-status-state">Unsaved</span>
         </div>
         <div class="status-right">
-          <button class="np-status-btn" id="np-find" title="Find (Ctrl/Cmd+F)">Find</button>
-          <button class="np-status-btn" id="np-replace" title="Replace (Ctrl/Cmd+H)">Replace</button>
-          <button class="np-status-btn hidden" id="np-format-json" title="Format JSON">Format</button>
-          <select class="status-language-picker" id="np-status-language-picker"
-            title="Change syntax language">
-            ${languageOptions}
-          </select>
           <span class="status-metric" id="np-status-language">Plain Text</span>
           <span class="status-metric" id="np-status-cursor">Ln 1, Col 1</span>
           <span class="status-metric status-metric--muted" id="np-status-selection"></span>
@@ -107,10 +98,6 @@ export function buildNotepadLayout(
           <span class="status-metric" id="np-status-chars">0 chars</span>
           <span class="status-metric status-metric--muted" id="np-status-eol">LF</span>
           <span class="status-metric status-metric--muted" id="np-status-indent">Spaces: 2</span>
-          <div class="np-zoom-group">
-            <button class="np-status-btn zoom" id="np-zoom-out" title="Zoom Out (Ctrl/Cmd+-)">A-</button>
-            <button class="np-status-btn zoom" id="np-zoom-in" title="Zoom In (Ctrl/Cmd++)">A+</button>
-          </div>
         </div>
       </div>
       <div class="notepad-context-menu hidden" id="notepad-context-menu" role="menu">
@@ -118,8 +105,11 @@ export function buildNotepadLayout(
         <button data-action="rename" role="menuitem">Rename</button>
         <button data-action="save" role="menuitem">Save</button>
         <button data-action="saveAs" role="menuitem">Save As</button>
+        <button data-action="moveToOtherView" role="menuitem">Move to Other View</button>
         <button data-action="close" role="menuitem">Close</button>
         <button data-action="closeOthers" role="menuitem">Close Others</button>
+        <button data-action="closeLeft" role="menuitem">Close to the Left</button>
+        <button data-action="closeRight" role="menuitem">Close to the Right</button>
         <button data-action="closeAll" role="menuitem">Close All</button>
         <button data-action="reveal" role="menuitem">Reveal in Finder/Explorer</button>
         <button data-action="copyPath" role="menuitem">Copy Full Path</button>
@@ -141,108 +131,59 @@ export function buildNotepadLayout(
     </div>
   `;
 
+  const q = <T extends HTMLElement = HTMLElement>(sel: string): T =>
+    container.querySelector(sel) as T;
+
   const elements: NotepadElements = {
-    root: container.querySelector('.notepad-layout') as HTMLElement,
-    tabStrip: container.querySelector('#notepad-tab-strip') as HTMLElement,
-    editorArea: container.querySelector('#notepad-editor-area') as HTMLElement,
-    editorHost: container.querySelector('#notepad-editor') as HTMLElement,
-    previewPane: container.querySelector('#notepad-preview') as HTMLElement,
-    previewBody: container.querySelector(
-      '#notepad-preview-body'
-    ) as HTMLElement,
-    dropOverlay: container.querySelector(
-      '#notepad-drop-overlay'
-    ) as HTMLElement,
-    statusFile: container.querySelector('#np-status-file') as HTMLElement,
-    statusState: container.querySelector('#np-status-state') as HTMLElement,
-    statusCursor: container.querySelector('#np-status-cursor') as HTMLElement,
-    statusLines: container.querySelector('#np-status-lines') as HTMLElement,
-    statusChars: container.querySelector('#np-status-chars') as HTMLElement,
-    statusLanguage: container.querySelector(
-      '#np-status-language'
-    ) as HTMLElement,
-    statusSelection: container.querySelector(
-      '#np-status-selection'
-    ) as HTMLElement,
-    statusEol: container.querySelector('#np-status-eol') as HTMLElement,
-    statusIndent: container.querySelector('#np-status-indent') as HTMLElement,
-    contextMenu: container.querySelector(
-      '#notepad-context-menu'
-    ) as HTMLElement,
-    dirtyModal: container.querySelector('#notepad-dirty-modal') as HTMLElement,
-    dirtyModalTitle: container.querySelector(
-      '#notepad-dirty-modal-title'
-    ) as HTMLElement,
-    dirtyModalBody: container.querySelector(
-      '#notepad-dirty-modal-body'
-    ) as HTMLElement,
-    settingsHost: container.querySelector(
-      '.notepad-settings-host'
-    ) as HTMLElement,
-    previewToggleBtn: container.querySelector(
-      '#np-toggle-preview'
-    ) as HTMLButtonElement,
-    formatJsonBtn: container.querySelector(
-      '#np-format-json'
-    ) as HTMLButtonElement,
-    previewCloseBtn: container.querySelector(
-      '#notepad-preview-close'
-    ) as HTMLButtonElement,
-    settingsBtn: container.querySelector('#np-settings') as HTMLButtonElement,
-    languagePicker: container.querySelector(
-      '#np-status-language-picker'
-    ) as HTMLSelectElement,
-    previewHeaderText: container.querySelector(
-      '#notepad-preview-header-text'
-    ) as HTMLElement,
-    resizeSplitter: container.querySelector(
-      '#notepad-resize-splitter'
-    ) as HTMLElement,
+    root: q('.notepad-layout'),
+    panesHost: q('#notepad-panes'),
+    pane0Root: q('[data-pane-root="0"]'),
+    pane1Root: q('[data-pane-root="1"]'),
+    paneDivider: q('#notepad-pane-divider'),
+    statusFile: q('#np-status-file'),
+    statusState: q('#np-status-state'),
+    statusCursor: q('#np-status-cursor'),
+    statusLines: q('#np-status-lines'),
+    statusChars: q('#np-status-chars'),
+    statusLanguage: q('#np-status-language'),
+    statusSelection: q('#np-status-selection'),
+    statusEol: q('#np-status-eol'),
+    statusIndent: q('#np-status-indent'),
+    contextMenu: q('#notepad-context-menu'),
+    dirtyModal: q('#notepad-dirty-modal'),
+    dirtyModalTitle: q('#notepad-dirty-modal-title'),
+    dirtyModalBody: q('#notepad-dirty-modal-body'),
+    settingsHost: q('.notepad-settings-host'),
+    previewToggleBtn: q<HTMLButtonElement>('#np-toggle-preview'),
+    formatJsonBtn: q<HTMLButtonElement>('#np-format-json'),
+    settingsBtn: q<HTMLButtonElement>('#np-settings'),
+    splitBtn: q<HTMLButtonElement>('#np-split'),
+    languagePicker: q<HTMLSelectElement>('#np-status-language-picker'),
   };
 
-  // Double-click empty space in the tab area to open a new tab.
-  const tabsArea = container.querySelector('.notepad-tabs-area') as HTMLElement;
-  tabsArea?.addEventListener('dblclick', (e) => {
-    const target = e.target as HTMLElement;
-    if (target === tabsArea || target.id === 'notepad-tab-strip') {
-      callbacks.onAddTab();
-    }
-  });
-
-  // Wire toolbar buttons.
-  container
-    .querySelector('#np-zoom-out')
-    ?.addEventListener('click', callbacks.onZoomOut);
-  container
-    .querySelector('#np-zoom-in')
-    ?.addEventListener('click', callbacks.onZoomIn);
-  container
-    .querySelector('#np-add-tab')
-    ?.addEventListener('click', callbacks.onAddTab);
-  container
-    .querySelector('#np-open-file')
-    ?.addEventListener('click', callbacks.onOpenFile);
-  container
-    .querySelector('#np-save')
-    ?.addEventListener('click', callbacks.onSave);
-  container
-    .querySelector('#np-find')
-    ?.addEventListener('click', callbacks.onFind);
-  container
-    .querySelector('#np-replace')
-    ?.addEventListener('click', callbacks.onReplace);
+  q('#np-zoom-out').addEventListener('click', callbacks.onZoomOut);
+  q('#np-zoom-in').addEventListener('click', callbacks.onZoomIn);
+  q('#np-open-file').addEventListener('click', callbacks.onOpenFile);
+  q('#np-save').addEventListener('click', callbacks.onSave);
+  q('#np-find').addEventListener('click', callbacks.onFind);
+  q('#np-replace').addEventListener('click', callbacks.onReplace);
   elements.previewToggleBtn.addEventListener(
     'click',
     callbacks.onTogglePreview
   );
+  elements.splitBtn.addEventListener('click', callbacks.onToggleSplit);
   elements.formatJsonBtn.addEventListener('click', callbacks.onFormatJson);
-  elements.previewCloseBtn.addEventListener('click', callbacks.onPreviewClose);
   elements.settingsBtn.addEventListener('click', () =>
     callbacks.onSettingsClick(elements.settingsBtn)
   );
   elements.languagePicker.addEventListener('change', () =>
     callbacks.onLanguageChange(elements.languagePicker.value)
   );
+
+  // Replace the native OS <select> popup with the app's themed dropdown
+  // (matching the environment selector). The <select> stays the source of
+  // truth, so the change handler above keeps working.
+  attachThemedSelect(elements.languagePicker);
 
   return elements;
 }

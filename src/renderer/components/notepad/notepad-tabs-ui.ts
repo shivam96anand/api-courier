@@ -12,6 +12,8 @@ import { escapeHtml } from './notepad-utils';
 
 export interface TabRenderingContext {
   tabStrip: HTMLElement;
+  /** Which pane this strip renders (only that pane's tabs are shown). */
+  paneId: number;
   store: NotepadStore;
   onTabClick: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
@@ -22,19 +24,24 @@ export interface TabRenderingContext {
     y: number,
     hasFile: boolean
   ) => void;
+  /** Reorder within this pane; indices are pane-relative. */
   onReorder: (fromIdx: number, toIdx: number) => void;
 }
 
 export function renderTabs(
   ctx: TabRenderingContext,
-  state: NotepadState
+  _state: NotepadState
 ): void {
   if (!ctx.tabStrip) return;
   ctx.tabStrip.innerHTML = '';
 
-  state.tabs.forEach((tab, idx) => {
+  const tabs = ctx.store.getTabsForPane(ctx.paneId);
+  const activeId = ctx.store.getPaneActiveTabId(ctx.paneId);
+  const dragKey = 'text/x-notepad-tab';
+
+  tabs.forEach((tab, idx) => {
     const button = document.createElement('button');
-    button.className = `notepad-tab ${tab.id === state.activeTabId ? 'active' : ''}`;
+    button.className = `notepad-tab ${tab.id === activeId ? 'active' : ''}`;
     button.dataset.tabId = tab.id;
     button.dataset.tabIdx = String(idx);
     button.draggable = true;
@@ -67,9 +74,11 @@ export function renderTabs(
       ctx.onContextMenu(tab.id, e.clientX, e.clientY, Boolean(tab.filePath));
     });
 
-    // Drag-to-reorder
+    // Drag-to-reorder (scoped to this pane; the payload carries the source
+    // pane so drops from the other pane's strip are ignored — cross-pane moves
+    // use the context menu / Split button instead).
     button.addEventListener('dragstart', (e) => {
-      e.dataTransfer?.setData('text/x-notepad-tab', String(idx));
+      e.dataTransfer?.setData(dragKey, `${ctx.paneId}:${idx}`);
       e.dataTransfer!.effectAllowed = 'move';
       button.classList.add('dragging');
     });
@@ -77,7 +86,7 @@ export function renderTabs(
       button.classList.remove('dragging')
     );
     button.addEventListener('dragover', (e) => {
-      if (!e.dataTransfer?.types.includes('text/x-notepad-tab')) return;
+      if (!e.dataTransfer?.types.includes(dragKey)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       button.classList.add('drag-over');
@@ -88,8 +97,10 @@ export function renderTabs(
     button.addEventListener('drop', (e) => {
       e.preventDefault();
       button.classList.remove('drag-over');
-      const fromRaw = e.dataTransfer?.getData('text/x-notepad-tab');
-      if (!fromRaw) return;
+      const raw = e.dataTransfer?.getData(dragKey);
+      if (!raw) return;
+      const [fromPane, fromRaw] = raw.split(':');
+      if (Number(fromPane) !== ctx.paneId) return;
       const fromIdx = Number(fromRaw);
       if (!Number.isFinite(fromIdx) || fromIdx === idx) return;
       ctx.onReorder(fromIdx, idx);
@@ -121,12 +132,20 @@ export interface StatusBarOptions {
   tabSize: number;
 }
 
+/** Precomputed line/char/EOL metrics, typically read from the Monaco model. */
+export interface StatusBarMetrics {
+  lines: number;
+  chars: number;
+  eol: 'LF' | 'CRLF';
+}
+
 export function updateStatusBar(
   elements: StatusBarElements,
   cursorPosition: CursorPosition,
   options: StatusBarOptions,
   tab?: NotepadTab,
-  valueOverride?: string
+  valueOverride?: string,
+  metrics?: StatusBarMetrics
 ): void {
   if (!tab) {
     elements.statusFile.textContent = 'No file';
@@ -142,12 +161,20 @@ export function updateStatusBar(
     return;
   }
 
-  const value = valueOverride !== undefined ? valueOverride : tab.content;
-  // Counting on every cursor move is fine up to a few MB; anything larger we
-  // gate elsewhere.
-  const lines = value.length === 0 ? 1 : value.split(/\r?\n/).length;
-  const chars = value.length;
-  const eol = /\r\n/.test(value) ? 'CRLF' : 'LF';
+  // Prefer precomputed metrics (from the Monaco model) to avoid scanning the
+  // full — possibly multi-MB — string on every cursor move. Fall back to
+  // computing from the content when no live model is available.
+  let lines: number;
+  let chars: number;
+  let eol: 'LF' | 'CRLF';
+  if (metrics) {
+    ({ lines, chars, eol } = metrics);
+  } else {
+    const value = valueOverride ?? tab.content;
+    lines = value.length === 0 ? 1 : value.split(/\r?\n/).length;
+    chars = value.length;
+    eol = /\r\n/.test(value) ? 'CRLF' : 'LF';
+  }
 
   const fileName = tab.filePath
     ? tab.filePath.split(/[/\\]/).pop() || tab.filePath

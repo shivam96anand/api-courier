@@ -118,17 +118,6 @@ export function setupEventListeners(deps: EventListenersDeps): void {
     }
   });
 
-  // "Previous responses" dropdown (response panel): opening a past response
-  // restores the request that produced it into the active tab, so the request
-  // editor and response viewer both reflect the historical snapshot.
-  document.addEventListener('open-previous-request-response', (e: Event) => {
-    const customEvent = e as CustomEvent;
-    const request = customEvent.detail?.request;
-    const response = customEvent.detail?.response;
-    if (!request || !response) return;
-    tabsManager.loadHistorySnapshotIntoActiveTab(request, response);
-  });
-
   // Listen for history changes to trigger state saves
   document.addEventListener('history-changed', () => {
     saveState();

@@ -209,7 +209,7 @@
 
 .history-row {
   display: grid;
-  grid-template-columns: 70px 1fr 60px 90px;
+  grid-template-columns: 70px 1fr 60px 150px;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
@@ -274,5 +274,6 @@
     color: var(--text-secondary);
     text-align: right;
     font-family: var(--font-mono);
+    white-space: nowrap;
   }
 }

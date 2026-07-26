@@ -93,8 +93,11 @@ export interface ContextMenuCallbacks {
   onRename: (tabId: string) => void;
   onSave: (tabId: string) => void;
   onSaveAs: (tabId: string) => void;
+  onMoveToOtherView: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onCloseOthers: (tabId: string) => void;
+  onCloseLeft: (tabId: string) => void;
+  onCloseRight: (tabId: string) => void;
   onCloseAll: () => void;
   onReveal: (tabId: string) => void;
   onCopyPath: (tabId: string) => void;
@@ -113,10 +116,16 @@ export function handleContextMenuAction(
     callbacks.onSave(tabId);
   } else if (action === 'saveAs' && tabId) {
     callbacks.onSaveAs(tabId);
+  } else if (action === 'moveToOtherView' && tabId) {
+    callbacks.onMoveToOtherView(tabId);
   } else if (action === 'close' && tabId) {
     callbacks.onClose(tabId);
   } else if (action === 'closeOthers' && tabId) {
     callbacks.onCloseOthers(tabId);
+  } else if (action === 'closeLeft' && tabId) {
+    callbacks.onCloseLeft(tabId);
+  } else if (action === 'closeRight' && tabId) {
+    callbacks.onCloseRight(tabId);
   } else if (action === 'closeAll') {
     callbacks.onCloseAll();
   } else if (action === 'reveal' && tabId) {

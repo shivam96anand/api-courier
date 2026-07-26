@@ -12,6 +12,11 @@ export interface MonacoJsonEditorOptions {
   onChange: (value: string) => void;
   onValidityChange?: (valid: boolean, error?: string) => void;
   readOnly?: boolean;
+  /**
+   * When true, Cmd/Ctrl+F toggles the find widget (open when hidden, close
+   * when already showing) instead of Monaco's default open-only behavior.
+   */
+  toggleFindShortcut?: boolean;
 }
 
 export class MonacoJsonEditor {
@@ -20,6 +25,8 @@ export class MonacoJsonEditor {
   private onChange: (value: string) => void;
   private onValidityChange?: (valid: boolean, error?: string) => void;
   private readOnly: boolean;
+  private toggleFindShortcut: boolean;
+  private findShortcutHandler?: (e: KeyboardEvent) => void;
   private errorDecorations: string[] = [];
 
   constructor(options: MonacoJsonEditorOptions) {
@@ -27,6 +34,7 @@ export class MonacoJsonEditor {
     this.onChange = options.onChange;
     this.onValidityChange = options.onValidityChange;
     this.readOnly = options.readOnly ?? false;
+    this.toggleFindShortcut = options.toggleFindShortcut ?? false;
 
     this.initialize(options.value);
   }
@@ -118,6 +126,12 @@ export class MonacoJsonEditor {
         'editorBracketPairGuide.activeBackground5': `#${bracketColor}`,
         'editorBracketPairGuide.activeBackground6': `#${bracketColor}`,
         'editorBracketHighlight.unexpectedBracket.foreground': `#${bracketColor}`,
+        // Theme-aware, professional scrollbar sliders (neutral at rest,
+        // primary-tinted on hover/drag) — matches the app-wide native
+        // scrollbars defined in `_scrollbars.scss`.
+        'scrollbarSlider.background': '#ffffff26',
+        'scrollbarSlider.hoverBackground': `#${themeColor}66`,
+        'scrollbarSlider.activeBackground': `#${themeColor}99`,
       },
     });
 
@@ -138,6 +152,13 @@ export class MonacoJsonEditor {
       minimap: { enabled: false },
       overviewRulerBorder: false,
       scrollBeyondLastLine: false,
+      scrollbar: {
+        verticalScrollbarSize: 12,
+        horizontalScrollbarSize: 12,
+        useShadows: false,
+      },
+      // Copy as plain text only (no syntax-highlighted HTML on the clipboard).
+      copyWithSyntaxHighlighting: false,
       fontSize: 12,
       lineNumbers: 'on',
       folding: true,
@@ -194,6 +215,32 @@ export class MonacoJsonEditor {
       });
     };
     document.addEventListener('theme-changed', handleThemeChange);
+
+    if (this.toggleFindShortcut) {
+      this.setupFindToggleShortcut();
+    }
+  }
+
+  /**
+   * Make Cmd/Ctrl+F toggle the find widget. A capture-phase listener on the
+   * container preempts Monaco's own Cmd/Ctrl+F handling (which merely re-focuses
+   * the find input when the widget is already open), so a second press closes
+   * it. When focus is outside the editor, this never fires and the document-level
+   * shortcut handler opens the widget as before.
+   */
+  private setupFindToggleShortcut(): void {
+    this.findShortcutHandler = (e: KeyboardEvent) => {
+      const isFindChord =
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === 'f' || e.key === 'F');
+      if (!isFindChord) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleFind();
+    };
+    this.container.addEventListener('keydown', this.findShortcutHandler, true);
   }
 
   private validateJson(text: string): void {
@@ -409,6 +456,14 @@ export class MonacoJsonEditor {
   }
 
   public dispose(): void {
+    if (this.findShortcutHandler) {
+      this.container.removeEventListener(
+        'keydown',
+        this.findShortcutHandler,
+        true
+      );
+      this.findShortcutHandler = undefined;
+    }
     if (this.editor) {
       this.editor.dispose();
       this.editor = null;

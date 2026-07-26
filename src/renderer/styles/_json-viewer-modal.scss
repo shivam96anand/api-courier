@@ -10,6 +10,11 @@
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(12px);
   z-index: 1000;
+  // Opt the whole overlay out of the macOS title-bar drag region. Without this,
+  // the `.app-header` (`-webkit-app-region: drag`) that sits at the top of the
+  // window swallows mouse-downs over the top portion of the header buttons,
+  // making them clickable only in their lower half.
+  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   justify-content: center;

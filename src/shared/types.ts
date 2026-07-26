@@ -231,6 +231,8 @@ export interface NotepadTab {
   viewState?: unknown;
   /** Whether the markdown preview pane is visible for this tab. */
   previewMode?: boolean;
+  /** Which split pane owns this tab: 0 = left/primary, 1 = right. Default 0. */
+  paneId?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -252,6 +254,14 @@ export interface NotepadState {
   untitledCounter: number;
   /** User preferences. Persisted across sessions. */
   settings?: NotepadSettings;
+  /** Whether the notepad is split into two side-by-side panes. */
+  splitEnabled?: boolean;
+  /** Which pane currently has focus (drives global actions + status bar). 0 or 1. */
+  activePaneId?: number;
+  /** Active tab id per pane, indexed by paneId. `activeTabId` mirrors the focused pane's. */
+  paneActiveTabIds?: (string | undefined)[];
+  /** Left-pane width as a fraction (0..1) of the split; default 0.5. */
+  splitRatio?: number;
 }
 
 export interface RequestSettings {
@@ -607,6 +617,35 @@ export interface MockServerStatusChangedEvent {
   serverId: string;
   isRunning: boolean;
   error?: string;
+}
+
+// =====================================
+// Application Menu
+// =====================================
+
+/**
+ * Message pushed from the native application menu (main process) to the
+ * renderer. `action` names the command; `theme` / `view` carry the argument
+ * for the `set-theme` / `navigate` actions respectively.
+ */
+export interface MenuActionMessage {
+  action:
+    | 'new-request'
+    | 'save'
+    | 'save-as'
+    | 'close-tab'
+    | 'import'
+    | 'open-file'
+    | 'export'
+    | 'backups'
+    | 'settings'
+    | 'history'
+    | 'toggle-layout'
+    | 'choose-theme'
+    | 'set-theme'
+    | 'navigate';
+  theme?: string;
+  view?: string;
 }
 
 // ─── cURL Tab types ─────────────────────────────────────────────────────────

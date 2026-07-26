@@ -21,6 +21,7 @@ vi.mock('fs/promises', () => ({
 import { existsSync, readdirSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { storeManager } from '../store-manager';
+import { HISTORY_ITEM_BODY_LIMIT } from '../../../shared/history-persistence';
 
 describe('store-manager.ts', () => {
   beforeEach(() => {
@@ -181,7 +182,7 @@ describe('store-manager.ts', () => {
       expect(state.openTabs[0].response!.body.length).toBe(5_000_000);
     });
 
-    it('sanitizes history responses: preserves body up to 1 MB', async () => {
+    it('sanitizes history responses: preserves normal-sized response body', async () => {
       vi.mocked(existsSync).mockReturnValue(false);
       vi.mocked(writeFile).mockResolvedValue(undefined);
 
@@ -216,13 +217,13 @@ describe('store-manager.ts', () => {
       expect(state.history[0].response.body).toBe('some response body');
     });
 
-    it('sanitizes history responses: strips body exceeding 1 MB', async () => {
+    it('sanitizes history responses: strips body exceeding the per-item cap', async () => {
       vi.mocked(existsSync).mockReturnValue(false);
       vi.mocked(writeFile).mockResolvedValue(undefined);
 
       await storeManager.initialize();
 
-      const largeBody = 'x'.repeat(1_000_001);
+      const largeBody = 'x'.repeat(HISTORY_ITEM_BODY_LIMIT + 1);
       storeManager.setState({
         history: [
           {

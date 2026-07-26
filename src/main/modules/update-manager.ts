@@ -1,5 +1,5 @@
 import { autoUpdater, UpdateInfo } from 'electron-updater';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 
@@ -76,6 +76,56 @@ class UpdateManager {
   /** Installs the pending update and restarts the app. */
   installAndRestart(): void {
     autoUpdater.quitAndInstall(false, true);
+  }
+
+  /**
+   * Manual "Check for Updates…" triggered from the application menu. Unlike the
+   * silent background checks, this always reports a result to the user. In
+   * unpackaged (dev) builds it explains updates are unavailable rather than
+   * throwing from electron-updater.
+   */
+  async checkForUpdatesManual(): Promise<void> {
+    if (!app.isPackaged) {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Check for Updates',
+        message: 'Updates are only available in the installed app.',
+        buttons: ['OK'],
+      });
+      return;
+    }
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      const latest = result?.updateInfo?.version;
+      const current = app.getVersion();
+      if (latest && latest !== current) {
+        // The 'update-available' listener downloads it silently in the
+        // background; the header restart button appears when it's ready.
+        await dialog.showMessageBox({
+          type: 'info',
+          title: 'Update Available',
+          message: `A new version (${latest}) is available.`,
+          detail:
+            'It is downloading in the background. You will be prompted to restart when it is ready.',
+          buttons: ['OK'],
+        });
+      } else {
+        await dialog.showMessageBox({
+          type: 'info',
+          title: 'You are up to date',
+          message: `Restbro ${current} is the latest version.`,
+          buttons: ['OK'],
+        });
+      }
+    } catch (err) {
+      await dialog.showMessageBox({
+        type: 'error',
+        title: 'Update Check Failed',
+        message: 'Could not check for updates.',
+        detail: err instanceof Error ? err.message : String(err),
+        buttons: ['OK'],
+      });
+    }
   }
 
   /**

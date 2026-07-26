@@ -52,6 +52,13 @@ export class MonacoXmlEditor {
       minimap: { enabled: false },
       overviewRulerBorder: false,
       scrollBeyondLastLine: false,
+      scrollbar: {
+        verticalScrollbarSize: 12,
+        horizontalScrollbarSize: 12,
+        useShadows: false,
+      },
+      // Copy as plain text only (no syntax-highlighted HTML on the clipboard).
+      copyWithSyntaxHighlighting: false,
       fontSize: 12,
       lineNumbers: 'on',
       folding: true,

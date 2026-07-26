@@ -101,6 +101,9 @@ const IPC_CHANNELS = {
   NETWORK_SPEED_TEST_RUN: 'network:speed-test-run',
   NETWORK_SPEED_TEST_PROGRESS: 'network:speed-test-progress',
   NETWORK_SPEED_TEST_CANCEL: 'network:speed-test-cancel',
+
+  // Application menu channel
+  MENU_ACTION: 'menu:action',
 } as const;
 
 // Define types inline to avoid import issues
@@ -453,6 +456,12 @@ interface MockServerStatusChangedEvent {
   error?: string;
 }
 
+interface MenuActionMessage {
+  action: string;
+  theme?: string;
+  view?: string;
+}
+
 const restbroAPI = {
   store: {
     get: (): Promise<AppState> => ipcRenderer.invoke(IPC_CHANNELS.STORE_GET),
@@ -586,6 +595,17 @@ const restbroAPI = {
   system: {
     openExternal: (url: string): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url),
+  },
+
+  menu: {
+    /** Subscribe to native application-menu commands. Returns a disposer. */
+    onAction: (callback: (action: MenuActionMessage) => void): (() => void) => {
+      const handler = (_: unknown, action: MenuActionMessage): void =>
+        callback(action);
+      ipcRenderer.on(IPC_CHANNELS.MENU_ACTION, handler);
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.MENU_ACTION, handler);
+    },
   },
 
   notepad: {

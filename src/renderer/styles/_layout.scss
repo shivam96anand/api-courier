@@ -21,7 +21,7 @@
   gap: 16px;
   flex: 1;
   margin-left: 80px; /* Space for macOS window controls */
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
 }
 
 .layout-toggle-btn {
@@ -50,6 +50,7 @@
   justify-content: center;
   align-items: center;
   flex: 0 0 auto;
+  -webkit-app-region: drag;
 }
 
 .header-right {
@@ -59,6 +60,19 @@
   gap: 12px;
   flex: 1;
   flex-wrap: wrap;
+  -webkit-app-region: drag;
+}
+
+// The whole header is a draggable title bar (double-click to zoom/minimize).
+// Only the interactive controls inside it opt out of dragging so they stay
+// clickable — this lets the standard macOS double-click work anywhere on the
+// empty header area instead of just the small centered title region.
+.header-left button,
+.header-left select,
+.header-left input,
+.header-right button,
+.header-right select,
+.header-right input {
   -webkit-app-region: no-drag;
 }
 
