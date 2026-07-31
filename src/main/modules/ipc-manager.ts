@@ -1,9 +1,9 @@
 import { ipcMain, dialog, shell } from 'electron';
 import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
-import { dirname } from 'path';
 import { IPC_CHANNELS } from '../../shared/ipc';
 import { storeManager } from './store-manager';
+import { approvedPaths, FILE_ACCESS_DENIED_MESSAGE } from './approved-paths';
 import { requestManager } from './request-manager';
 import { loadTestEngine } from './loadtest-engine';
 import { loadTestExporter } from './loadtest-export';
@@ -44,10 +44,6 @@ import {
 } from './importers';
 
 class IpcManager {
-  // Track file paths approved by user via native dialogs
-  private approvedFilePaths = new Set<string>();
-  private approvedFolderPaths = new Set<string>();
-
   initialize(): void {
     ipcMain.handle(IPC_CHANNELS.STORE_GET, (): AppState => {
       return storeManager.getState();
@@ -344,9 +340,7 @@ class IpcManager {
         // collection imports work even when the user picked a single
         // file inside the folder).
         result.filePaths.forEach((fp) => {
-          this.approvedFilePaths.add(fp);
-          this.approvedFolderPaths.add(dirname(fp));
-          this.approvedFolderPaths.add(fp);
+          approvedPaths.approveFile(fp);
         });
 
         return { canceled: false, filePaths: result.filePaths };
@@ -360,10 +354,8 @@ class IpcManager {
     ipcMain.handle(
       IPC_CHANNELS.FILE_READ_CONTENT,
       async (_, filePath: string) => {
-        if (!this.approvedFilePaths.has(filePath)) {
-          throw new Error(
-            'File access not permitted. Open the file using the file dialog first.'
-          );
+        if (!approvedPaths.hasFile(filePath)) {
+          throw new Error(FILE_ACCESS_DENIED_MESSAGE);
         }
         try {
           const content = readFileSync(filePath, 'utf-8');
@@ -379,10 +371,8 @@ class IpcManager {
     ipcMain.handle(
       IPC_CHANNELS.FILE_READ_BINARY,
       async (_, filePath: string) => {
-        if (!this.approvedFilePaths.has(filePath)) {
-          throw new Error(
-            'File access not permitted. Open the file using the file dialog first.'
-          );
+        if (!approvedPaths.hasFile(filePath)) {
+          throw new Error(FILE_ACCESS_DENIED_MESSAGE);
         }
         try {
           const content = readFileSync(filePath).toString('base64');
@@ -408,7 +398,7 @@ class IpcManager {
 
         const filePath = result.filePaths[0];
         // Track approved file paths for subsequent reads
-        this.approvedFilePaths.add(filePath);
+        approvedPaths.approveFile(filePath);
 
         const fileName = require('path').basename(filePath);
         const ext = require('path').extname(filePath).toLowerCase();
@@ -507,7 +497,7 @@ class IpcManager {
           return { canceled: true };
         }
         const folderPath = result.filePaths[0];
-        this.approvedFolderPaths.add(folderPath);
+        approvedPaths.approveFolder(folderPath);
         return { canceled: false, folderPath };
       } catch (error) {
         throw new Error(
@@ -523,7 +513,7 @@ class IpcManager {
       IPC_CHANNELS.IMPORT_PARSE_FOLDER_PREVIEW,
       async (_, folderPath: string) => {
         try {
-          if (!this.approvedFolderPaths.has(folderPath)) {
+          if (!approvedPaths.hasFolder(folderPath)) {
             throw new Error(
               'Folder access not permitted. Pick the folder using the dialog first.'
             );

@@ -210,6 +210,36 @@ export function buildUrlWithParams(
 }
 
 /**
+ * Methods with no defined request-body semantics. Proxies, CDNs and many
+ * servers drop or reject a body on these, so Restbro omits it unless the user
+ * explicitly opts in per request.
+ */
+const BODYLESS_METHODS = new Set(['GET', 'HEAD']);
+
+export function isBodylessMethod(method: string | undefined): boolean {
+  return BODYLESS_METHODS.has((method || 'GET').toUpperCase());
+}
+
+/** True when the request carries content the user intends to send. */
+export function hasSendableBodyContent(request: ApiRequest): boolean {
+  const body = request.body;
+  if (!body || body.type === 'none') return false;
+  if (body.type === 'form-data') {
+    return Boolean(body.formDataFields?.length) || Boolean(body.content);
+  }
+  return Boolean(body.content);
+}
+
+/** True when a body exists but is being withheld because of the method. */
+export function isBodySuppressedByMethod(request: ApiRequest): boolean {
+  return (
+    hasSendableBodyContent(request) &&
+    isBodylessMethod(request.method) &&
+    request.allowBodyOnBodylessMethod !== true
+  );
+}
+
+/**
  * Builds the body data and content type from a request.
  * Note: multipart/form-data encoding is handled by the main process
  * request-builder only (requires Buffer). This returns raw content for
@@ -220,6 +250,9 @@ export function buildBody(request: ApiRequest): {
   contentType?: string;
 } {
   if (!request.body || request.body.type === 'none') {
+    return {};
+  }
+  if (isBodySuppressedByMethod(request)) {
     return {};
   }
 

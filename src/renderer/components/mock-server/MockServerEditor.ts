@@ -13,7 +13,12 @@ import { MockRouteEditor } from './MockRouteEditor';
 
 type ServerUpdateFn = (
   serverId: string,
-  updates: { name?: string; host?: string; port?: number | null }
+  updates: {
+    name?: string;
+    host?: string;
+    port?: number | null;
+    cors?: boolean;
+  }
 ) => void;
 type ServerIdFn = (serverId: string) => void;
 type RouteAddFn = (serverId: string, route: Omit<MockRoute, 'id'>) => void;
@@ -68,6 +73,13 @@ export class MockServerEditor {
             <div class="mock-server-config-row">
               <label>Port</label>
               <input type="number" class="mock-input" id="server-port" value="${server.port ?? ''}" placeholder="e.g. 8080" />
+            </div>
+            <div class="mock-server-config-row">
+              <label for="server-cors">CORS</label>
+              <label class="mock-checkbox-label">
+                <input type="checkbox" id="server-cors" ${server.cors ? 'checked' : ''} />
+                Allow browser requests from any origin
+              </label>
             </div>
           </div>
           <div class="mock-server-controls">
@@ -205,6 +217,13 @@ export class MockServerEditor {
     portInput?.addEventListener('change', () => {
       const port = portInput.value ? parseInt(portInput.value, 10) : null;
       this.onServerUpdate?.(server.id, { port });
+    });
+
+    const corsInput = container.querySelector(
+      '#server-cors'
+    ) as HTMLInputElement | null;
+    corsInput?.addEventListener('change', () => {
+      this.onServerUpdate?.(server.id, { cors: corsInput.checked });
     });
 
     // Start/Stop button

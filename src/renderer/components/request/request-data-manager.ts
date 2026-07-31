@@ -16,6 +16,10 @@ import {
   buildUrlWithParams,
   buildAuthQueryParams,
 } from './request-builder-utils';
+import {
+  redactSnippetCredentials,
+  snippetContainsCredentials,
+} from '../../../shared/redact-snippet';
 
 export class RequestDataManager {
   private currentRequest: ApiRequest | null = null;
@@ -118,6 +122,19 @@ export class RequestDataManager {
         } else {
           await this.copyCodeSnippet();
         }
+      });
+    }
+
+    const redactedBtn = document.getElementById('copy-curl-redacted');
+    if (redactedBtn) {
+      redactedBtn.addEventListener('click', async () => {
+        const text = this.getCurlOutputElement()?.value?.trim();
+        if (!text) {
+          this.uiHelpers.showToast('No command to copy');
+          return;
+        }
+        await navigator.clipboard.writeText(redactSnippetCredentials(text));
+        this.uiHelpers.showToast('Copied with credentials redacted');
       });
     }
 
@@ -262,6 +279,7 @@ export class RequestDataManager {
 
     if (!this.currentRequest) {
       curlOutput.value = '';
+      this.refreshCredentialWarning();
       return;
     }
 
@@ -270,6 +288,7 @@ export class RequestDataManager {
     } else {
       await this.renderCodePreviewInCurl();
     }
+    this.refreshCredentialWarning();
   }
 
   private async renderCodePreviewInCurl(): Promise<void> {
@@ -302,6 +321,16 @@ export class RequestDataManager {
     return document.getElementById(
       'curl-command-output'
     ) as HTMLTextAreaElement | null;
+  }
+
+  /** Warn before the user copies a snippet that carries a live credential. */
+  private refreshCredentialWarning(): void {
+    const snippet = this.getCurlOutputElement()?.value ?? '';
+    const hasCredentials = snippetContainsCredentials(snippet);
+    const warning = document.getElementById('curl-credential-warning');
+    const redactedBtn = document.getElementById('copy-curl-redacted');
+    if (warning) warning.style.display = hasCredentials ? '' : 'none';
+    if (redactedBtn) redactedBtn.style.display = hasCredentials ? '' : 'none';
   }
 
   private cloneRequestForCurl(request: ApiRequest): ApiRequest {

@@ -1,6 +1,7 @@
 import type { KeyValuePair } from '../../../../shared/types';
 import { addVariableHighlighting } from '../variable-helper';
 import { setupAutocomplete } from '../variable-autocomplete';
+import { markShadowedRows } from './duplicate-key-detector';
 
 export class ParamsManager {
   private container: HTMLElement;
@@ -185,6 +186,7 @@ export class ParamsManager {
       }
     });
 
+    markShadowedRows(Array.from(rows) as HTMLElement[]);
     this.onUpdateCallback?.(params);
   }
 
@@ -197,6 +199,28 @@ export class ParamsManager {
         row.classList.add('disabled');
       }
     }
+  }
+
+  /** Current rows, including the trailing blank one. */
+  public getParams(): KeyValuePair[] {
+    const paramsEditor = this.container.querySelector('#params-editor');
+    if (!paramsEditor) return [];
+    return Array.from(paramsEditor.querySelectorAll('.kv-row')).map((row) => {
+      const checkbox = row.querySelector('.kv-checkbox') as HTMLInputElement;
+      const keyInput = row.querySelector('.key-input') as HTMLInputElement;
+      const valueInput = row.querySelector('.value-input') as HTMLInputElement;
+      return {
+        key: keyInput?.value ?? '',
+        value: valueInput?.value ?? '',
+        enabled: checkbox ? checkbox.checked : true,
+      };
+    });
+  }
+
+  /** Replace all rows and notify listeners, as if the user had edited them. */
+  public setParams(params: KeyValuePair[]): void {
+    this.loadParams(params);
+    this.updateParamsFromDOM();
   }
 
   public loadParams(

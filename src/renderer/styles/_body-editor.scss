@@ -51,6 +51,30 @@
   display: none;
 }
 
+.body-method-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(var(--warning-color-rgb, 245, 158, 11), 0.35);
+  border-radius: 6px;
+  background: rgba(var(--warning-color-rgb, 245, 158, 11), 0.1);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.body-method-warning__optin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
 .body-editor-actions {
   display: flex;
   gap: 6px;

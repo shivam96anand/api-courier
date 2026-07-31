@@ -12,6 +12,37 @@ import { EnvironmentDialogStyles } from './EnvironmentDialogStyles';
 
 const DRAFT_PREFIX = '__restbro_draft__';
 
+/**
+ * Renames a key while keeping its position. Objects iterate in insertion
+ * order, so a plain delete + re-add would move the row to the bottom of the
+ * table while the user is editing it.
+ */
+function renameKeyPreservingOrder<T>(
+  record: Record<string, T>,
+  oldKey: string,
+  newKey: string
+): void {
+  if (oldKey === newKey || !(oldKey in record)) return;
+  const rebuilt: Record<string, T> = {};
+  Object.keys(record).forEach((k) => {
+    if (k === oldKey) rebuilt[newKey] = record[oldKey];
+    else rebuilt[k] = record[k];
+  });
+  Object.keys(record).forEach((k) => delete record[k]);
+  Object.assign(record, rebuilt);
+}
+
+/** Briefly highlight an input to explain a rejected edit. */
+function flagInvalid(input: HTMLInputElement, message: string): void {
+  const previousBorder = input.style.borderColor;
+  input.style.borderColor = 'var(--error-color)';
+  input.title = message;
+  setTimeout(() => {
+    input.style.borderColor = previousBorder;
+    input.title = '';
+  }, 2000);
+}
+
 interface VariableTableOptions {
   title: string;
   variables: Record<string, string>;
@@ -161,11 +192,13 @@ export class EnvironmentVariablesManager {
       row.style.background = 'transparent';
     });
 
-    const currentKey = key;
-    const isDraft = currentKey.startsWith(DRAFT_PREFIX);
+    // Tracks renames so the value/description listeners keep writing to the
+    // right record without the table being rebuilt underneath the user.
+    let currentKey = key;
+    let isDraftRow = currentKey.startsWith(DRAFT_PREFIX);
 
     const keyInput = this.createInput(
-      isDraft ? '' : currentKey,
+      isDraftRow ? '' : currentKey,
       'Key',
       EnvironmentDialogStyles.varInput
     );
@@ -210,32 +243,34 @@ export class EnvironmentVariablesManager {
       render();
     });
 
-    // Rename key on blur
+    // Rename on blur, in place. Re-rendering here would destroy the input the
+    // user is moving focus into, losing both the focus and the next keystrokes.
     keyInput.addEventListener('blur', () => {
       const nextKey = keyInput.value.trim();
+
       if (!nextKey) {
+        // A never-named draft row is left alone; it is stripped on save.
+        if (isDraftRow) return;
         delete variables[currentKey];
         delete descriptions[currentKey];
         delete secrets[currentKey];
         render();
         return;
       }
-      if (nextKey !== currentKey) {
-        const nextValue = valueInput.value;
-        const nextDescription = descriptions[currentKey] || '';
-        const wasSecret = secrets[currentKey] === true;
-        delete variables[currentKey];
-        delete descriptions[currentKey];
-        delete secrets[currentKey];
-        variables[nextKey] = nextValue;
-        if (nextDescription) {
-          descriptions[nextKey] = nextDescription;
-        }
-        if (wasSecret) {
-          secrets[nextKey] = true;
-        }
-        render();
+
+      if (nextKey === currentKey) return;
+
+      if (Object.prototype.hasOwnProperty.call(variables, nextKey)) {
+        keyInput.value = isDraftRow ? '' : currentKey;
+        flagInvalid(keyInput, `"${nextKey}" already exists in this list.`);
+        return;
       }
+
+      renameKeyPreservingOrder(variables, currentKey, nextKey);
+      renameKeyPreservingOrder(descriptions, currentKey, nextKey);
+      renameKeyPreservingOrder(secrets, currentKey, nextKey);
+      currentKey = nextKey;
+      isDraftRow = false;
     });
 
     valueInput.addEventListener('input', () => {

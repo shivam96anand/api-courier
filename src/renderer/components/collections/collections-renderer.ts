@@ -5,9 +5,20 @@ import { iconHtml, IconName } from '../../utils/icons';
 
 export class CollectionsRenderer {
   private findCollectionById: (id: string) => Collection | undefined;
+  private onUnhide?: (id: string) => void;
+  private onUnhideAll?: () => void;
+  private trayExpanded = false;
 
   constructor(findCollectionById: (id: string) => Collection | undefined) {
     this.findCollectionById = findCollectionById;
+  }
+
+  setHiddenHandlers(
+    onUnhide: (id: string) => void,
+    onUnhideAll: () => void
+  ): void {
+    this.onUnhide = onUnhide;
+    this.onUnhideAll = onUnhideAll;
   }
 
   renderCollections(
@@ -20,7 +31,12 @@ export class CollectionsRenderer {
     const tree = document.getElementById('collections-tree');
     if (!tree) return;
 
-    const collectionsToShow = filteredCollections || collections;
+    const hidden = treeState.hiddenCollections ?? new Set<string>();
+    this.renderHiddenTray(collections, hidden);
+
+    const collectionsToShow = (filteredCollections || collections).filter(
+      (c) => !hidden.has(c.id)
+    );
 
     const rootCollections = collectionsToShow
       .filter((c) => !c.parentId)
@@ -83,6 +99,127 @@ export class CollectionsRenderer {
       );
       tree.appendChild(element);
     });
+  }
+
+  /**
+   * Tray of hidden items that sits above the search box. The offset bars behind
+   * the header are what make it read as a stack rather than another row.
+   */
+  private renderHiddenTray(
+    collections: Collection[],
+    hidden: Set<string>
+  ): void {
+    const tray = document.getElementById('collections-hidden-tray');
+    if (!tray) return;
+
+    const hiddenItems = collections.filter((c) => hidden.has(c.id));
+    if (hiddenItems.length === 0) {
+      tray.hidden = true;
+      tray.innerHTML = '';
+      this.trayExpanded = false;
+      return;
+    }
+
+    tray.hidden = false;
+    tray.innerHTML = '';
+    tray.classList.toggle('is-expanded', this.trayExpanded);
+
+    // Two ghost bars imply depth; capped at the number of hidden items so a
+    // single hidden row doesn't pretend to be a pile.
+    const ghostCount = Math.min(2, hiddenItems.length);
+    for (let i = ghostCount; i > 0; i--) {
+      const ghost = document.createElement('div');
+      ghost.className = `hidden-tray__ghost hidden-tray__ghost--${i}`;
+      tray.appendChild(ghost);
+    }
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'hidden-tray__header';
+    header.setAttribute('aria-expanded', String(this.trayExpanded));
+    header.title = this.trayExpanded
+      ? 'Collapse hidden items'
+      : 'Show hidden items';
+
+    const icon = document.createElement('span');
+    icon.className = 'hidden-tray__icon';
+    icon.innerHTML = iconHtml('layers');
+    header.appendChild(icon);
+
+    const count = document.createElement('span');
+    count.className = 'hidden-tray__count';
+    count.textContent = String(hiddenItems.length);
+    header.appendChild(count);
+
+    const label = document.createElement('span');
+    label.className = 'hidden-tray__label';
+    label.textContent =
+      hiddenItems.length === 1 ? 'hidden item' : 'hidden items';
+    header.appendChild(label);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'hidden-tray__chevron';
+    chevron.innerHTML = iconHtml('expand');
+    header.appendChild(chevron);
+
+    header.addEventListener('click', () => {
+      this.trayExpanded = !this.trayExpanded;
+      this.renderHiddenTray(collections, hidden);
+    });
+    tray.appendChild(header);
+
+    if (!this.trayExpanded) return;
+
+    const list = document.createElement('div');
+    list.className = 'hidden-tray__list';
+
+    hiddenItems.forEach((item) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'hidden-tray__item';
+      row.title = `Restore "${item.name}"`;
+
+      if (item.type === 'folder') {
+        const folderIcon = createIconElement('folder-closed', {
+          className: 'hidden-tray__item-icon',
+        });
+        row.appendChild(folderIcon);
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'method-badge hidden-tray__item-badge';
+        badge.textContent = item.request?.method ?? 'GET';
+        row.appendChild(badge);
+      }
+
+      const name = document.createElement('span');
+      name.className = 'hidden-tray__item-name';
+      name.textContent = item.name;
+      row.appendChild(name);
+
+      const restore = document.createElement('span');
+      restore.className = 'hidden-tray__restore';
+      restore.innerHTML = iconHtml('eye');
+      row.appendChild(restore);
+
+      row.addEventListener('click', () => this.onUnhide?.(item.id));
+      list.appendChild(row);
+    });
+
+    if (hiddenItems.length > 1) {
+      const footer = document.createElement('div');
+      footer.className = 'hidden-tray__footer';
+
+      const showAll = document.createElement('button');
+      showAll.type = 'button';
+      showAll.className = 'hidden-tray__show-all';
+      showAll.innerHTML = `${iconHtml('eye')}<span>Restore all</span>`;
+      showAll.addEventListener('click', () => this.onUnhideAll?.());
+      footer.appendChild(showAll);
+
+      list.appendChild(footer);
+    }
+
+    tray.appendChild(list);
   }
 
   createCollectionElement(
@@ -176,7 +313,9 @@ export class CollectionsRenderer {
     // Add empty indicator for folders with no children
     if (collection.type === 'folder') {
       const childCount = allCollections.filter(
-        (c) => c.parentId === collection.id
+        (c) =>
+          c.parentId === collection.id &&
+          !(treeState.hiddenCollections ?? new Set<string>()).has(c.id)
       ).length;
 
       if (childCount === 0) {
@@ -199,7 +338,11 @@ export class CollectionsRenderer {
 
       if (isExpanded || isSearching) {
         const children = allCollections
-          .filter((c) => c.parentId === collection.id)
+          .filter(
+            (c) =>
+              c.parentId === collection.id &&
+              !(treeState.hiddenCollections ?? new Set<string>()).has(c.id)
+          )
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
         let childrenToShow = children;

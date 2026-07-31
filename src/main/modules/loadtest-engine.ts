@@ -13,6 +13,20 @@ import { storeManager } from './store-manager';
 import { oauthManager } from './oauth';
 import { buildFolderVars, composeFinalRequest } from './variables';
 
+/**
+ * Nearest-rank percentile over an ascending-sorted series.
+ *
+ * The previous `floor(p/100 * (n - 1))` form is the index for linear
+ * interpolation, and using it without interpolating under-reported the tail:
+ * for n = 7 both P95 and P99 resolved to index 5 rather than the maximum.
+ */
+export function percentileOf(sortedAsc: number[], p: number): number {
+  if (sortedAsc.length === 0) return 0;
+  const rank = Math.ceil((p / 100) * sortedAsc.length);
+  const index = Math.min(sortedAsc.length - 1, Math.max(0, rank - 1));
+  return sortedAsc[index];
+}
+
 interface ActiveRun {
   id: string;
   config: LoadTestConfig;
@@ -543,11 +557,7 @@ class LoadTestEngine extends EventEmitter {
 
     // Calculate latency percentiles
     durations.sort((a, b) => a - b);
-    const percentile = (p: number) => {
-      if (durations.length === 0) return 0;
-      const index = Math.floor((p / 100) * (durations.length - 1));
-      return durations[index] || 0;
-    };
+    const percentile = (p: number) => percentileOf(durations, p);
 
     const summary: LoadTestSummary = {
       runId: run.id,

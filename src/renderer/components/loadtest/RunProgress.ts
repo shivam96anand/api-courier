@@ -11,6 +11,7 @@ export class RunProgress {
   private container: HTMLElement | null = null;
   private config: any = null;
   private totalPlanned = 0;
+  private durationSec = 0;
 
   public onCancel: (() => void) | null = null;
 
@@ -18,6 +19,7 @@ export class RunProgress {
     this.container = container;
     this.config = config;
     this.totalPlanned = Math.floor((config.rpm * config.durationSec) / 60);
+    this.durationSec = Math.max(0, config.durationSec ?? 0);
 
     const targetDescription =
       config.target.kind === 'adhoc'
@@ -109,11 +111,10 @@ export class RunProgress {
   updateProgress(progress: LoadTestProgressTick): void {
     if (!this.container) return;
 
-    // Update progress bar
-    const percentage =
-      this.totalPlanned > 0
-        ? (progress.completed / this.totalPlanned) * 100
-        : 0;
+    // A run is bounded by its configured duration, so progress and ETA are
+    // both derived from the clock. Mixing a request-count percentage with a
+    // rate-derived ETA made the two disagree (25% done, yet ETA > remaining).
+    const percentage = this.computeProgressPercentage(progress);
     const progressFill = this.container.querySelector(
       '#progress-fill'
     ) as HTMLElement;
@@ -158,11 +159,27 @@ export class RunProgress {
     }
   }
 
+  private computeProgressPercentage(progress: LoadTestProgressTick): number {
+    if (this.durationSec > 0) {
+      return Math.min((progress.elapsedSec / this.durationSec) * 100, 100);
+    }
+    return this.totalPlanned > 0
+      ? (progress.completed / this.totalPlanned) * 100
+      : 0;
+  }
+
   private updateETA(progress: LoadTestProgressTick): void {
     if (!this.container) return;
 
     const etaElement = this.container.querySelector('#eta-time') as HTMLElement;
     if (!etaElement) return;
+
+    if (this.durationSec > 0) {
+      const remainingSec = this.durationSec - progress.elapsedSec;
+      etaElement.textContent =
+        remainingSec > 0 ? this.formatDuration(remainingSec) : 'Complete';
+      return;
+    }
 
     if (progress.completed === 0) {
       etaElement.textContent = 'Calculating...';

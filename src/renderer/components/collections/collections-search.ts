@@ -5,15 +5,17 @@ export interface CollectionTreeState {
   expandedFolders: Set<string>;
   searchTerm: string;
   draggedItem?: string;
+  /** Ids hidden from the tree and parked in the bottom tray. */
+  hiddenCollections: Set<string>;
 }
 
 export class CollectionsSearch {
-  private onTreeStateChange: (state: CollectionTreeState) => void;
+  private onTreeStateChange: (state: Partial<CollectionTreeState>) => void;
   private onShowKeyboardShortcuts: () => void;
   private savedExpandedFolders: Set<string> = new Set();
 
   constructor(
-    onTreeStateChange: (state: CollectionTreeState) => void,
+    onTreeStateChange: (state: Partial<CollectionTreeState>) => void,
     onShowKeyboardShortcuts: () => void
   ) {
     this.onTreeStateChange = onTreeStateChange;
@@ -51,6 +53,14 @@ export class CollectionsSearch {
       </div>
     `;
     const collectionsPanel = collectionsTree.closest('.collections-panel');
+
+    // Tray for hidden items sits between the tree and the search box.
+    const hiddenTray = document.createElement('div');
+    hiddenTray.className = 'hidden-tray';
+    hiddenTray.id = 'collections-hidden-tray';
+    hiddenTray.hidden = true;
+    collectionsPanel?.appendChild(hiddenTray);
+
     collectionsPanel?.appendChild(bottomBar);
 
     // Move the toolbar buttons into the search container, in the new

@@ -129,6 +129,7 @@ import { executeCurl, cancelCurl } from '../curl-executor';
 import { updateManager } from '../update-manager';
 import { ipcManager } from '../ipc-manager';
 import { prepareSwaggerPreview } from '../notepad-swagger-preview';
+import { approvedPaths } from '../approved-paths';
 import { IPC_CHANNELS } from '../../../shared/ipc';
 import { Collection, AppState } from '../../../shared/types';
 
@@ -1035,10 +1036,35 @@ describe('ipc-manager.ts', () => {
       expect(result).toHaveProperty('filePath');
     });
 
-    it('notepad:read-file reads file content', async () => {
+    it('notepad:read-file reads file content once the path is approved', async () => {
+      approvedPaths.approveFile('/tmp/test.txt');
       const handler = getHandler(IPC_CHANNELS.NOTEPAD_READ_FILE)!;
       const result = await handler({}, '/tmp/test.txt');
       expect(result.content).toBe('file-content');
+    });
+
+    it('notepad:read-file refuses a path the user never picked', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_READ_FILE)!;
+      const result = await handler({}, '/etc/hosts');
+      expect(result.content).toBeUndefined();
+      expect(result.error).toMatch(/not permitted/i);
+    });
+
+    it('notepad:open-path refuses a path the user never picked', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_OPEN_PATH)!;
+      const result = await handler({}, '/etc/shadow');
+      expect(result.content).toBeUndefined();
+      expect(result.error).toMatch(/not permitted/i);
+    });
+
+    it('notepad:save-file refuses an unapproved target path', async () => {
+      const handler = getHandler(IPC_CHANNELS.NOTEPAD_SAVE_FILE)!;
+      const result = await handler(
+        {},
+        { filePath: '/etc/cron.d/evil', content: 'x' }
+      );
+      expect(result.ok).toBe(false);
+      expect(result.code).toBe('ACCESS_DENIED');
     });
 
     it('notepad:prepare-swagger-preview returns a loopback preview URL', async () => {
@@ -1055,6 +1081,7 @@ describe('ipc-manager.ts', () => {
     });
 
     it('notepad:reveal shows item in folder', async () => {
+      approvedPaths.approveFile('/tmp/test.txt');
       const handler = getHandler(IPC_CHANNELS.NOTEPAD_REVEAL)!;
       const result = await handler({}, '/tmp/test.txt');
       expect(result).toBe(true);

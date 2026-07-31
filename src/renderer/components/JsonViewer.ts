@@ -112,12 +112,17 @@ export class JsonViewer {
 
   private debounceGenerateLineNumbers(): void {
     if (this.updateTimer) {
-      cancelAnimationFrame(this.updateTimer);
+      clearTimeout(this.updateTimer);
     }
 
-    this.updateTimer = requestAnimationFrame(() => {
+    // Generating line numbers resizes the observed element. Scheduling with
+    // requestAnimationFrame kept that write inside the same layout cycle, which
+    // is what produced "ResizeObserver loop completed with undelivered
+    // notifications"; a task defers it to the next cycle instead.
+    this.updateTimer = window.setTimeout(() => {
+      this.updateTimer = null;
       this.lineNumbersManager.generateLineNumbers(this.container);
-    }) as unknown as number;
+    }, 0);
   }
 
   public async setData(jsonData: any): Promise<void> {
@@ -652,7 +657,7 @@ export class JsonViewer {
     }
 
     if (this.updateTimer) {
-      cancelAnimationFrame(this.updateTimer);
+      clearTimeout(this.updateTimer);
       this.updateTimer = null;
     }
 

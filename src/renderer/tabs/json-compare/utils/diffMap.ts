@@ -87,7 +87,47 @@ export function buildDiffRows(
     }
   }
 
-  return rows;
+  return basePath.length === 0 ? collapseReplacedRows(rows) : rows;
+}
+
+/**
+ * jsondiffpatch reports an array element replacement as a delete plus an add at
+ * the same index. Reading that as two unrelated changes overstates the diff, so
+ * the pair is folded back into the single "changed" it represents.
+ */
+export function collapseReplacedRows(rows: DiffRow[]): DiffRow[] {
+  const addedByPath = new Map<string, number>();
+  const removedByPath = new Map<string, number>();
+
+  rows.forEach((row, index) => {
+    if (row.type === 'added' && !addedByPath.has(row.path)) {
+      addedByPath.set(row.path, index);
+    } else if (row.type === 'removed' && !removedByPath.has(row.path)) {
+      removedByPath.set(row.path, index);
+    }
+  });
+
+  const mergedInto = new Map<number, DiffRow>();
+  const dropped = new Set<number>();
+
+  removedByPath.forEach((removedIndex, path) => {
+    const addedIndex = addedByPath.get(path);
+    if (addedIndex === undefined) return;
+    const keepIndex = Math.min(removedIndex, addedIndex);
+    mergedInto.set(keepIndex, {
+      path,
+      type: 'changed',
+      leftValue: rows[removedIndex].leftValue,
+      rightValue: rows[addedIndex].rightValue,
+    });
+    dropped.add(Math.max(removedIndex, addedIndex));
+  });
+
+  if (mergedInto.size === 0) return rows;
+
+  return rows
+    .map((row, index) => mergedInto.get(index) ?? row)
+    .filter((_, index) => !dropped.has(index));
 }
 
 /**

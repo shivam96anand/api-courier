@@ -17,6 +17,7 @@ export class CollectionsCore {
     expandedFolders: new Set(),
     searchTerm: '',
     draggedItem: undefined,
+    hiddenCollections: new Set(),
   };
 
   private search: CollectionsSearch;
@@ -51,6 +52,10 @@ export class CollectionsCore {
 
     this.renderer = new CollectionsRenderer((id) =>
       this.operations.findCollectionById(id)
+    );
+    this.renderer.setHiddenHandlers(
+      (id) => this.setCollectionHidden(id, false),
+      () => this.unhideAllCollections()
     );
   }
 
@@ -347,6 +352,11 @@ export class CollectionsCore {
             .then(() => this.renderCollections()),
       },
       {
+        label: collection.type === 'folder' ? 'Hide Folder' : 'Hide Request',
+        icon: 'eye-off',
+        action: () => this.setCollectionHidden(collectionId, true),
+      },
+      {
         label: 'Delete',
         icon: 'trash',
         action: () =>
@@ -469,6 +479,34 @@ export class CollectionsCore {
     const expandedFolders = await this.statePersistence.loadExpandedFolders();
     this.treeState.expandedFolders = expandedFolders;
 
+    const hidden = await this.statePersistence.loadHiddenCollections();
+    // Drop ids of collections that no longer exist so the tray can't strand.
+    const existing = new Set(this.collections.map((c) => c.id));
+    this.treeState.hiddenCollections = new Set(
+      Array.from(hidden).filter((id) => existing.has(id))
+    );
+
+    this.renderCollections();
+  }
+
+  /** Hide or restore a collection; hidden items live in the bottom tray. */
+  private setCollectionHidden(collectionId: string, hidden: boolean): void {
+    if (hidden) {
+      this.treeState.hiddenCollections.add(collectionId);
+    } else {
+      this.treeState.hiddenCollections.delete(collectionId);
+    }
+    this.statePersistence.saveHiddenCollections(
+      this.treeState.hiddenCollections
+    );
+    this.renderCollections();
+  }
+
+  private unhideAllCollections(): void {
+    this.treeState.hiddenCollections.clear();
+    this.statePersistence.saveHiddenCollections(
+      this.treeState.hiddenCollections
+    );
     this.renderCollections();
   }
 
@@ -496,6 +534,12 @@ export class CollectionsCore {
       requestCollection.type === 'request' &&
       requestCollection.request
     ) {
+      // The sidebar shows an HTTP-method badge for request-type collections.
+      // Track whether the verb changed so we can refresh the tree to reflect
+      // it live (persistence alone wouldn't update the already-rendered badge).
+      const methodChanged =
+        requestCollection.request.method !== updatedRequest.method;
+
       // Deep-clone the merged result so the persisted collection tree never
       // shares nested references (params/headers/body/auth) with the live
       // request editor. Without this, later edits — or another request's
@@ -510,6 +554,12 @@ export class CollectionsCore {
         detail: { collections: this.collections },
       });
       document.dispatchEvent(event);
+
+      // Re-render only when a sidebar-visible property (the method badge)
+      // changed — avoids rebuilding the tree on every URL/header/body keystroke.
+      if (methodChanged) {
+        this.renderCollections();
+      }
     }
   }
 

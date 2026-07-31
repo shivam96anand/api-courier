@@ -8,6 +8,7 @@ import { setupAutocomplete } from './variable-autocomplete';
 import { VariableContextHandler } from './variable-context-handler';
 import { FormUIHandler } from './form-ui-handler';
 import { attachThemedSelect } from '../../utils/themed-select';
+import { splitUrlAndParams } from './url-query-parser';
 
 /**
  * Main handler for the request form - coordinates between variable context,
@@ -42,6 +43,7 @@ export class RequestFormHandler {
           method: methodSelect.value as HttpMethod,
         });
         this.uiHandler.updateMethodSelectColor(methodSelect);
+        document.dispatchEvent(new CustomEvent('request-method-changed'));
       });
     }
 
@@ -52,6 +54,16 @@ export class RequestFormHandler {
         if (!urlInput.dataset.variableHighlightListenerAttached) {
           this.variableHandler.refreshInputHighlight(urlInput);
         }
+      });
+
+      // Hand a pasted/typed query string to the Params table. Done on paste and
+      // on blur rather than per keystroke so typing "?a=1" isn't torn apart
+      // character by character.
+      urlInput.addEventListener('paste', () => {
+        setTimeout(() => this.extractQueryToParams(urlInput), 0);
+      });
+      urlInput.addEventListener('blur', () => {
+        this.extractQueryToParams(urlInput);
       });
 
       // Setup autocomplete for URL input
@@ -113,6 +125,22 @@ export class RequestFormHandler {
     if (urlInput) {
       this.variableHandler.enhanceVariableInput(urlInput);
     }
+  }
+
+  /**
+   * Moves any query string out of the URL bar and into the Params table, so
+   * the two can't disagree about what will actually be sent.
+   */
+  private extractQueryToParams(urlInput: HTMLInputElement): void {
+    const { baseUrl, params } = splitUrlAndParams(urlInput.value);
+    if (params.length === 0) return;
+
+    urlInput.value = baseUrl;
+    this.onRequestUpdate({ url: baseUrl });
+    this.variableHandler.updateVariableIndicator(urlInput);
+    document.dispatchEvent(
+      new CustomEvent('url-query-extracted', { detail: { params } })
+    );
   }
 
   setupRequestTabs(): void {

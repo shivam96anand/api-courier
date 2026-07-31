@@ -193,6 +193,19 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
       editorRef.current.revealPositionInCenter(pos);
     };
 
+    /** Jump the caret to the reported syntax error. */
+    const revealError = () => {
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model) return;
+      const m = /position (\d+)/.exec(errorMsg);
+      if (!m) return;
+      const pos = model.getPositionAt(parseInt(m[1], 10));
+      editor.setPosition(pos);
+      editor.revealPositionInCenter(pos);
+      editor.focus();
+    };
+
     // ---------- mount Monaco ----------
     useEffect(() => {
       if (!containerRef.current) return;
@@ -379,6 +392,16 @@ const JsonEditor = forwardRef<JsonEditorRef, JsonEditorProps>(
             <Icon name={isValid ? 'check' : 'close'} />
             {isValid ? 'Valid' : 'Invalid'}
           </span>
+          {!isValid && errorMsg && (
+            <button
+              type="button"
+              className="json-editor-error"
+              title="Go to the error"
+              onClick={revealError}
+            >
+              {errorMsg}
+            </button>
+          )}
         </div>
         <div ref={containerRef} className="monaco-container" />
         {isDragging && (

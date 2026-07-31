@@ -292,6 +292,7 @@ export class CurlToolManager {
 
       this.upsertHistoryEntry(raw, snapshot);
     } catch (err: any) {
+      this.hideParsed();
       this.showError(err.message || 'Failed to execute cURL command');
     } finally {
       this.isExecuting = false;
@@ -372,7 +373,12 @@ export class CurlToolManager {
   private loadExample(): void {}
 
   private showParsed(parsed: any): void {
-    if (!parsed) return;
+    // A response without a parse result (e.g. a blocked command) must not
+    // leave the previous command's headers and body on screen.
+    if (!parsed) {
+      this.hideParsed();
+      return;
+    }
     const section = this.container.querySelector(
       '#curl-parsed-section'
     ) as HTMLElement;

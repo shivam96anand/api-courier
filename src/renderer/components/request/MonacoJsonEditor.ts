@@ -5,6 +5,7 @@
 
 import * as monaco from 'monaco-editor';
 import { forceInitialViewportTokenization } from './monaco-tokenization';
+import { parseJsonErrorOffset, validateJsonText } from './json-error-position';
 
 export interface MonacoJsonEditorOptions {
   container: HTMLElement;
@@ -27,7 +28,9 @@ export class MonacoJsonEditor {
   private readOnly: boolean;
   private toggleFindShortcut: boolean;
   private findShortcutHandler?: (e: KeyboardEvent) => void;
-  private errorDecorations: string[] = [];
+  private errorDecorations: monaco.editor.IEditorDecorationsCollection | null =
+    null;
+  private validateTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: MonacoJsonEditorOptions) {
     this.container = options.container;
@@ -193,7 +196,7 @@ export class MonacoJsonEditor {
     this.editor.onDidChangeModelContent(() => {
       const newValue = this.editor?.getValue() || '';
       this.onChange(newValue);
-      this.validateJson(newValue);
+      this.scheduleValidation(newValue);
     });
 
     // Initial validation
@@ -243,30 +246,41 @@ export class MonacoJsonEditor {
     this.container.addEventListener('keydown', this.findShortcutHandler, true);
   }
 
+  /**
+   * Monaco forbids mutating decorations from inside onDidChangeModelContent,
+   * so validation is deferred. The delay also avoids re-parsing a large body
+   * on every keystroke.
+   */
+  private scheduleValidation(text: string): void {
+    if (this.validateTimer) clearTimeout(this.validateTimer);
+    this.validateTimer = setTimeout(() => {
+      this.validateTimer = null;
+      this.validateJson(text);
+    }, 150);
+  }
+
   private validateJson(text: string): void {
-    if (!text.trim()) {
+    const result = validateJsonText(text);
+    if (result.valid) {
       this.clearErrorDecorations();
       this.onValidityChange?.(true);
       return;
     }
-
-    try {
-      JSON.parse(text);
-      this.clearErrorDecorations();
-      this.onValidityChange?.(true);
-    } catch (err) {
-      const error = err as Error;
-      this.addErrorDecoration(text, error.message);
-      this.onValidityChange?.(false, error.message);
-    }
+    this.addErrorDecoration(text, result.error ?? 'Invalid JSON');
+    this.onValidityChange?.(false, result.error);
   }
 
   private clearErrorDecorations(): void {
+    this.errorDecorations?.clear();
+  }
+
+  /** Lazily create the collection so it survives across validations. */
+  private setErrorDecorations(
+    decorations: monaco.editor.IModelDeltaDecoration[]
+  ): void {
     if (!this.editor) return;
-    this.errorDecorations = this.editor.deltaDecorations(
-      this.errorDecorations,
-      []
-    );
+    this.errorDecorations ??= this.editor.createDecorationsCollection();
+    this.errorDecorations.set(decorations);
   }
 
   private addErrorDecoration(text: string, errorMessage: string): void {
@@ -274,47 +288,39 @@ export class MonacoJsonEditor {
     const model = this.editor.getModel();
     if (!model) return;
 
-    const positionMatch = errorMessage.match(/position (\d+)/);
-    if (positionMatch) {
-      const pos = model.getPositionAt(parseInt(positionMatch[1], 10));
-      this.errorDecorations = this.editor.deltaDecorations(
-        this.errorDecorations,
-        [
-          {
-            range: new monaco.Range(
-              pos.lineNumber,
-              pos.column,
-              pos.lineNumber,
-              pos.column + 1
-            ),
-            options: {
-              className: 'json-error-decoration',
-              glyphMarginClassName: 'json-error-glyph',
-              isWholeLine: false,
-            },
-          },
-        ]
-      );
+    const options: monaco.editor.IModelDecorationOptions = {
+      className: 'json-error-decoration',
+      glyphMarginClassName: 'json-error-glyph',
+      isWholeLine: false,
+    };
+
+    const offset = parseJsonErrorOffset(errorMessage);
+    if (offset !== null) {
+      const pos = model.getPositionAt(offset);
+      this.setErrorDecorations([
+        {
+          range: new monaco.Range(
+            pos.lineNumber,
+            pos.column,
+            pos.lineNumber,
+            pos.column + 1
+          ),
+          options,
+        },
+      ]);
     } else {
       const lineCount = model.getLineCount();
-      this.errorDecorations = this.editor.deltaDecorations(
-        this.errorDecorations,
-        [
-          {
-            range: new monaco.Range(
-              1,
-              1,
-              lineCount,
-              model.getLineMaxColumn(lineCount)
-            ),
-            options: {
-              className: 'json-error-decoration',
-              glyphMarginClassName: 'json-error-glyph',
-              isWholeLine: false,
-            },
-          },
-        ]
-      );
+      this.setErrorDecorations([
+        {
+          range: new monaco.Range(
+            1,
+            1,
+            lineCount,
+            model.getLineMaxColumn(lineCount)
+          ),
+          options,
+        },
+      ]);
     }
   }
 
@@ -456,6 +462,10 @@ export class MonacoJsonEditor {
   }
 
   public dispose(): void {
+    if (this.validateTimer) {
+      clearTimeout(this.validateTimer);
+      this.validateTimer = null;
+    }
     if (this.findShortcutHandler) {
       this.container.removeEventListener(
         'keydown',
@@ -468,5 +478,6 @@ export class MonacoJsonEditor {
       this.editor.dispose();
       this.editor = null;
     }
+    this.errorDecorations = null;
   }
 }

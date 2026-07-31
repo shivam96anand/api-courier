@@ -24,9 +24,14 @@ export class EnvironmentDialogs {
     );
   }
 
+  /**
+   * @param onEnvironmentsDeleted Commits a confirmed deletion right away, so it
+   * is not lost when the dialog is dismissed without pressing Save.
+   */
   async showManageDialog(
     environments: Environment[],
-    activeEnvironmentId?: string
+    activeEnvironmentId?: string,
+    onEnvironmentsDeleted?: (deletedIds: string[]) => void | Promise<void>
   ): Promise<{
     environments: Environment[];
     activeEnvironmentId?: string;
@@ -134,14 +139,16 @@ export class EnvironmentDialogs {
                   `Delete environment "${selectedForDelete.name}"?`
                 );
                 if (!confirmed) return;
+                const deletedId = selectedForDelete.id;
                 state.workingEnvs = state.workingEnvs.filter(
-                  (e) => e.id !== state.selectedEnvId
+                  (e) => e.id !== deletedId
                 );
-                if (state.workingActiveId === state.selectedEnvId) {
+                if (state.workingActiveId === deletedId) {
                   state.workingActiveId = undefined;
                 }
                 state.selectedEnvId = state.workingEnvs[0]?.id || null;
                 renderBody();
+                void onEnvironmentsDeleted?.([deletedId]);
               }
             : undefined;
 
@@ -238,10 +245,12 @@ export class EnvironmentDialogs {
             `Delete all ${state.workingEnvs.length} environment(s)? This cannot be undone.`
           );
           if (confirmed) {
+            const deletedIds = state.workingEnvs.map((e) => e.id);
             state.workingEnvs = [];
             state.selectedEnvId = null;
             state.workingActiveId = undefined;
             renderBody();
+            void onEnvironmentsDeleted?.(deletedIds);
           }
         }
       );
@@ -254,11 +263,20 @@ export class EnvironmentDialogs {
         }
       });
 
+      // Bound to the overlay rather than the document so a nested prompt
+      // ("Environment Name") swallows its own Escape instead of closing both.
+      overlay.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        e.stopPropagation();
+        handleCancel();
+      });
+
       // Assemble dialog
       dialog.appendChild(header);
       dialog.appendChild(body);
       overlay.appendChild(dialog);
       document.body.appendChild(overlay);
+      dialog.focus({ preventScroll: true });
 
       // Initial render
       renderBody();
@@ -280,6 +298,9 @@ export class EnvironmentDialogs {
 
     const dialog = document.createElement('div');
     dialog.style.cssText = EnvironmentDialogStyles.dialog;
+    // Focusable so Escape reaches the overlay listener even before the user
+    // interacts with any field inside the dialog.
+    dialog.tabIndex = -1;
 
     const body = document.createElement('div');
     body.style.cssText = EnvironmentDialogStyles.body;

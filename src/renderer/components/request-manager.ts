@@ -505,6 +505,9 @@ export class RequestManager {
     if (normalizedRequest.body) {
       this.editorsManager.loadBody(normalizedRequest.body);
     }
+    this.editorsManager.setAllowBodyOnBodylessMethod(
+      normalizedRequest.allowBodyOnBodylessMethod === true
+    );
 
     if (mode === 'soap') {
       this.editorsManager.loadCerts(normalizedRequest.soapCerts ?? {});

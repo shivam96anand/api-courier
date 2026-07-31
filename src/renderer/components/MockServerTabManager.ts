@@ -225,7 +225,12 @@ export class MockServerTabManager {
 
   private async handleServerUpdate(
     serverId: string,
-    updates: { name?: string; host?: string; port?: number | null }
+    updates: {
+      name?: string;
+      host?: string;
+      port?: number | null;
+      cors?: boolean;
+    }
   ): Promise<void> {
     try {
       const result = await window.restbro.mockServer.updateServer({

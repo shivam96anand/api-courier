@@ -10,6 +10,7 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
   readdirSync: vi.fn().mockReturnValue([]),
   unlinkSync: vi.fn(),
+  chmodSync: vi.fn(),
 }));
 
 // Mock fs/promises
@@ -18,7 +19,7 @@ vi.mock('fs/promises', () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, chmodSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { storeManager } from '../store-manager';
 import { HISTORY_ITEM_BODY_LIMIT } from '../../../shared/history-persistence';
@@ -45,6 +46,53 @@ describe('store-manager.ts', () => {
 
       const state = storeManager.getState();
       expect(state.collections).toEqual([{ id: 'c1', name: 'Test' }]);
+    });
+
+    it('writes the database with owner-only permissions', async () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+
+      await storeManager.initialize();
+
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('database.json'),
+        expect.any(String),
+        expect.objectContaining({ mode: 0o600 })
+      );
+    });
+
+    it('tightens permissions on a pre-existing database and backups', async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readdirSync).mockReturnValue([
+        'database-backup-20250101-000000.json',
+      ] as unknown as ReturnType<typeof readdirSync>);
+      vi.mocked(readFile).mockResolvedValue('{}');
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+
+      await storeManager.initialize();
+
+      expect(chmodSync).toHaveBeenCalledWith(
+        expect.stringContaining('database.json'),
+        0o600
+      );
+      expect(chmodSync).toHaveBeenCalledWith(
+        expect.stringContaining('backups'),
+        0o700
+      );
+      expect(chmodSync).toHaveBeenCalledWith(
+        expect.stringContaining('database-backup-20250101-000000.json'),
+        0o600
+      );
+    });
+
+    it('starts up even when chmod is unsupported', async () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+      vi.mocked(chmodSync).mockImplementationOnce(() => {
+        throw new Error('EPERM');
+      });
+
+      await expect(storeManager.initialize()).resolves.toBeUndefined();
     });
 
     it('uses default state when database file does not exist', async () => {

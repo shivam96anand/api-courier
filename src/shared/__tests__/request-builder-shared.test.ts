@@ -376,7 +376,12 @@ describe('request-builder-shared.ts', () => {
 
     it('returns json content and content type', () => {
       expect(
-        buildBody(createRequest({ body: { type: 'json', content: '{"a":1}' } }))
+        buildBody(
+          createRequest({
+            method: 'POST',
+            body: { type: 'json', content: '{"a":1}' },
+          })
+        )
       ).toEqual({ bodyData: '{"a":1}', contentType: 'application/json' });
     });
 
@@ -384,6 +389,7 @@ describe('request-builder-shared.ts', () => {
       expect(
         buildBody(
           createRequest({
+            method: 'POST',
             body: { type: 'form-urlencoded', content: 'a=1&b=2' },
           })
         )
@@ -397,6 +403,7 @@ describe('request-builder-shared.ts', () => {
       expect(
         buildBody(
           createRequest({
+            method: 'POST',
             body: { type: 'raw', content: '<x/>', format: 'xml' },
           })
         )
@@ -408,7 +415,10 @@ describe('request-builder-shared.ts', () => {
       // just echoes the content and the generic content type.
       expect(
         buildBody(
-          createRequest({ body: { type: 'form-data', content: 'a=1' } })
+          createRequest({
+            method: 'POST',
+            body: { type: 'form-data', content: 'a=1' },
+          })
         )
       ).toEqual({ bodyData: 'a=1', contentType: 'multipart/form-data' });
     });

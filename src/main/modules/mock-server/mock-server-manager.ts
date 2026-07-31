@@ -22,6 +22,7 @@ import {
   delay,
   matchPath,
   getMatchSpecificity,
+  applyCorsHeaders,
 } from './mock-server-utils';
 import { mockServerResponseHandler } from './mock-server-response-handler';
 import { getMockServersState, saveMockServersState } from './mock-server-store';
@@ -71,6 +72,7 @@ class MockServerManager {
       host: params.host || '127.0.0.1',
       port: params.port ?? null,
       routes: [],
+      cors: params.cors === true,
       createdAt: now,
       updatedAt: now,
     };
@@ -96,6 +98,7 @@ class MockServerManager {
     if (params.name !== undefined) server.name = params.name;
     if (params.host !== undefined) server.host = params.host;
     if (params.port !== undefined) server.port = params.port;
+    if (params.cors !== undefined) server.cors = params.cors === true;
     server.updatedAt = Date.now();
     saveMockServersState(state);
     return { success: true, data: server };
@@ -253,6 +256,36 @@ class MockServerManager {
   }
 
   /**
+   * Enabled routes registered for a path, regardless of method.
+   */
+  private methodsAllowedForPath(
+    serverDef: MockServerDefinition,
+    urlPath: string
+  ): string[] {
+    const methods = serverDef.routes
+      .filter(
+        (route) =>
+          route.enabled &&
+          matchPath(route.path, urlPath, route.pathMatchType || 'exact')
+      )
+      .map((route) => route.method.toUpperCase());
+    return Array.from(new Set(methods)).sort((a, b) => a.localeCompare(b));
+  }
+
+  private hasRouteFor(
+    serverDef: MockServerDefinition,
+    urlPath: string,
+    method: string
+  ): boolean {
+    return serverDef.routes.some(
+      (route) =>
+        route.enabled &&
+        route.method.toUpperCase() === method &&
+        matchPath(route.path, urlPath, route.pathMatchType || 'exact')
+    );
+  }
+
+  /**
    * Handle an incoming HTTP request
    */
   private async handleRequest(
@@ -278,6 +311,19 @@ class MockServerManager {
       headers: redactHeaders(req.headers as Record<string, string>),
     });
 
+    if (serverDef.cors) {
+      applyCorsHeaders(req, res);
+      // Answer preflights generically so callers don't need an OPTIONS route.
+      if (
+        method === 'OPTIONS' &&
+        !this.hasRouteFor(serverDef, urlPath, method)
+      ) {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+    }
+
     // Find matching routes with their specificity scores
     const matchingRoutes = serverDef.routes
       .filter((route) => {
@@ -298,6 +344,19 @@ class MockServerManager {
     const matchedRoute = matchingRoutes[0]?.route;
 
     if (!matchedRoute) {
+      const allowed = this.methodsAllowedForPath(serverDef, urlPath);
+      if (allowed.length > 0) {
+        // The path exists, only the method is wrong — 404 here sends people
+        // hunting for a routing bug that isn't there.
+        res.setHeader('Allow', allowed.join(', '));
+        mockServerResponseHandler.sendJsonResponse(res, 405, {
+          error: 'Method not allowed',
+          method,
+          path: urlPath,
+          allowed,
+        });
+        return;
+      }
       mockServerResponseHandler.sendJsonResponse(res, 404, {
         error: 'No mock matched',
         method,

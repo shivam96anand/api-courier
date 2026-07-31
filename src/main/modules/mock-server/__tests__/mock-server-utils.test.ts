@@ -93,6 +93,26 @@ describe('mock-server-utils.ts', () => {
       expect(matchPath('/api/*', '/api/users', 'prefix')).toBe(true);
       expect(matchPath('/api/*', '/api/users/123', 'prefix')).toBe(true);
     });
+
+    it('matches the prefix path itself', () => {
+      expect(matchPath('/users', '/users', 'prefix')).toBe(true);
+    });
+
+    it('only matches on segment boundaries', () => {
+      expect(matchPath('/users', '/usersXYZ', 'prefix')).toBe(false);
+      expect(matchPath('/users', '/users-admin', 'prefix')).toBe(false);
+      expect(matchPath('/users', '/users/123/profile', 'prefix')).toBe(true);
+    });
+
+    it('ignores trailing slashes on either side', () => {
+      expect(matchPath('/users/', '/users', 'prefix')).toBe(true);
+      expect(matchPath('/users', '/users/', 'prefix')).toBe(true);
+      expect(matchPath('/users/', '/users/123', 'prefix')).toBe(true);
+    });
+
+    it('still matches everything for a root prefix', () => {
+      expect(matchPath('/', '/anything', 'prefix')).toBe(true);
+    });
   });
 
   describe('matchPath — wildcard', () => {

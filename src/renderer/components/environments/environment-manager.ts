@@ -112,13 +112,13 @@ export class EnvironmentManager {
 
     manageBtn.addEventListener('click', () => {
       this.dialogs
-        .showManageDialog(this.environments, this.activeEnvironmentId)
+        .showManageDialog(this.environments, this.activeEnvironmentId, (ids) =>
+          this.removeEnvironments(ids)
+        )
         .then(async (result) => {
           if (result) {
             this.setEnvironments(result.environments);
-            if (result.activeEnvironmentId !== undefined) {
-              this.setActiveEnvironment(result.activeEnvironmentId);
-            }
+            this.setActiveEnvironment(result.activeEnvironmentId);
             await this.saveState(result.globals);
             // Notify other components that environments/variables changed
             // This refreshes variable context for autocomplete and highlighting
@@ -247,15 +247,25 @@ export class EnvironmentManager {
   }
 
   async deleteEnvironment(id: string): Promise<void> {
-    this.environments = this.environments.filter((e) => e.id !== id);
+    await this.removeEnvironments([id]);
+  }
 
-    // If the deleted environment was active, clear active
-    if (this.activeEnvironmentId === id) {
+  /**
+   * Applies and persists a deletion immediately — the Manage Environments
+   * dialog can be dismissed without pressing Save, and a confirmed delete
+   * must not be silently reverted.
+   */
+  private async removeEnvironments(ids: string[]): Promise<void> {
+    const removed = new Set(ids);
+    this.environments = this.environments.filter((e) => !removed.has(e.id));
+
+    if (this.activeEnvironmentId && removed.has(this.activeEnvironmentId)) {
       this.activeEnvironmentId = undefined;
     }
 
     this.renderSwitcher();
-    this.saveState();
+    await this.saveState();
+    document.dispatchEvent(new CustomEvent('environment-changed'));
   }
 
   private async saveState(globals?: {

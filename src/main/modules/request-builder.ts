@@ -3,7 +3,10 @@
  */
 
 import { ApiRequest, FormDataField, KeyValuePair } from '../../shared/types';
-import { restoreQuerySafeChars } from '../../shared/request-builder-shared';
+import {
+  restoreQuerySafeChars,
+  isBodySuppressedByMethod,
+} from '../../shared/request-builder-shared';
 import { readFileSync } from 'fs';
 import * as path from 'path';
 
@@ -170,6 +173,10 @@ export class RequestBuilder {
     contentType?: string;
   } {
     if (!request.body || request.body.type === 'none') {
+      return {};
+    }
+
+    if (isBodySuppressedByMethod(request)) {
       return {};
     }
 

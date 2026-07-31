@@ -36,6 +36,42 @@ export function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Permissive CORS headers for a mock server, so a browser front-end can call it
+ * during development. Never overwrites a header a route already set.
+ */
+export function applyCorsHeaders(
+  req: { headers: Record<string, string | string[] | undefined> },
+  res: {
+    hasHeader(name: string): boolean;
+    setHeader(name: string, value: string): void;
+  }
+): void {
+  const origin = req.headers.origin;
+  const allowOrigin = typeof origin === 'string' && origin ? origin : '*';
+  const requestedHeaders = req.headers['access-control-request-headers'];
+
+  const defaults: Array<[string, string]> = [
+    ['Access-Control-Allow-Origin', allowOrigin],
+    ['Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS'],
+    [
+      'Access-Control-Allow-Headers',
+      typeof requestedHeaders === 'string' && requestedHeaders
+        ? requestedHeaders
+        : '*',
+    ],
+    ['Access-Control-Max-Age', '600'],
+  ];
+
+  if (allowOrigin !== '*') {
+    defaults.push(['Vary', 'Origin']);
+  }
+
+  defaults.forEach(([name, value]) => {
+    if (!res.hasHeader(name)) res.setHeader(name, value);
+  });
+}
+
+/**
  * Path matching utility for mock routes
  * Supports multiple matching strategies for enterprise-level flexibility
  */
@@ -49,11 +85,7 @@ export function matchPath(
       return routePath === requestPath;
 
     case 'prefix':
-      // Match if request path starts with route path (supports trailing wildcards like /api/*)
-      const prefixPattern = routePath.endsWith('*')
-        ? routePath.slice(0, -1)
-        : routePath;
-      return requestPath.startsWith(prefixPattern);
+      return matchPrefix(routePath, requestPath);
 
     case 'wildcard':
       return matchWildcard(routePath, requestPath);
@@ -64,6 +96,29 @@ export function matchPath(
     default:
       return routePath === requestPath;
   }
+}
+
+/** Trailing slashes are not meaningful when comparing path prefixes. */
+function stripTrailingSlash(value: string): string {
+  return value.length > 1 && value.endsWith('/') ? value.slice(0, -1) : value;
+}
+
+/**
+ * Prefix matching on segment boundaries.
+ *
+ * A plain `startsWith` made a `/users` route also serve `/usersXYZ`, which is a
+ * different resource. An explicit trailing `*` keeps its original loose
+ * behaviour so existing routes are unaffected.
+ */
+function matchPrefix(routePath: string, requestPath: string): boolean {
+  if (routePath.endsWith('*')) {
+    return requestPath.startsWith(routePath.slice(0, -1));
+  }
+
+  const prefix = stripTrailingSlash(routePath);
+  const path = stripTrailingSlash(requestPath);
+  if (path === prefix) return true;
+  return path.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`);
 }
 
 /**

@@ -59,6 +59,26 @@
   color: var(--error-color);
 }
 
+.json-editor-error {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--error-color);
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.json-editor-error:hover {
+  text-decoration: underline;
+}
+
 .error-message {
   padding: 8px 16px;
   background: rgba(239, 68, 68, 0.1);

@@ -85,6 +85,12 @@ export interface ApiRequest {
    * endpoint without globally weakening security. **Use with care.**
    */
   allowInsecureTls?: boolean;
+  /**
+   * Send the body even though the method (GET/HEAD) has no defined body
+   * semantics. Off by default because many proxies and servers drop or reject
+   * such requests, which makes them behave differently from plain `curl`.
+   */
+  allowBodyOnBodylessMethod?: boolean;
   variables?: Record<string, string>; // request-local variables
   collectionId?: string; // track which collection/folder this request belongs to
 }
@@ -165,6 +171,8 @@ export interface Globals {
 
 export interface CollectionsUIState {
   expandedFolderIds: string[];
+  /** Collections the user has hidden from the tree; restorable from the tray. */
+  hiddenCollectionIds?: string[];
 }
 
 /**
@@ -549,6 +557,11 @@ export interface MockServerDefinition {
   host: string; // default "127.0.0.1"
   port: number | null; // null until user sets it
   routes: MockRoute[];
+  /**
+   * Emit permissive CORS headers and answer OPTIONS preflights. Off by
+   * default; existing servers load without it and behave exactly as before.
+   */
+  cors?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -582,6 +595,7 @@ export interface MockServerCreateParams {
   name: string;
   host?: string;
   port?: number | null;
+  cors?: boolean;
 }
 
 export interface MockServerUpdateParams {
@@ -589,6 +603,7 @@ export interface MockServerUpdateParams {
   name?: string;
   host?: string;
   port?: number | null;
+  cors?: boolean;
 }
 
 export interface MockRouteCreateParams {

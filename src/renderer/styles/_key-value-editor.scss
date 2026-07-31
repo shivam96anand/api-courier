@@ -18,6 +18,14 @@
   border-radius: 4px;
   background: transparent;
 
+  &.kv-row--shadowed {
+    .key-input,
+    .value-input {
+      text-decoration: line-through;
+      opacity: 0.55;
+    }
+  }
+
   &:hover {
     background: rgba(var(--primary-color-rgb), 0.03);
 

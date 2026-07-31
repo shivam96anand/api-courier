@@ -23,7 +23,8 @@ function createRequest(overrides: Partial<ApiRequest> = {}): ApiRequest {
   return {
     id: 'req-1',
     name: 'Test Request',
-    method: 'GET',
+    // POST so body-building cases aren't suppressed by the GET/HEAD rule.
+    method: 'POST',
     url: 'https://api.example.com/users',
     headers: [],
     ...overrides,

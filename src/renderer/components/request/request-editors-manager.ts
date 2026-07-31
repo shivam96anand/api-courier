@@ -1,4 +1,4 @@
-import { ApiRequest, SoapCerts } from '../../../shared/types';
+import { ApiRequest, KeyValuePair, SoapCerts } from '../../../shared/types';
 import { RequestEditorsConfig, EditorType } from '../../types/request-types';
 import { RequestEditorFactory } from './editors/RequestEditorFactory';
 import { RequestEditorState } from './editors/RequestEditorState';
@@ -7,6 +7,7 @@ import { RequestEditorSync } from './editors/RequestEditorSync';
 import { ParamsManager } from './editors/ParamsManager';
 import { HeadersManager } from './editors/HeadersManager';
 import { setupKvColumnResize } from './editors/kv-column-resizer';
+import { mergeParams } from './url-query-parser';
 import { RequestBodyEditor } from './RequestBodyEditor';
 import { AuthConfigManager } from './AuthConfigManager';
 import { OAuth2Manager } from './OAuth2Manager';
@@ -152,6 +153,25 @@ export class RequestEditorsManager {
     this.headersManager.onUpdate((headers) =>
       this.onRequestUpdate({ headers })
     );
+
+    // The URL bar owns no query string: when one is typed or pasted it is
+    // handed over here so the Params table stays the single source of truth.
+    document.addEventListener('url-query-extracted', ((
+      event: CustomEvent<{ params: KeyValuePair[] }>
+    ) => {
+      const incoming = event.detail?.params ?? [];
+      if (incoming.length === 0) return;
+      const { params } = mergeParams(this.paramsManager.getParams(), incoming);
+      this.paramsManager.setParams(params);
+    }) as EventListener);
+
+    document.addEventListener('body-on-bodyless-method-toggled', ((
+      event: CustomEvent<{ allow: boolean }>
+    ) => {
+      this.onRequestUpdate({
+        allowBodyOnBodylessMethod: event.detail?.allow === true,
+      });
+    }) as EventListener);
   }
 
   private handleEditorChange(): void {
@@ -363,6 +383,11 @@ export class RequestEditorsManager {
     contentType?: string;
   }): void {
     this.setContent(body);
+  }
+
+  /** Restore the per-request "send body on GET/HEAD anyway" opt-in. */
+  setAllowBodyOnBodylessMethod(allow: boolean): void {
+    this.bodyEditor.setAllowBodyOnBodylessMethod(allow);
   }
 
   loadAuth(

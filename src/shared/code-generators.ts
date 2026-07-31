@@ -106,7 +106,7 @@ function escapePhp(value: string): string {
 // ── JavaScript Fetch ──
 function generateJsFetch(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
 
   lines.push(`const response = await fetch('${escapeJs(req.url)}', {`);
@@ -135,7 +135,7 @@ function generateJsFetch(req: CodeGenRequest): string {
 // ── JavaScript Axios ──
 function generateJsAxios(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
   const methodLower = req.method.toLowerCase();
 
@@ -170,7 +170,7 @@ function generateJsAxios(req: CodeGenRequest): string {
 // ── Python Requests ──
 function generatePythonRequests(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
   const methodLower = req.method.toLowerCase();
 
@@ -201,7 +201,7 @@ function generatePythonRequests(req: CodeGenRequest): string {
 // ── Node.js http ──
 function generateNodeHttp(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
 
   let parsedUrl: URL;
@@ -254,7 +254,7 @@ function generateNodeHttp(req: CodeGenRequest): string {
 // ── Java HttpURLConnection ──
 function generateJava(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
 
   lines.push('import java.net.HttpURLConnection;');
@@ -303,7 +303,7 @@ function generateJava(req: CodeGenRequest): string {
 // ── Go net/http ──
 function generateGo(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
 
   lines.push('package main');
@@ -354,7 +354,7 @@ function generateGo(req: CodeGenRequest): string {
 // ── PHP cURL ──
 function generatePhpCurl(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
 
   lines.push('<?php');
@@ -390,7 +390,7 @@ function generatePhpCurl(req: CodeGenRequest): string {
 // ── C# HttpClient ──
 function generateCsharp(req: CodeGenRequest): string {
   const lines: string[] = [];
-  const hasBody = req.body && req.method !== 'GET' && req.method !== 'HEAD';
+  const hasBody = Boolean(req.body);
   const headerEntries = Object.entries(req.headers);
 
   lines.push('using System.Net.Http;');

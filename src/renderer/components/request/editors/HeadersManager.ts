@@ -1,6 +1,7 @@
 import type { KeyValuePair } from '../../../../shared/types';
 import { addVariableHighlighting } from '../variable-helper';
 import { setupAutocomplete } from '../variable-autocomplete';
+import { markShadowedRows } from './duplicate-key-detector';
 
 export class HeadersManager {
   private container: HTMLElement;
@@ -179,6 +180,7 @@ export class HeadersManager {
       }
     });
 
+    markShadowedRows(Array.from(rows) as HTMLElement[]);
     this.onUpdateCallback?.(headers);
   }
 

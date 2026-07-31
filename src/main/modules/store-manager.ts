@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readdirSync,
   unlinkSync,
+  chmodSync,
 } from 'fs';
 import { randomUUID } from 'crypto';
 import { readFile, writeFile } from 'fs/promises';
@@ -129,6 +130,30 @@ const MAX_BACKUPS = 5;
 // has had a chance to reload from disk.
 const RESTORE_LOCK_MS = 5_000;
 
+/**
+ * database.json and its backups hold auth tokens, OAuth client secrets and
+ * keystore passwords, so they must not be readable by other local accounts.
+ */
+const SECRET_FILE_MODE = 0o600;
+const SECRET_DIR_MODE = 0o700;
+
+/**
+ * Best-effort permission tightening. Windows and some network volumes don't
+ * support POSIX modes, so a failure here must never block startup or a save.
+ */
+function restrictPermissions(targetPath: string, mode: number): void {
+  try {
+    if (existsSync(targetPath)) {
+      chmodSync(targetPath, mode);
+    }
+  } catch (error) {
+    console.warn(
+      `Could not restrict permissions on ${targetPath}:`,
+      error instanceof Error ? error.message : error
+    );
+  }
+}
+
 class StoreManager {
   private dbPath: string;
   private data: AppState;
@@ -142,6 +167,11 @@ class StoreManager {
   }
 
   async initialize(): Promise<void> {
+    // Existing installs were created with the default 0644 umask; tighten
+    // them before the first read so secrets aren't world-readable.
+    restrictPermissions(this.dbPath, SECRET_FILE_MODE);
+    this.restrictBackupPermissions();
+
     if (existsSync(this.dbPath)) {
       try {
         const fileContent = await readFile(this.dbPath, 'utf-8');
@@ -194,7 +224,13 @@ class StoreManager {
 
   private async writeToFile(): Promise<void> {
     try {
-      await writeFile(this.dbPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      await writeFile(this.dbPath, JSON.stringify(this.data, null, 2), {
+        encoding: 'utf-8',
+        mode: SECRET_FILE_MODE,
+      });
+      // `mode` only applies when the file is created, so re-assert it for
+      // databases that already existed with wider permissions.
+      restrictPermissions(this.dbPath, SECRET_FILE_MODE);
     } catch (error) {
       console.error('Failed to write database file:', error);
     }
@@ -431,10 +467,15 @@ class StoreManager {
   private createBackup(): void {
     try {
       const backupDir = this.getBackupDir();
-      mkdirSync(backupDir, { recursive: true });
+      mkdirSync(backupDir, { recursive: true, mode: SECRET_DIR_MODE });
+      restrictPermissions(backupDir, SECRET_DIR_MODE);
       const filename = `database-backup-${this.formatTimestamp(new Date())}.json`;
       const backupPath = join(backupDir, filename);
-      writeFileSync(backupPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      writeFileSync(backupPath, JSON.stringify(this.data, null, 2), {
+        encoding: 'utf-8',
+        mode: SECRET_FILE_MODE,
+      });
+      restrictPermissions(backupPath, SECRET_FILE_MODE);
       this.pruneBackups(MAX_BACKUPS);
     } catch (error) {
       console.error('Failed to create backup:', error);
@@ -466,6 +507,24 @@ class StoreManager {
 
   private getBackupDir(): string {
     return join(app.getPath('userData'), 'backups');
+  }
+
+  private restrictBackupPermissions(): void {
+    const backupDir = this.getBackupDir();
+    if (!existsSync(backupDir)) return;
+    restrictPermissions(backupDir, SECRET_DIR_MODE);
+    try {
+      readdirSync(backupDir)
+        .filter((name) => name.endsWith('.json'))
+        .forEach((name) =>
+          restrictPermissions(join(backupDir, name), SECRET_FILE_MODE)
+        );
+    } catch (error) {
+      console.warn(
+        'Could not enumerate backups for permission tightening:',
+        error instanceof Error ? error.message : error
+      );
+    }
   }
 
   private formatTimestamp(date: Date): string {

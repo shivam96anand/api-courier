@@ -2,7 +2,6 @@ import * as http from 'http';
 import * as https from 'https';
 import * as zlib from 'zlib';
 import { URL } from 'url';
-import { spawn, ChildProcess } from 'child_process';
 import {
   CurlExecuteRequest,
   CurlExecuteResponse,
@@ -12,9 +11,6 @@ import {
 /** Active curl requests for cancellation support */
 const activeRequests = new Map<string, http.ClientRequest>();
 
-/** Active shell processes for cancellation support */
-const activeShellRequests = new Map<string, ChildProcess>();
-
 /**
  * Default User-Agent applied when the user hasn't provided one,
  * mirroring what the system `curl` binary would send. Some APIs
@@ -23,33 +19,108 @@ const activeShellRequests = new Map<string, ChildProcess>();
  */
 const DEFAULT_CURL_USER_AGENT = 'curl/8.4.0';
 
+/** Human-readable labels for the shell operators we refuse to run. */
+const SHELL_OPERATOR_LABELS: Record<string, string> = {
+  '|': 'a pipe (|)',
+  '||': 'a logical OR (||)',
+  '&&': 'a logical AND (&&)',
+  ';': 'a command separator (;)',
+  '>': 'an output redirect (>)',
+  '<': 'an input redirect (<)',
+  '`': 'backtick command substitution (`)',
+  '$(': 'command substitution ($(...))',
+};
+
 /**
- * Strip everything from the first unquoted shell pipeline / redirect /
- * command separator onward. The in-app executor can only run the curl
- * itself, not subsequent shell commands, but leaving those tokens in
- * place caused them to leak into the parsed flags and confuse users.
+ * Finds the first shell control operator that sits outside quotes.
+ * Everything inside single/double quotes is data for the HTTP executor,
+ * so `-d '{"a":"b|c"}'` must not be treated as a pipe.
  */
-function stripShellPipeline(input: string): string {
+function findUnquotedShellOperator(
+  input: string
+): { operator: string; index: number } | null {
   let inSingle = false;
   let inDouble = false;
   for (let i = 0; i < input.length; i++) {
     const ch = input[i];
     const prev = input[i - 1];
-    if (ch === "'" && !inDouble && prev !== '\\') inSingle = !inSingle;
-    else if (ch === '"' && !inSingle && prev !== '\\') inDouble = !inDouble;
-    else if (!inSingle && !inDouble) {
-      if (
-        ch === '|' ||
-        ch === ';' ||
-        ch === '>' ||
-        ch === '<' ||
-        (ch === '&' && input[i + 1] === '&')
-      ) {
-        return input.slice(0, i).trim();
+    if (ch === "'" && !inDouble && prev !== '\\') {
+      inSingle = !inSingle;
+    } else if (ch === '"' && !inSingle && prev !== '\\') {
+      inDouble = !inDouble;
+    } else if (!inSingle && !inDouble) {
+      if (ch === '&' && input[i + 1] === '&')
+        return { operator: '&&', index: i };
+      if (ch === '|' && input[i + 1] === '|')
+        return { operator: '||', index: i };
+      if (ch === '$' && input[i + 1] === '(')
+        return { operator: '$(', index: i };
+      if (ch === '|' || ch === ';' || ch === '>' || ch === '<' || ch === '`') {
+        return { operator: ch, index: i };
       }
     }
   }
-  return input;
+  return null;
+}
+
+/**
+ * Strip everything from the first unquoted shell pipeline / redirect /
+ * command separator onward, so those tokens don't leak into the parsed
+ * flags. Parsing stays lenient; {@link validateCurlCommand} is what
+ * decides whether the command may actually run.
+ */
+function stripShellPipeline(input: string): string {
+  const found = findUnquotedShellOperator(input);
+  return found ? input.slice(0, found.index).trim() : input;
+}
+
+/** Collapse line continuations and repeated whitespace into one line. */
+function normalizeCommand(raw: string): string {
+  return raw
+    .replace(/\\\s*\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export type CurlValidation = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Gate for {@link executeCurl}. Restbro runs curl commands through its own
+ * Node HTTP client and never through a shell, so anything that only makes
+ * sense to a shell is rejected rather than silently ignored.
+ */
+export function validateCurlCommand(raw: string): CurlValidation {
+  const normalized = normalizeCommand(raw);
+
+  if (!normalized) {
+    return { ok: false, reason: 'Enter a cURL command to run.' };
+  }
+
+  const found = findUnquotedShellOperator(normalized);
+  if (found) {
+    const label = SHELL_OPERATOR_LABELS[found.operator] ?? found.operator;
+    const hint =
+      found.operator === '|' || found.operator === '||'
+        ? ' Restbro already formats JSON responses, so piping to a tool like jq is not needed.'
+        : ' Only a single curl command can be run here.';
+    return {
+      ok: false,
+      reason: `This command contains ${label}, which Restbro does not run.${hint}`,
+    };
+  }
+
+  const tokens = tokenize(normalized);
+  // Tolerate a copied shell prompt marker such as "$ curl ...".
+  const first = tokens[0] === '$' || tokens[0] === '#' ? tokens[1] : tokens[0];
+  if ((first ?? '').toLowerCase() !== 'curl') {
+    return {
+      ok: false,
+      reason:
+        'Only curl commands can be run here. The command must start with "curl".',
+    };
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -59,12 +130,7 @@ function stripShellPipeline(input: string): string {
 export function parseCurlCommand(raw: string): CurlParsed {
   // Normalize line continuations and whitespace, then drop any trailing
   // shell pipeline so we only parse the curl invocation itself.
-  const cleaned = stripShellPipeline(
-    raw
-      .replace(/\\\s*\n/g, ' ') // join backslash-continued lines
-      .replace(/\s+/g, ' ')
-      .trim()
-  );
+  const cleaned = stripShellPipeline(normalizeCommand(raw));
 
   const tokens = tokenize(cleaned);
 
@@ -209,91 +275,6 @@ function tokenize(input: string): string[] {
   return tokens;
 }
 
-/**
- * Returns true when the raw command string contains unquoted shell
- * operators (pipes, semicolons, logical operators, etc.) that cannot
- * be handled by the Node.js HTTP implementation and require a real shell.
- */
-function hasShellFeatures(raw: string): boolean {
-  const normalized = raw
-    .replace(/\\\s*\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const stripped = stripShellPipeline(normalized);
-  return stripped.length < normalized.length;
-}
-
-/**
- * Run the full raw command via the system shell so that pipes (| jq),
- * logical operators (&&, ||), semicolons, and multiple commands all
- * behave exactly as they do in the macOS/Linux terminal.
- */
-async function executeViaShell(
-  request: CurlExecuteRequest,
-  parsed: CurlParsed,
-  startTime: number
-): Promise<CurlExecuteResponse> {
-  const { id, rawCommand } = request;
-
-  return new Promise((resolve) => {
-    const proc = spawn('/bin/sh', ['-c', rawCommand], {
-      env: { ...process.env },
-    });
-
-    activeShellRequests.set(id, proc);
-
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-
-    proc.stdout.on('data', (chunk: Buffer) =>
-      stdoutChunks.push(Buffer.from(chunk))
-    );
-    proc.stderr.on('data', (chunk: Buffer) =>
-      stderrChunks.push(Buffer.from(chunk))
-    );
-
-    proc.on('close', (code) => {
-      activeShellRequests.delete(id);
-      const endTime = Date.now();
-
-      const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
-      const stderr = Buffer.concat(stderrChunks).toString('utf-8');
-      // Prefer stdout; fall back to stderr so error messages are visible
-      const body = stdout || stderr;
-      const exitOk = code === 0;
-
-      resolve({
-        id,
-        status: exitOk ? 200 : 0,
-        statusText: exitOk ? 'Shell OK' : 'Shell Error',
-        headers: {},
-        body,
-        time: endTime - startTime,
-        size: Buffer.byteLength(body, 'utf-8'),
-        parsed,
-        error: exitOk
-          ? undefined
-          : stderr || `Process exited with code ${code}`,
-      });
-    });
-
-    proc.on('error', (err) => {
-      activeShellRequests.delete(id);
-      resolve({
-        id,
-        status: 0,
-        statusText: 'Shell Error',
-        headers: {},
-        body: err.message,
-        time: Date.now() - startTime,
-        size: 0,
-        parsed,
-        error: err.message,
-      });
-    });
-  });
-}
-
 /** Execute a parsed curl command using Node http/https */
 export async function executeCurl(
   request: CurlExecuteRequest
@@ -302,11 +283,21 @@ export async function executeCurl(
   const parsed = parseCurlCommand(rawCommand);
   const startTime = Date.now();
 
-  // Commands with shell operators (|, &&, ;, etc.) must run via a real
-  // shell so that jq, multiple commands, and piped tools work exactly
-  // as they do in the macOS/Linux terminal.
-  if (hasShellFeatures(rawCommand)) {
-    return executeViaShell(request, parsed, startTime);
+  // Enforced here rather than only in the renderer: this handler is
+  // reachable from any renderer code holding the preload bridge.
+  const validation = validateCurlCommand(rawCommand);
+  if (!validation.ok) {
+    return {
+      id,
+      status: 0,
+      statusText: 'Blocked',
+      headers: {},
+      body: validation.reason,
+      time: 0,
+      size: 0,
+      parsed,
+      error: validation.reason,
+    };
   }
 
   if (!parsed.url) {
@@ -479,12 +470,6 @@ export function cancelCurl(requestId: string): boolean {
   if (req) {
     req.destroy();
     activeRequests.delete(requestId);
-    return true;
-  }
-  const proc = activeShellRequests.get(requestId);
-  if (proc) {
-    proc.kill();
-    activeShellRequests.delete(requestId);
     return true;
   }
   return false;

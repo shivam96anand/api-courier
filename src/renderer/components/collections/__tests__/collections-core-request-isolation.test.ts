@@ -150,3 +150,75 @@ describe('CollectionsCore.updateCollectionRequest reference isolation', () => {
     expect(storedA.params).not.toBe(storedB.params);
   });
 });
+
+/**
+ * Regression tests for the "changing an HTTP verb doesn't update the sidebar
+ * method badge" bug. The sidebar renders `collection.request.method`, so the
+ * tree must be re-rendered when the verb changes — but NOT on unrelated edits
+ * (URL / headers / body), to avoid rebuilding the tree on every keystroke.
+ */
+describe('CollectionsCore.updateCollectionRequest sidebar refresh on method change', () => {
+  let core: CollectionsCore;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(document, 'dispatchEvent').mockReturnValue(true);
+    core = new CollectionsCore();
+  });
+
+  function seed(collections: Collection[]): void {
+    (core as unknown as { collections: Collection[] }).collections =
+      collections;
+  }
+
+  function spyRenderCollections(): ReturnType<typeof vi.spyOn> {
+    return vi
+      .spyOn(
+        core as unknown as { renderCollections: () => void },
+        'renderCollections'
+      )
+      .mockImplementation(() => undefined);
+  }
+
+  it('re-renders the tree when the HTTP method changes', () => {
+    const original: ApiRequest = {
+      id: 'req-a',
+      name: 'A',
+      method: 'POST',
+      url: 'https://a.example.com',
+      params: [],
+      headers: [],
+    };
+    seed([makeRequestCollection('col-a', original)]);
+    const renderSpy = spyRenderCollections();
+
+    core.updateCollectionRequest('col-a', { ...original, method: 'PATCH' });
+
+    expect(renderSpy).toHaveBeenCalledTimes(1);
+    const stored = (
+      core as unknown as { collections: Collection[] }
+    ).collections.find((c) => c.request?.id === 'req-a');
+    expect(stored?.request?.method).toBe('PATCH');
+  });
+
+  it('does not re-render the tree when the method is unchanged', () => {
+    const original: ApiRequest = {
+      id: 'req-a',
+      name: 'A',
+      method: 'POST',
+      url: 'https://a.example.com',
+      params: [],
+      headers: [],
+    };
+    seed([makeRequestCollection('col-a', original)]);
+    const renderSpy = spyRenderCollections();
+
+    // Only the URL changed — the badge is unaffected, so skip the tree rebuild.
+    core.updateCollectionRequest('col-a', {
+      ...original,
+      url: 'https://a.example.com/v2',
+    });
+
+    expect(renderSpy).not.toHaveBeenCalled();
+  });
+});

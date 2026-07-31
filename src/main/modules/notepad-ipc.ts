@@ -15,6 +15,8 @@ import { randomUUID } from 'crypto';
 import { IPC_CHANNELS } from '../../shared/ipc';
 import { prepareSwaggerPreview } from './notepad-swagger-preview';
 import { windowManager } from './window-manager';
+import { storeManager } from './store-manager';
+import { approvedPaths, FILE_ACCESS_DENIED_MESSAGE } from './approved-paths';
 
 /** Hard cap on a single file payload (50 MB). */
 const MAX_CONTENT_BYTES = 50 * 1024 * 1024;
@@ -79,6 +81,9 @@ export const notepadIpc = {
    */
   queueOpenFile(filePath: string): void {
     if (!filePath || typeof filePath !== 'string') return;
+    // The OS handed us this path (file association / "Open With"), which is
+    // an explicit user action, so the renderer may read it back.
+    approvedPaths.approveFile(filePath);
     const win = windowManager.getMainWindow();
     if (win && !win.webContents.isLoading()) {
       win.webContents.send(IPC_CHANNELS.NOTEPAD_FILE_OPENED, filePath);
@@ -111,7 +116,30 @@ export const notepadIpc = {
     });
   },
 
+  /**
+   * Re-approve files that open notepad tabs already point at. Those paths were
+   * chosen through a dialog in an earlier session, and without this a restored
+   * tab could no longer be saved. Read from disk at boot, before the renderer
+   * can influence state.
+   */
+  approvePersistedTabPaths(): void {
+    try {
+      const tabs = storeManager.getState()?.notepad?.tabs;
+      if (!Array.isArray(tabs)) return;
+      tabs.forEach((tab) => {
+        if (tab?.filePath) approvedPaths.approveFile(tab.filePath);
+      });
+    } catch (error) {
+      console.warn(
+        'Could not re-approve persisted notepad paths:',
+        error instanceof Error ? error.message : error
+      );
+    }
+  },
+
   initialize(): void {
+    this.approvePersistedTabPaths();
+
     ipcMain.handle(
       IPC_CHANNELS.NOTEPAD_SAVE_FILE,
       async (
@@ -137,7 +165,11 @@ export const notepadIpc = {
 
         try {
           let targetPath = filePath;
-          if (!targetPath) {
+          if (targetPath) {
+            if (!approvedPaths.hasFile(targetPath)) {
+              return err('ACCESS_DENIED', FILE_ACCESS_DENIED_MESSAGE);
+            }
+          } else {
             const result = await dialog.showSaveDialog({
               defaultPath: safeDefaultName(defaultName),
               filters: FILE_FILTERS,
@@ -146,6 +178,8 @@ export const notepadIpc = {
               return { ok: false, canceled: true } as const;
             }
             targetPath = result.filePath;
+            // Approve so later Cmd+S saves to the same file don't re-prompt.
+            approvedPaths.approveFile(targetPath);
           }
           await writeFile(targetPath, content, 'utf-8');
           return { ok: true, canceled: false, filePath: targetPath } as const;
@@ -175,6 +209,7 @@ export const notepadIpc = {
           return { canceled: true };
         }
         const filePath = result.filePaths[0];
+        approvedPaths.approveFile(filePath);
         const fileStat = await stat(filePath);
         if (fileStat.size > MAX_READ_BYTES) {
           return {
@@ -199,6 +234,9 @@ export const notepadIpc = {
       async (_, filePath: string) => {
         if (typeof filePath !== 'string' || !filePath) {
           return { canceled: false, error: 'Invalid path' };
+        }
+        if (!approvedPaths.hasFile(filePath)) {
+          return { canceled: false, error: FILE_ACCESS_DENIED_MESSAGE };
         }
         try {
           const fileStat = await stat(filePath);
@@ -252,6 +290,9 @@ export const notepadIpc = {
         if (typeof filePath !== 'string' || !filePath) {
           return { error: 'Invalid path' };
         }
+        if (!approvedPaths.hasFile(filePath)) {
+          return { error: FILE_ACCESS_DENIED_MESSAGE };
+        }
         try {
           const fileStat = await stat(filePath);
           if (fileStat.size > MAX_READ_BYTES) {
@@ -273,6 +314,7 @@ export const notepadIpc = {
 
     ipcMain.handle(IPC_CHANNELS.NOTEPAD_REVEAL, async (_, filePath: string) => {
       if (!filePath || typeof filePath !== 'string') return false;
+      if (!approvedPaths.hasFile(filePath)) return false;
       try {
         shell.showItemInFolder(filePath);
         return true;

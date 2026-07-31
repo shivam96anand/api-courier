@@ -190,6 +190,13 @@ export class RequestBodyEditor {
           </select>
         </div>
       </div>
+      <div class="body-method-warning" id="body-method-warning" style="display: none;">
+        <span class="body-method-warning__text"></span>
+        <label class="body-method-warning__optin">
+          <input type="checkbox" id="body-method-optin">
+          Send it anyway
+        </label>
+      </div>
       <div class="body-editor-container" id="body-editor-container" style="display: none;">
         <div class="body-editor-header">
           <div class="body-editor-heading sr-only">
@@ -228,8 +235,25 @@ export class RequestBodyEditor {
       bodyTypeSelect.addEventListener('change', (e) => {
         const target = e.target as HTMLSelectElement;
         this.handleBodySelectionChange(target.value as BodyFormat | 'none');
+        this.refreshMethodWarning();
       });
     }
+
+    const optIn = this.container.querySelector(
+      '#body-method-optin'
+    ) as HTMLInputElement | null;
+    optIn?.addEventListener('change', () => {
+      document.dispatchEvent(
+        new CustomEvent('body-on-bodyless-method-toggled', {
+          detail: { allow: optIn.checked },
+        })
+      );
+      this.refreshMethodWarning();
+    });
+
+    document.addEventListener('request-method-changed', () =>
+      this.refreshMethodWarning()
+    );
 
     // Body editor textarea
     const bodyEditor = this.container.querySelector(
@@ -903,6 +927,53 @@ export class RequestBodyEditor {
       // Trigger highlighting when body is loaded
       this.updateHighlighting();
     }
+
+    this.refreshMethodWarning();
+  }
+
+  /** Reflect the saved per-request opt-in when a request is loaded. */
+  public setAllowBodyOnBodylessMethod(allow: boolean): void {
+    const optIn = this.container.querySelector(
+      '#body-method-optin'
+    ) as HTMLInputElement | null;
+    if (optIn) optIn.checked = allow === true;
+    this.refreshMethodWarning();
+  }
+
+  /**
+   * GET/HEAD have no defined body semantics; many proxies and servers drop or
+   * reject one, so we warn and withhold it unless the user opts in.
+   */
+  private refreshMethodWarning(): void {
+    const banner = this.container.querySelector(
+      '#body-method-warning'
+    ) as HTMLElement | null;
+    if (!banner) return;
+
+    const methodSelect = document.getElementById(
+      'request-method'
+    ) as HTMLSelectElement | null;
+    const method = (methodSelect?.value || 'GET').toUpperCase();
+    const isBodyless = method === 'GET' || method === 'HEAD';
+    const hasContent = this.getBody().type !== 'none';
+
+    if (!isBodyless || !hasContent) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    const optIn = banner.querySelector(
+      '#body-method-optin'
+    ) as HTMLInputElement | null;
+    const text = banner.querySelector(
+      '.body-method-warning__text'
+    ) as HTMLElement | null;
+    if (text) {
+      text.textContent = optIn?.checked
+        ? `${method} requests will send this body. Many servers and proxies reject or ignore it.`
+        : `${method} requests have no body. This body will not be sent.`;
+    }
+    banner.style.display = '';
   }
 
   public getBody(): {
