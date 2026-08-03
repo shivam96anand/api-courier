@@ -1,7 +1,8 @@
 /**
  * Collection Runner - Runs all requests in a collection/folder sequentially.
  */
-import { ApiRequest, ApiResponse, Collection } from '../../shared/types';
+import { ApiRequest, ApiResponse, Collection } from '../../../shared/types';
+import { formatStatusLine } from '../../../shared/http-status';
 
 export interface RunnerResult {
   request: ApiRequest;
@@ -239,7 +240,7 @@ export class CollectionRunner {
       );
       const statusText = r.error
         ? this.escapeHtml(r.error)
-        : `${status} ${r.response?.statusText || ''}`;
+        : this.escapeHtml(formatStatusLine(status, r.response?.statusText));
       const time = r.response ? `${r.response.time}ms` : '-';
       const size = r.response ? this.formatBytes(r.response.size) : '-';
 

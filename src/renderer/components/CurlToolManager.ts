@@ -6,6 +6,7 @@
 
 import { MonacoJsonEditor } from './request/MonacoJsonEditor';
 import { MonacoXmlEditor } from './request/MonacoXmlEditor';
+import { formatStatusLine } from '../../shared/http-status';
 
 interface CurlResponseSnapshot {
   status: number;
@@ -481,7 +482,7 @@ export class CurlToolManager {
     const statusEl = this.container.querySelector(
       '#curl-meta-status'
     ) as HTMLElement;
-    statusEl.textContent = `${result.status} ${result.statusText}`;
+    statusEl.textContent = formatStatusLine(result.status, result.statusText);
     statusEl.className = `curl-tool__meta-chip curl-tool__meta-chip--status ${this.getStatusClass(result.status)}`;
 
     (

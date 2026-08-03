@@ -17,6 +17,7 @@ import {
   DEFAULT_REQUEST_TIMEOUT_MS,
   DEFAULT_MAX_RESPONSE_BYTES,
 } from '../../shared/constants';
+import { resolveStatusText } from '../../shared/http-status';
 
 /**
  * Decide the default scheme for a protocol-less URL.
@@ -628,7 +629,7 @@ class RequestManager {
 
         resolve({
           status: res.statusCode || 0,
-          statusText: res.statusMessage || '',
+          statusText: resolveStatusText(res.statusCode, res.statusMessage),
           headers: responseHeaders,
           // IMPORTANT: do NOT append a marker string into `body` — that
           // corrupts JSON/XML/binary payloads. Use the `truncated` flag and
@@ -660,7 +661,7 @@ class RequestManager {
 
       resolve({
         status: res.statusCode || 0,
-        statusText: res.statusMessage || '',
+        statusText: resolveStatusText(res.statusCode, res.statusMessage),
         headers: responseHeaders,
         body,
         time: endTime - startTime,

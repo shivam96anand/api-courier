@@ -7,6 +7,7 @@ import {
   CurlExecuteResponse,
   CurlParsed,
 } from '../../shared/types';
+import { resolveStatusText } from '../../shared/http-status';
 
 /** Active curl requests for cancellation support */
 const activeRequests = new Map<string, http.ClientRequest>();
@@ -399,7 +400,7 @@ export async function executeCurl(
             resolve({
               id,
               status: res.statusCode || 0,
-              statusText: res.statusMessage || '',
+              statusText: resolveStatusText(res.statusCode, res.statusMessage),
               headers: responseHeaders,
               body: bodyStr,
               time: endTime - startTime,

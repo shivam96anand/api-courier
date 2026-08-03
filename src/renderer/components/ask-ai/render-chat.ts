@@ -8,6 +8,7 @@ import {
   formatKeyValuePairs,
   formatMessageContent,
 } from './utils';
+import { formatStatusLine } from '../../../shared/http-status';
 
 /**
  * Render the context panel showing request/response context
@@ -113,7 +114,7 @@ export function renderContextTabContent(
     return `
       <div class="tab-content">
         <div class="summary-line">
-          <span class="status-badge status-${res.status < 400 ? 'success' : 'error'}">${res.status} ${res.statusText}</span>
+          <span class="status-badge status-${res.status < 400 ? 'success' : 'error'}">${escapeHtml(formatStatusLine(res.status, res.statusText))}</span>
           <span>${res.time}ms</span>
           <span>${formatBytes(res.size)}</span>
         </div>

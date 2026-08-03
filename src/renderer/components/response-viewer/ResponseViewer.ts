@@ -1,4 +1,5 @@
 import { ApiResponse, RequestMode } from '../../../shared/types';
+import { formatStatusLine } from '../../../shared/http-status';
 import { ResponseViewerConfig } from '../../types/response-types';
 import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
 import { MonacoXmlEditor } from '../request/MonacoXmlEditor';
@@ -536,7 +537,8 @@ export class ResponseViewer {
       .replace(/&[a-z#0-9]+;/gi, ' ')
       .trim();
     const humanMessage =
-      rawMessage.toLowerCase() !== `${status} ${statusText}`.toLowerCase()
+      rawMessage.toLowerCase() !==
+      formatStatusLine(status, statusText).toLowerCase()
         ? rawMessage
         : '';
 
@@ -572,7 +574,7 @@ export class ResponseViewer {
 
     const statusLine = document.createElement('div');
     statusLine.style.cssText = `font-size:15px; font-weight:600; color:${accentColor}; margin-bottom:2px; font-family:var(--font-mono);`;
-    statusLine.textContent = `${status} ${statusText}`;
+    statusLine.textContent = formatStatusLine(status, statusText);
     textWrapper.appendChild(statusLine);
 
     if (humanMessage) {
@@ -859,7 +861,10 @@ export class ResponseViewer {
     const sizeEl = document.getElementById('meta-size');
 
     if (statusEl) {
-      statusEl.textContent = `${response.status} ${response.statusText}`;
+      statusEl.textContent = formatStatusLine(
+        response.status,
+        response.statusText
+      );
       statusEl.title = '';
       statusEl.classList.remove(
         'meta-chip--success',
