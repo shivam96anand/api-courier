@@ -23,6 +23,8 @@ export class TabsEventHandler {
     markAsModified: boolean
   ) => void;
 
+  private onClearResponseForRequest: (requestId: string) => void;
+
   constructor(
     onCreateNewTab: () => void,
     onSwitchToTab: (tabId: string) => void,
@@ -38,7 +40,8 @@ export class TabsEventHandler {
       requestId: string,
       updates: Partial<RequestTab>,
       markAsModified: boolean
-    ) => void
+    ) => void,
+    onClearResponseForRequest: (requestId: string) => void
   ) {
     this.onCreateNewTab = onCreateNewTab;
     this.onSwitchToTab = onSwitchToTab;
@@ -48,6 +51,7 @@ export class TabsEventHandler {
     this.onCloseTabsByRequestId = onCloseTabsByRequestId;
     this.onUpdateTabNameForRequest = onUpdateTabNameForRequest;
     this.onUpdateTabByRequestId = onUpdateTabByRequestId;
+    this.onClearResponseForRequest = onClearResponseForRequest;
   }
 
   setupTabEvents(): void {
@@ -148,6 +152,16 @@ export class TabsEventHandler {
       if (response && request) {
         // Route response to the tab that owns this request, not the active tab
         this.onUpdateTabByRequestId(request.id, { response }, false);
+      }
+    });
+
+    // The user cleared the response panel — forget the response on the owning
+    // tab so switching away and back doesn't bring it back.
+    document.addEventListener('response-cleared', (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const requestId = customEvent.detail?.requestId as string | undefined;
+      if (requestId) {
+        this.onClearResponseForRequest(requestId);
       }
     });
 

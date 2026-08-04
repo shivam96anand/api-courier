@@ -79,7 +79,7 @@ export class ResponseManager {
     this.actions.onExpand(() => this.expandAll());
     this.actions.onScrollTop(() => this.scrollToTop());
     this.actions.onScrollBottom(() => this.scrollToBottom());
-    this.actions.onClear(() => this.clearResponse());
+    this.actions.onClear(() => this.handleClearRequested());
     this.actions.onAskAi(() => this.handleAskAI());
     this.actions.onOpenInNotepad(() => this.openJsonInNotepad());
 
@@ -155,6 +155,7 @@ export class ResponseManager {
         this.state.currentResponse = null;
         this.viewer.clear();
         this.actions.hide();
+        this.tabs.setPrevResponsesContext(this.activeTabRequestId, null);
       }
     });
 
@@ -364,12 +365,31 @@ export class ResponseManager {
     return this.state.currentResponse;
   }
 
+  /**
+   * User pressed "Clear". Besides wiping the panel we tell the tabs subsystem
+   * to forget the tab's stored response, otherwise switching tabs and coming
+   * back re-displays it. The response is still reachable from the
+   * previous-responses dropdown, which reads from history.
+   */
+  private handleClearRequested(): void {
+    const requestId = this.activeTabRequestId;
+    this.clearResponse();
+
+    if (requestId) {
+      document.dispatchEvent(
+        new CustomEvent('response-cleared', { detail: { requestId } })
+      );
+    }
+  }
+
   clearResponse(): void {
     this.state.currentResponse = null;
     this.viewer.clear();
     this.actions.hide();
     this.tabs.updateActionButtons(false, false);
-    this.tabs.setPrevResponsesContext(null, null);
+    // Keep the request context so the previous-responses dropdown stays
+    // available — a cleared panel can still be repopulated from history.
+    this.tabs.setPrevResponsesContext(this.activeTabRequestId, null);
     this.hideLoadingState();
   }
 
@@ -512,6 +532,7 @@ export class ResponseManager {
     this.viewer.clear();
     this.actions.hide();
     this.tabs.updateActionButtons(false, false);
+    this.tabs.setPrevResponsesContext(this.activeTabRequestId, null);
   }
 
   // Action button implementations

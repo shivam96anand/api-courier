@@ -32,7 +32,8 @@ export class TabsManager {
       (requestId, newName) =>
         this.updateTabNameForRequestAndRender(requestId, newName),
       (requestId, updates, markAsModified) =>
-        this.updateTabByRequestIdAndRender(requestId, updates, markAsModified)
+        this.updateTabByRequestIdAndRender(requestId, updates, markAsModified),
+      (requestId) => this.clearResponseForRequest(requestId)
     );
   }
 
@@ -379,6 +380,10 @@ export class TabsManager {
       this.stateManager.getTabs(),
       this.stateManager.getActiveTabId()
     );
+  }
+
+  clearResponseForRequest(requestId: string): void {
+    this.stateManager.clearResponseForRequest(requestId);
   }
 
   closeTabsByRequestId(requestId: string): void {

@@ -303,6 +303,13 @@ export interface AppState {
   layoutMode?: 'horizontal' | 'vertical';
   loadTestHistory?: LoadTestHistoryEntry[];
   speedTestHistory?: SpeedTestHistoryEntry[];
+  /**
+   * requestId → epoch ms when the user last pressed "Clear" in the response
+   * panel. Responses recorded at or before that moment are not auto-restored
+   * when the request is reopened; they stay reachable from the response
+   * panel's previous-responses dropdown and the History panel.
+   */
+  clearedResponses?: Record<string, number>;
 }
 
 /**

@@ -227,10 +227,39 @@
     background-color: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: #ef4444;
+    align-items: flex-start;
+
+    .status-icon {
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
   }
 
   .status-text {
     display: block;
     line-height: 1.4;
+    min-width: 0;
+  }
+
+  .status-title {
+    display: block;
+    font-weight: 600;
+  }
+
+  .status-detail {
+    display: block;
+    margin-top: 3px;
+    font-weight: 400;
+    opacity: 0.85;
+    word-break: break-word;
+  }
+
+  .status-hint {
+    display: block;
+    margin-top: 5px;
+    font-weight: 400;
+    font-size: 12px;
+    opacity: 0.75;
+    word-break: break-word;
   }
 }

@@ -118,6 +118,23 @@ export function setupEventListeners(deps: EventListenersDeps): void {
     }
   });
 
+  // Response panel "previous responses" dropdown: "Open" restores a stored
+  // request + response snapshot into the active tab (same request, so opening
+  // a new tab would be confusing). Without this listener the button did
+  // nothing for history items that carry their request.
+  document.addEventListener('open-previous-request-response', (e: Event) => {
+    const customEvent = e as CustomEvent;
+    const request = customEvent.detail?.request;
+    const response = customEvent.detail?.response;
+    if (!request || !response) return;
+
+    if (tabsManager.getActiveTab()) {
+      tabsManager.loadHistorySnapshotIntoActiveTab(request, response);
+    } else {
+      tabsManager.openRequestInTabWithResponse(request, response);
+    }
+  });
+
   // Listen for history changes to trigger state saves
   document.addEventListener('history-changed', () => {
     saveState();

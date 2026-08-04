@@ -517,7 +517,9 @@ export class OAuthManager {
     this.tokenAbortControllers.delete(abortController);
 
     if (!response.ok) {
-      const errorText = await response.text();
+      // Cap the body: error pages (HTML, stack traces) can be huge and the
+      // renderer only ever shows a short summary of it.
+      const errorText = (await response.text()).slice(0, 2000);
       throw new Error(
         `Token request failed: ${response.status} ${response.statusText} - ${errorText}`
       );

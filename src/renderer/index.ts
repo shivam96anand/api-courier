@@ -193,6 +193,9 @@ class RestbroRenderer {
       await this.collectionsManager.setCollections(state.collections);
       this.tabsManager.setTabs(state.openTabs, state.activeTabId);
       this.historyManager.setHistory((state as any).history || []);
+      this.historyManager.setClearedResponses(
+        (state as any).clearedResponses || {}
+      );
       this.environmentManager.setEnvironments(
         (state as any).environments || []
       );
@@ -256,6 +259,7 @@ class RestbroRenderer {
         navOrder: this.appManager.getNavOrder(),
         environments: this.environmentManager.getEnvironments(),
         activeEnvironmentId: this.environmentManager.getActiveEnvironmentId(),
+        clearedResponses: this.historyManager.getClearedResponses(),
       };
       await window.restbro.store.set(state);
     } catch (error) {

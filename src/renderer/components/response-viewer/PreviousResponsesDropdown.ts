@@ -47,12 +47,25 @@ export class PreviousResponsesDropdown {
     this.currentRequestId = requestId;
     this.currentResponse = response;
     if (!this.button) return;
-    if (requestId && response) {
+    // Stay available with no current response (e.g. right after "Clear") as
+    // long as this request has something in history to restore.
+    if (requestId && (response || this.queryHistory(requestId).length > 0)) {
       this.button.style.display = '';
     } else {
       this.button.style.display = 'none';
       this.close();
     }
+  }
+
+  /** Synchronous history lookup — HistoryManager fills `items` in place. */
+  private queryHistory(requestId: string): HistoryItem[] {
+    const items: HistoryItem[] = [];
+    document.dispatchEvent(
+      new CustomEvent('request-previous-responses', {
+        detail: { requestId, items },
+      })
+    );
+    return items;
   }
 
   private toggle(): void {
@@ -64,20 +77,18 @@ export class PreviousResponsesDropdown {
   }
 
   private open(): void {
-    if (!this.button || !this.currentRequestId || !this.currentResponse) return;
+    if (!this.button || !this.currentRequestId) return;
 
-    const items: HistoryItem[] = [];
-    document.dispatchEvent(
-      new CustomEvent('request-previous-responses', {
-        detail: { requestId: this.currentRequestId, items },
-      })
-    );
+    const items = this.queryHistory(this.currentRequestId);
 
     // Exclude the current response (matched by timestamp) so the dropdown
-    // only shows *previous* responses.
-    const previous = items.filter(
-      (it) => it.response?.timestamp !== this.currentResponse?.timestamp
-    );
+    // only shows *previous* responses. With no response on screen (cleared
+    // panel) every stored response is worth offering.
+    const previous = this.currentResponse
+      ? items.filter(
+          (it) => it.response?.timestamp !== this.currentResponse?.timestamp
+        )
+      : items;
 
     const menu = document.createElement('div');
     menu.className = 'response-history-dropdown-menu';
@@ -160,6 +171,10 @@ export class PreviousResponsesDropdown {
             : 'is-ok'
         : '';
     const time = item.response?.time != null ? `${item.response.time}ms` : '';
+    // Compare needs a current response as the left-hand side.
+    const compareBtn = this.currentResponse
+      ? `<button type="button" class="response-history-row__compare" data-idx="${idx}">Compare</button>`
+      : '';
     return `
       <div class="response-history-row" role="menuitem">
         <div class="response-history-row__meta">
@@ -168,7 +183,7 @@ export class PreviousResponsesDropdown {
           <span class="response-history-row__ts">${ts.toLocaleString(undefined, { hourCycle: 'h12' })}</span>
         </div>
         <button type="button" class="response-history-row__open" data-idx="${idx}">Open</button>
-        <button type="button" class="response-history-row__compare" data-idx="${idx}">Compare</button>
+        ${compareBtn}
       </div>
     `;
   }

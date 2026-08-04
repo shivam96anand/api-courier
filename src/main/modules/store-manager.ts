@@ -117,6 +117,7 @@ const defaultState: AppState = {
   requestSettings: defaultRequestSettings,
   loadTestHistory: [],
   speedTestHistory: [],
+  clearedResponses: {},
 };
 
 // Backup retention — keep only the 5 most recent snapshots on disk.
@@ -402,6 +403,7 @@ class StoreManager {
       ...defaultState,
       ...sanitizedLoaded,
       history: sanitizedLoaded.history || [],
+      clearedResponses: sanitizedLoaded.clearedResponses || {},
       environments: sanitizedLoaded.environments || [],
       activeEnvironmentId: sanitizedLoaded.activeEnvironmentId,
       globals: sanitizedLoaded.globals || defaultGlobals,

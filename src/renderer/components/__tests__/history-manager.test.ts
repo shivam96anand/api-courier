@@ -126,6 +126,90 @@ describe('HistoryManager', () => {
     });
   });
 
+  describe('cleared responses', () => {
+    it('stops auto-restoring a response the user cleared', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      expect(hm.getLastResponseForRequest('target')).not.toBeNull();
+
+      hm.markResponsesCleared('target');
+
+      expect(hm.getLastResponseForRequest('target')).toBeNull();
+    });
+
+    it('keeps the cleared response listed in history for the dropdown', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      hm.markResponsesCleared('target');
+
+      expect(hm.getHistory()).toHaveLength(1);
+      expect(hm.getHistory()[0].request.id).toBe('target');
+    });
+
+    it('does not affect other requests', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      hm.addToHistory(makeRequest({ id: 'other' }), makeResponse());
+
+      hm.markResponsesCleared('target');
+
+      expect(hm.getLastResponseForRequest('other')).not.toBeNull();
+    });
+
+    it('a new response supersedes an earlier clear', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      hm.markResponsesCleared('target');
+
+      hm.addToHistory(
+        makeRequest({ id: 'target' }),
+        makeResponse({ status: 201 })
+      );
+
+      const restored = hm.getLastResponseForRequest('target');
+      expect(restored).not.toBeNull();
+      expect(restored!.response.status).toBe(201);
+      expect(hm.getClearedResponses()['target']).toBeUndefined();
+    });
+
+    it('survives a save/load round-trip', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      hm.markResponsesCleared('target');
+
+      const persistedHistory = hm.getHistory();
+      const persistedCleared = hm.getClearedResponses();
+
+      const reloaded = new HistoryManager();
+      reloaded.setHistory(persistedHistory);
+      reloaded.setClearedResponses(persistedCleared);
+
+      expect(reloaded.getLastResponseForRequest('target')).toBeNull();
+    });
+
+    it('persists the marker via history-changed', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      dispatched = [];
+      hm.markResponsesCleared('target');
+      expect(dispatched.some((e) => e.type === 'history-changed')).toBe(true);
+    });
+
+    it('prunes markers for requests with no history left', () => {
+      const reloaded = new HistoryManager();
+      reloaded.setHistory([]);
+      reloaded.setClearedResponses({ 'long-gone': Date.now() });
+      expect(reloaded.getClearedResponses()).toEqual({});
+    });
+
+    it('clearHistory resets the markers too', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      hm.markResponsesCleared('target');
+      hm.clearHistory();
+      expect(hm.getClearedResponses()).toEqual({});
+    });
+
+    it('tolerates a missing marker map', () => {
+      hm.addToHistory(makeRequest({ id: 'target' }), makeResponse());
+      hm.setClearedResponses(undefined);
+      expect(hm.getLastResponseForRequest('target')).not.toBeNull();
+    });
+  });
+
   describe('addToHistory — dedup and edge cases', () => {
     it('clones request to avoid reference issues', () => {
       const req = makeRequest({ id: 'ref-test' });

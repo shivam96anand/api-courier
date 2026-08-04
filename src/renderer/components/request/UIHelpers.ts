@@ -3,6 +3,7 @@
  * Handles toast notifications, password visibility toggles, token copying, and token info display
  */
 import { iconHtml } from '../../utils/icons';
+import { renderOAuthErrorText } from './oauth-status-text';
 
 export class UIHelpers {
   private tokenExpiryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -199,34 +200,11 @@ export class UIHelpers {
       '.status-icon'
     ) as HTMLElement | null;
     if (statusText) {
-      // Enhance network error messages with helpful hints
-      let displayMessage = message;
       if (type === 'error') {
-        if (
-          message.includes('ENOTFOUND') ||
-          message.includes('getaddrinfo') ||
-          message.includes('DNS')
-        ) {
-          displayMessage =
-            'Network error: Unable to reach server. Please check your VPN connection and network settings.';
-        } else if (message.includes('ECONNREFUSED')) {
-          displayMessage =
-            'Connection refused: Server is not responding. Please verify the URL and check your network connection.';
-        } else if (
-          message.includes('ETIMEDOUT') ||
-          message.includes('timeout')
-        ) {
-          displayMessage =
-            'Connection timeout: Server took too long to respond. Please check your network connection.';
-        } else if (
-          message.includes('certificate') ||
-          message.includes('SSL') ||
-          message.includes('TLS')
-        ) {
-          displayMessage = 'SSL/TLS error: ' + message;
-        }
+        renderOAuthErrorText(statusText as HTMLElement, message);
+      } else {
+        statusText.textContent = message;
       }
-      statusText.textContent = displayMessage;
     }
 
     if (statusIcon) {
@@ -262,10 +240,10 @@ export class UIHelpers {
     // Auto-hide after appropriate delay
     if (type === 'error') {
       console.error('[OAuth] Error displayed to user:', message);
-      // Keep errors visible for 8 seconds so users can read them
+      // Errors now carry a hint line, so keep them readable for longer
       (oauthStatus as any)._hideTimeout = setTimeout(() => {
         oauthStatus.style.display = 'none';
-      }, 8000);
+      }, 15000);
     } else if (type === 'success') {
       // Hide success messages after 3 seconds
       (oauthStatus as any)._hideTimeout = setTimeout(() => {
@@ -315,9 +293,12 @@ export class UIHelpers {
         }
 
         // Clear the status text and classes when hiding to prevent leaking between tabs
-        const statusText = oauthStatus.querySelector('.status-text');
+        const statusText = oauthStatus.querySelector(
+          '.status-text'
+        ) as HTMLElement | null;
         if (statusText) {
           statusText.textContent = '';
+          statusText.removeAttribute('title');
         }
         oauthStatus.classList.remove(
           'status-loading',

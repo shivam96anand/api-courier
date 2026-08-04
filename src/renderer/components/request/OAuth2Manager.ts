@@ -134,12 +134,12 @@ export class OAuth2Manager {
         this.uiHelpers.toggleOAuthStatus(false);
       } else {
         console.error('[OAuth2Manager] OAuth flow failed:', result.error);
-        this.uiHelpers.updateOAuthStatus(`Error: ${result.error}`, 'error');
+        this.uiHelpers.updateOAuthStatus(result.error, 'error');
       }
     } catch (error) {
       console.error('[OAuth2Manager] Exception during OAuth flow:', error);
       this.uiHelpers.updateOAuthStatus(
-        `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.message : 'Unknown error',
         'error'
       );
     }
@@ -314,9 +314,19 @@ export class OAuth2Manager {
       if (result.error && /cancel/i.test(result.error)) {
         throw new Error(result.error);
       }
+
+      // Surface the real reason: callers only see a generic
+      // "Failed to obtain OAuth token" otherwise.
+      if (result.error) {
+        this.uiHelpers.updateOAuthStatus(result.error, 'error');
+      }
     } catch (error) {
       if (/cancel/i.test((error as Error)?.message || '')) throw error;
       console.error('Auto token generation failed:', error);
+      this.uiHelpers.updateOAuthStatus(
+        error instanceof Error ? error.message : 'Unknown error',
+        'error'
+      );
     }
 
     return null;

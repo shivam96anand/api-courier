@@ -407,6 +407,89 @@ describe('TabsStateManager', () => {
     });
   });
 
+  describe('clearResponseForRequest', () => {
+    it('drops the response so a tab switch cannot bring it back', () => {
+      tsm.openRequestInTab(makeRequest({ id: 'req-1' }), 'col-1');
+      tsm.updateTabByRequestId(
+        'req-1',
+        {
+          response: makeResponse('{"ok":true}'),
+          responseViewState: { monacoViewStateResponseTimestamp: 1 },
+        },
+        false
+      );
+
+      tsm.clearResponseForRequest('req-1');
+
+      const tab = tsm.getActiveTab()!;
+      expect(tab.response).toBeUndefined();
+      expect(tab.responseViewState).toBeUndefined();
+    });
+
+    it('also clears the stash for the mode on screen', () => {
+      tsm.openRequestInTab(makeRequest({ id: 'req-1' }), 'col-1');
+      tsm.updateTabByRequestId(
+        'req-1',
+        { response: makeResponse('{"rest":true}') },
+        false
+      );
+
+      tsm.clearResponseForRequest('req-1');
+
+      // A REST -> SOAP -> REST round trip must not resurrect it.
+      tsm.swapModeResponses('req-1', 'rest', 'soap');
+      const restored = tsm.swapModeResponses('req-1', 'soap', 'rest');
+      expect(restored.response).toBeUndefined();
+      expect(tsm.getActiveTab()!.response).toBeUndefined();
+    });
+
+    it('keeps the other mode stash intact', () => {
+      tsm.openRequestInTab(makeRequest({ id: 'req-1' }), 'col-1');
+      tsm.updateTabByRequestId(
+        'req-1',
+        { response: makeResponse('{"rest":true}') },
+        false
+      );
+      tsm.swapModeResponses('req-1', 'rest', 'soap');
+      tsm.updateTabByRequestId(
+        'req-1',
+        { response: makeResponse('<soap/>'), requestMode: 'soap' },
+        false
+      );
+
+      tsm.clearResponseForRequest('req-1');
+
+      expect(tsm.getActiveTab()!.soapResponse).toBeUndefined();
+      expect(tsm.getActiveTab()!.restResponse!.body).toBe('{"rest":true}');
+    });
+
+    it('persists the change and does not re-notify listeners', () => {
+      tsm.openRequestInTab(makeRequest({ id: 'req-1' }), 'col-1');
+      tsm.updateTabByRequestId(
+        'req-1',
+        { response: makeResponse('{"ok":true}') },
+        false
+      );
+      dispatched.length = 0;
+      const notifyBefore = notifyCalls;
+
+      tsm.clearResponseForRequest('req-1');
+
+      expect(dispatched.some((e) => e.type === 'tabs-changed')).toBe(true);
+      expect(notifyCalls).toBe(notifyBefore);
+    });
+
+    it('is a no-op for an unknown request id', () => {
+      tsm.openRequestInTab(makeRequest({ id: 'req-1' }), 'col-1');
+      const response = makeResponse('{"ok":true}');
+      tsm.updateTabByRequestId('req-1', { response }, false);
+
+      tsm.clearResponseForRequest('req-unknown');
+
+      expect(tsm.getActiveTab()!.response).toEqual(response);
+    });
+  });
+
   describe('duplicateTab', () => {
     it('duplicates a tab with " (Copy)" suffix', () => {
       tsm.createNewTab();

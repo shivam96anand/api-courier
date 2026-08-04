@@ -329,6 +329,33 @@ export class TabsStateManager {
     this.onNotifyTabChange();
   }
 
+  /**
+   * Drop the response stored for a request's tab. Called when the user hits
+   * "Clear" in the response panel — without this the tab keeps its response
+   * and re-displays it on the next tab switch, making the clear look like it
+   * was undone. The response stays recoverable from history via the response
+   * panel's previous-responses dropdown.
+   */
+  clearResponseForRequest(requestId: string): void {
+    const tab = this.tabs.find((t) => t.request.id === requestId);
+    if (!tab) return;
+
+    tab.response = undefined;
+    tab.responseViewState = undefined;
+
+    // Also drop the stash for the mode on screen, otherwise a REST <-> SOAP
+    // round trip would resurrect the cleared response.
+    if (tab.requestMode === 'soap') {
+      tab.soapResponse = undefined;
+      tab.soapResponseViewState = undefined;
+    } else {
+      tab.restResponse = undefined;
+      tab.restResponseViewState = undefined;
+    }
+
+    this.saveState();
+  }
+
   closeTabsByRequestId(requestId: string): void {
     const tabsToClose = this.tabs.filter((tab) => tab.request.id === requestId);
 
