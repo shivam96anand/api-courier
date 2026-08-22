@@ -170,6 +170,96 @@
         "name": "CSV",
         "description": "Comma-separated values",
         "role": "Editor"
+      },
+      {
+        "ext": "json5",
+        "name": "JSON5",
+        "description": "JSON5 document",
+        "role": "Editor"
+      },
+      {
+        "ext": "jsonc",
+        "name": "JSON with Comments",
+        "description": "JSON with comments",
+        "role": "Editor"
+      },
+      {
+        "ext": "jsonl",
+        "name": "JSON Lines",
+        "description": "JSON Lines document",
+        "role": "Editor"
+      },
+      {
+        "ext": "ndjson",
+        "name": "Newline-delimited JSON",
+        "description": "Newline-delimited JSON document",
+        "role": "Editor"
+      },
+      {
+        "ext": "har",
+        "name": "HTTP Archive",
+        "description": "HTTP Archive log",
+        "role": "Editor"
+      },
+      {
+        "ext": "toml",
+        "name": "TOML",
+        "description": "TOML configuration",
+        "role": "Editor"
+      },
+      {
+        "ext": "ini",
+        "name": "INI",
+        "description": "INI configuration",
+        "role": "Editor"
+      },
+      {
+        "ext": "conf",
+        "name": "Config File",
+        "description": "Configuration file",
+        "role": "Editor"
+      },
+      {
+        "ext": "properties",
+        "name": "Properties",
+        "description": "Java properties file",
+        "role": "Editor"
+      },
+      {
+        "ext": "env",
+        "name": "Env File",
+        "description": "Environment variables file",
+        "role": "Editor"
+      },
+      {
+        "ext": "sql",
+        "name": "SQL",
+        "description": "SQL script",
+        "role": "Editor"
+      },
+      {
+        "ext": "graphql",
+        "name": "GraphQL",
+        "description": "GraphQL document",
+        "role": "Editor"
+      },
+      {
+        "ext": "proto",
+        "name": "Protocol Buffers",
+        "description": "Protocol Buffers schema",
+        "role": "Editor"
+      },
+      {
+        "ext": "http",
+        "name": "HTTP Request",
+        "description": "HTTP request file",
+        "role": "Editor"
+      },
+      {
+        "ext": "rest",
+        "name": "REST Request",
+        "description": "REST request file",
+        "role": "Editor"
       }
     ],
     "mac": {

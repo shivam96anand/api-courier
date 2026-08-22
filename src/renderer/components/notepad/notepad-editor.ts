@@ -2,7 +2,14 @@
  * Notepad Monaco editor: theme + factory + editor-action helpers.
  */
 import * as monaco from 'monaco-editor';
+// Tokenizers for languages whose webpack-plugin label would also pull a
+// language-service worker we don't need (TypeScript alone bundles the whole
+// compiler). Monarch highlighting only — no validation/IntelliSense.
+import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution';
+import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
+import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
 import { forceInitialViewportTokenization } from '../request/monaco-tokenization';
+import { xmlTokenRules } from '../../utils/monaco-xml-tokens';
 
 export interface NotepadEditorOptions {
   fontSize: number;
@@ -49,6 +56,9 @@ export function updateMonacoTheme(): void {
       { token: 'delimiter.array.json', foreground: valueColor },
       { token: 'delimiter.colon.json', foreground: valueColor },
       { token: 'delimiter.comma.json', foreground: valueColor },
+      // XML/HTML — same palette as the request/response editor so a SOAP body
+      // looks identical in both places. Other languages keep Monaco's defaults.
+      ...xmlTokenRules(themeColor, valueColor),
     ],
     colors: {
       'editor.background': `#${editorBackground}`,

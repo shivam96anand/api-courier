@@ -26,7 +26,8 @@ import {
 import { DirtyModal } from './notepad/notepad-modal';
 import { SettingsMenu } from './notepad/notepad-settings';
 import { showNotepadToast } from './notepad/notepad-toast';
-import { formatJson } from './notepad/notepad-json';
+import { canFormatLanguage, formatText } from './notepad/notepad-format';
+import { extensionForLanguage } from './notepad/notepad-language';
 
 // Re-export for callers that imported this helper from the old module.
 export { detectLanguageFromPath } from './notepad/notepad-language';
@@ -85,7 +86,7 @@ export class NotepadManager {
       onSave: () => void saveActiveTab(this.getFileOpsContext()),
       onTogglePreview: () => this.togglePreview(),
       onToggleSplit: () => this.toggleSplit(),
-      onFormatJson: () => this.formatActiveTabJson(),
+      onFormat: () => this.formatActiveTab(),
       onSettingsClick: (anchor) =>
         this.settingsMenu.toggle(anchor, this.store.getSettings()),
       onLanguageChange: (lang) => this.setActiveTabLanguage(lang),
@@ -175,7 +176,10 @@ export class NotepadManager {
   private updateGlobalChrome(): void {
     const active = this.store.getActiveTab();
     const isJson = active?.language === 'json';
-    this.elements.formatJsonBtn.classList.toggle('hidden', !isJson);
+    this.elements.formatBtn.classList.toggle(
+      'hidden',
+      !canFormatLanguage(active?.language)
+    );
     this.elements.previewToggleBtn.disabled = isJson;
     this.elements.previewToggleBtn.classList.toggle(
       'active',
@@ -244,19 +248,28 @@ export class NotepadManager {
   }
 
   /**
-   * Open a new Notepad tab containing pretty-printed JSON. Entry point for the
-   * response viewer's "Open in Notepad" action. Invalid JSON opens as-is with a
-   * non-blocking notice so the payload is never lost.
+   * Open a new Notepad tab with pretty-printed content. Entry point for the
+   * response viewer's "Open in Notepad" action. Content that fails to parse
+   * opens as-is with a non-blocking notice so the payload is never lost.
    */
-  async openJson(text: string, title = 'response.json'): Promise<void> {
+  async openInNotepad(
+    text: string,
+    options: { title?: string; language?: string } = {}
+  ): Promise<void> {
     await this.ensureInitialized();
-    const formatted = formatJson(text);
-    this.store.createTab({ title, content: formatted.text, language: 'json' });
+    const language = options.language ?? 'json';
+    const title = options.title ?? `response.${extensionForLanguage(language)}`;
+    const formatted = formatText(
+      text,
+      language,
+      this.store.getSettings().tabSize
+    );
+    this.store.createTab({ title, content: formatted.text, language });
     this.focusedPane().focus();
     if (!formatted.ok) {
       showNotepadToast(
         this.elements.root,
-        'Opened as-is — the content is not valid JSON.',
+        `Opened as-is — the content is not valid ${language.toUpperCase()}.`,
         'info'
       );
     }
@@ -319,14 +332,16 @@ export class NotepadManager {
     this.panes.forEach((p) => p.applySettings(s));
   }
 
-  private formatActiveTabJson(): void {
-    if (!this.focusedPane().formatJson()) {
-      showNotepadToast(
-        this.elements.root,
-        'Invalid JSON — nothing changed.',
-        'error'
-      );
-    }
+  private formatActiveTab(): void {
+    const result = this.focusedPane().formatDocument();
+    if (result.ok) return;
+    const language = this.store.getActiveTab()?.language;
+    const label = language ? language.toUpperCase() : 'content';
+    showNotepadToast(
+      this.elements.root,
+      `Invalid ${label} — nothing changed.`,
+      'error'
+    );
   }
 
   private switchTab(direction: 1 | -1): void {

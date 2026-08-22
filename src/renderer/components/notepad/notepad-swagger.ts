@@ -18,12 +18,15 @@ let latestRenderId = 0;
 
 /**
  * Parse YAML or JSON content to a Swagger spec object.
+ *
+ * Real-world specs are messy: JSON with a BOM, YAML with duplicate keys, or a
+ * file with leading `---`/multiple documents. js-yaml parses JSON too, so YAML
+ * is the fallback for anything `JSON.parse` rejects.
  */
 function parseSwaggerContent(content: string): SwaggerSpec | null {
-  const trimmed = content.trim();
+  const trimmed = content.replace(/^\uFEFF/, '').trim();
   if (!trimmed) return null;
 
-  // Try JSON first
   if (trimmed.startsWith('{')) {
     try {
       return JSON.parse(trimmed) as SwaggerSpec;
@@ -32,12 +35,15 @@ function parseSwaggerContent(content: string): SwaggerSpec | null {
     }
   }
 
-  // Parse as YAML
   try {
-    const doc = jsyaml.load(trimmed);
-    if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
-      return doc as SwaggerSpec;
-    }
+    // `json: true` downgrades duplicate keys from an error to an override, and
+    // loadAll copes with multi-document files (`---` separated).
+    const docs: unknown[] = [];
+    jsyaml.loadAll(trimmed, (doc) => docs.push(doc), { json: true });
+    const spec = docs.find(
+      (doc) => doc && typeof doc === 'object' && !Array.isArray(doc)
+    );
+    if (spec) return spec as SwaggerSpec;
   } catch (err) {
     // Surface YAML parse errors so users can diagnose failures with large specs.
     console.warn(
@@ -79,13 +85,19 @@ export async function renderSwagger(
   container.innerHTML = '';
 
   const spec = parseSwaggerContent(source);
-  if (!spec || (!spec.openapi && !spec.swagger)) {
-    const hint = source.trim()
-      ? ' (YAML/JSON parse failed — check DevTools console for details)'
-      : '';
+  if (!spec) {
     renderSwaggerError(
       container,
-      `Not a valid Swagger/OpenAPI specification${hint}`
+      source.trim()
+        ? 'Could not parse this file as YAML or JSON — check the syntax (DevTools console has the parser message).'
+        : 'Nothing to preview yet.'
+    );
+    return;
+  }
+  if (!spec.openapi && !spec.swagger) {
+    renderSwaggerError(
+      container,
+      'Parsed successfully, but no top-level "openapi" or "swagger" version field was found.'
     );
     return;
   }

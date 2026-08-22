@@ -18,6 +18,7 @@ import {
   DEFAULT_MAX_RESPONSE_BYTES,
 } from '../../shared/constants';
 import { resolveStatusText } from '../../shared/http-status';
+import { getOAuthTokenState } from '../../shared/oauth-token-state';
 
 /**
  * Decide the default scheme for a protocol-less URL.
@@ -729,9 +730,8 @@ class RequestManager {
       return request;
     }
 
-    const tokenInfo = oauthManager.getTokenInfo(request.auth.config as any);
-
-    if (tokenInfo.isValid) {
+    // Only spend a round-trip when the token we hold cannot carry the request.
+    if (getOAuthTokenState(request.auth.config) === 'reusable') {
       return request;
     }
 

@@ -110,7 +110,7 @@ export class EnvironmentDialogStyles {
     overflow: hidden;
   `;
 
-  // Row holding the tab pills (left) and the Cancel/Save actions (right).
+  // Row holding the tab pills (left) and the Delete/Close actions (right).
   static readonly tabsRow = `
     flex: 0 0 auto;
     display: flex;
@@ -586,18 +586,12 @@ export class EnvironmentDialogStyles {
     line-height: 1.45;
   `;
 
-  /* ---------- Dialog actions (Cancel / Save) ---------- */
+  /* ---------- Dialog actions (autosave hint / Close) ---------- */
 
-  static readonly cancelButton = `
-    padding: 8px 18px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 9px;
-    color: rgba(255, 255, 255, 0.92);
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.18s ease;
+  static readonly autoSaveHint = `
+    color: var(--text-secondary);
+    font-size: 12px;
+    opacity: 0.75;
   `;
 
   static readonly saveButton = `

@@ -8,9 +8,8 @@
 
 import { Environment } from '../../../shared/types';
 import { iconHtml } from '../../utils/icons';
+import { DRAFT_PREFIX } from './environment-drafts';
 import { EnvironmentDialogStyles } from './EnvironmentDialogStyles';
-
-const DRAFT_PREFIX = '__restbro_draft__';
 
 /**
  * Renames a key while keeping its position. Objects iterate in insertion
@@ -50,13 +49,18 @@ interface VariableTableOptions {
   /** Per-variable secret flag (true = masked). Mutated in place. */
   secrets: Record<string, boolean>;
   emptyText?: string;
+  /** Fired after every edit that changes persisted data. */
+  onChange?: () => void;
 }
 
 export class EnvironmentVariablesManager {
   /**
    * Renders the variables section for an environment.
    */
-  static renderVariablesSection(selectedEnv: Environment): HTMLDivElement {
+  static renderVariablesSection(
+    selectedEnv: Environment,
+    onChange?: () => void
+  ): HTMLDivElement {
     selectedEnv.variableDescriptions ??= {};
     selectedEnv.variableSecrets ??= {};
     return this.renderVariableTable({
@@ -64,6 +68,7 @@ export class EnvironmentVariablesManager {
       variables: selectedEnv.variables,
       descriptions: selectedEnv.variableDescriptions,
       secrets: selectedEnv.variableSecrets,
+      onChange,
     });
   }
 
@@ -72,7 +77,7 @@ export class EnvironmentVariablesManager {
    * Mutates the provided `variables` / `descriptions` records in place.
    */
   static renderVariableTable(options: VariableTableOptions): HTMLDivElement {
-    const { title, variables, descriptions, secrets } = options;
+    const { title, variables, descriptions, secrets, onChange } = options;
     const emptyText =
       options.emptyText ??
       'No variables yet. Click "Add Variable" to create one.';
@@ -124,7 +129,8 @@ export class EnvironmentVariablesManager {
           variables,
           descriptions,
           secrets,
-          render
+          render,
+          onChange
         );
         rowsBody.appendChild(row);
       });
@@ -181,7 +187,8 @@ export class EnvironmentVariablesManager {
     variables: Record<string, string>,
     descriptions: Record<string, string>,
     secrets: Record<string, boolean>,
-    render: () => void
+    render: () => void,
+    onChange?: () => void
   ): HTMLDivElement {
     const row = document.createElement('div');
     row.style.cssText = EnvironmentDialogStyles.varRow;
@@ -224,6 +231,7 @@ export class EnvironmentVariablesManager {
         delete secrets[currentKey];
       }
       render();
+      onChange?.();
     });
 
     const deleteBtn = document.createElement('button');
@@ -241,6 +249,7 @@ export class EnvironmentVariablesManager {
       delete descriptions[currentKey];
       delete secrets[currentKey];
       render();
+      onChange?.();
     });
 
     // Rename on blur, in place. Re-rendering here would destroy the input the
@@ -255,6 +264,7 @@ export class EnvironmentVariablesManager {
         delete descriptions[currentKey];
         delete secrets[currentKey];
         render();
+        onChange?.();
         return;
       }
 
@@ -271,13 +281,16 @@ export class EnvironmentVariablesManager {
       renameKeyPreservingOrder(secrets, currentKey, nextKey);
       currentKey = nextKey;
       isDraftRow = false;
+      onChange?.();
     });
 
     valueInput.addEventListener('input', () => {
       variables[currentKey] = valueInput.value;
+      onChange?.();
     });
     descriptionInput.addEventListener('input', () => {
       descriptions[currentKey] = descriptionInput.value;
+      onChange?.();
     });
 
     row.appendChild(keyInput);

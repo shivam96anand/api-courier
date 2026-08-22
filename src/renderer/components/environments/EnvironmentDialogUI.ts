@@ -104,7 +104,8 @@ export class EnvironmentDialogUI {
     isActive: boolean,
     onNameChange: (newName: string) => void,
     onSetActive: () => void,
-    onDuplicate?: () => void
+    onDuplicate?: () => void,
+    onChange?: () => void
   ): HTMLDivElement {
     const envDetails = document.createElement('div');
     envDetails.style.cssText = EnvironmentDialogStyles.envDetails;
@@ -166,8 +167,10 @@ export class EnvironmentDialogUI {
     nameField.appendChild(nameRow);
 
     // Variables section (fills the remaining height)
-    const varsSection =
-      EnvironmentVariablesManager.renderVariablesSection(selectedEnv);
+    const varsSection = EnvironmentVariablesManager.renderVariablesSection(
+      selectedEnv,
+      onChange
+    );
 
     envDetails.appendChild(nameField);
     envDetails.appendChild(varsSection);
@@ -194,7 +197,8 @@ export class EnvironmentDialogUI {
     onSelectEnv: (envId: string) => void,
     onSetActive: (envId: string) => void,
     onNameChange: (newName: string) => void,
-    onDuplicate?: (envId: string) => void
+    onDuplicate?: (envId: string) => void,
+    onChange?: () => void
   ): HTMLDivElement {
     const layout = document.createElement('div');
     layout.style.cssText = EnvironmentDialogStyles.layout;
@@ -211,7 +215,8 @@ export class EnvironmentDialogUI {
         state.workingActiveId === selectedEnv.id,
         onNameChange,
         () => onSetActive(selectedEnv.id),
-        onDuplicate ? () => onDuplicate(selectedEnv.id) : undefined
+        onDuplicate ? () => onDuplicate(selectedEnv.id) : undefined,
+        onChange
       );
       layout.appendChild(envDetails);
     }
@@ -256,14 +261,13 @@ export class EnvironmentDialogUI {
   }
 
   /**
-   * Creates the tabs row: tab pills on the left, Cancel/Save actions on the
-   * right. This replaces the old bottom footer so no vertical space is wasted.
+   * Creates the tabs row: tab pills on the left, Delete/Close actions on the
+   * right. Edits are saved automatically, so there is no Save button.
    */
   static createTabsRow(
     activeTab: DialogTab,
     onTabChange: (tab: DialogTab) => void,
-    onCancel: () => void,
-    onSave: () => void,
+    onClose: () => void,
     onDeleteEnv?: () => void
   ): HTMLDivElement {
     const row = document.createElement('div');
@@ -273,6 +277,11 @@ export class EnvironmentDialogUI {
 
     const actions = document.createElement('div');
     actions.style.cssText = EnvironmentDialogStyles.headerActions;
+
+    const autoSaveHint = document.createElement('span');
+    autoSaveHint.textContent = 'Changes are saved automatically';
+    autoSaveHint.style.cssText = EnvironmentDialogStyles.autoSaveHint;
+    actions.appendChild(autoSaveHint);
 
     if (onDeleteEnv) {
       const deleteBtn = document.createElement('button');
@@ -288,18 +297,12 @@ export class EnvironmentDialogUI {
       actions.appendChild(deleteBtn);
     }
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.cssText = EnvironmentDialogStyles.cancelButton;
-    cancelBtn.addEventListener('click', onCancel);
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = EnvironmentDialogStyles.saveButton;
+    closeBtn.addEventListener('click', onClose);
 
-    const saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    saveBtn.style.cssText = EnvironmentDialogStyles.saveButton;
-    saveBtn.addEventListener('click', onSave);
-
-    actions.appendChild(cancelBtn);
-    actions.appendChild(saveBtn);
+    actions.appendChild(closeBtn);
     row.appendChild(actions);
 
     return row;
@@ -338,7 +341,10 @@ export class EnvironmentDialogUI {
   /**
    * Creates the globals panel for editing global variables
    */
-  static createGlobalsPanel(globals: Globals): HTMLDivElement {
+  static createGlobalsPanel(
+    globals: Globals,
+    onChange?: () => void
+  ): HTMLDivElement {
     const panel = document.createElement('div');
     panel.style.cssText = EnvironmentDialogStyles.globalsPanel;
 
@@ -351,10 +357,13 @@ export class EnvironmentDialogUI {
 
     // Shared variables table (sticky header, pinned add button)
     globals.variableDescriptions ??= {};
+    globals.variableSecrets ??= {};
     const table = EnvironmentVariablesManager.renderVariableTable({
       title: 'Global Variables',
       variables: globals.variables,
       descriptions: globals.variableDescriptions,
+      secrets: globals.variableSecrets,
+      onChange,
     });
     panel.appendChild(table);
 

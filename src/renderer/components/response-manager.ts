@@ -81,7 +81,7 @@ export class ResponseManager {
     this.actions.onScrollBottom(() => this.scrollToBottom());
     this.actions.onClear(() => this.handleClearRequested());
     this.actions.onAskAi(() => this.handleAskAI());
-    this.actions.onOpenInNotepad(() => this.openJsonInNotepad());
+    this.actions.onOpenInNotepad(() => this.openResponseInNotepad());
 
     this.listenToResponses();
     this.listenToTabChanges();
@@ -290,7 +290,8 @@ export class ResponseManager {
       );
       this.tabs.updateActionButtons(
         !!this.state.currentResponse,
-        this.viewer.isJsonBody()
+        this.viewer.isJsonBody(),
+        this.viewer.isXmlBody()
       );
     });
   }
@@ -352,7 +353,11 @@ export class ResponseManager {
     await this.viewer.displayResponse(response, requestMode);
     this.tabs.updateTabs(response);
     this.tabs.setPrevResponsesContext(this.activeTabRequestId, response);
-    this.tabs.updateActionButtons(true, this.viewer.isJsonBody());
+    this.tabs.updateActionButtons(
+      true,
+      this.viewer.isJsonBody(),
+      this.viewer.isXmlBody()
+    );
     this.actions.updateVisibility(
       response,
       this.state.activeTab,
@@ -575,19 +580,31 @@ export class ResponseManager {
   }
 
   /**
-   * Open the current JSON response as a pretty-printed tab in the Notepad.
-   * Replaces the old "send to JSON Viewer" affordance now that the standalone
-   * viewer is gone. Reuses the already-parsed JSON to avoid re-parsing.
+   * Open the current response as a pretty-printed Notepad tab. Replaces the old
+   * "send to JSON Viewer" affordance now that the standalone viewer is gone.
    */
-  private openJsonInNotepad(): void {
+  private openResponseInNotepad(): void {
+    const xml = this.viewer.getPrettyXml();
+    if (xml) {
+      document.dispatchEvent(
+        new CustomEvent('open-in-notepad', {
+          detail: { text: xml, title: 'response.xml', language: 'xml' },
+        })
+      );
+      return;
+    }
     const parsed = this.viewer.getParsedJson();
     if (parsed === null || parsed === undefined) {
-      this.showToast('No JSON response to open');
+      this.showToast('No response body to open');
       return;
     }
     document.dispatchEvent(
-      new CustomEvent('open-json-in-notepad', {
-        detail: { text: JSON.stringify(parsed), title: 'response.json' },
+      new CustomEvent('open-in-notepad', {
+        detail: {
+          text: JSON.stringify(parsed),
+          title: 'response.json',
+          language: 'json',
+        },
       })
     );
   }

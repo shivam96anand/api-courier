@@ -178,7 +178,7 @@ Restbro combines the best features of tools like Postman and Insomnia with power
 
 ### 🎨 Themes & UI
 
-- **Color Themes**: Blue, Green, Purple, Orange, Red, Magenta
+- **Color Themes**: Teal, Sky, Emerald, Amber, Coral, Magenta
 - **Persistent Preferences**: Theme selection saved across sessions
 - **Resizable Panels**: Drag-to-resize layout
 - **Responsive Design**: Adaptive to different screen sizes

@@ -38,6 +38,7 @@ import {
   sanitizeHistoryForPersistence,
   sanitizeTabsForPersistence,
 } from './utils/response-persistence';
+import { warmUpMonacoLanguages } from './components/request/monaco-tokenization';
 
 declare global {
   interface Window {
@@ -170,7 +171,7 @@ class RestbroRenderer {
 
     // Wire up lazy init for heavy tabs (Monaco / React / MUI)
     this.setupLazyTabInit();
-    this.setupOpenJsonInNotepad();
+    this.setupOpenInNotepad();
 
     // Set up import button
     this.setupImportButton();
@@ -286,20 +287,22 @@ class RestbroRenderer {
   }
 
   /**
-   * Bridge for opening JSON in the Notepad tab (replaces the standalone JSON
-   * Viewer). Any component can dispatch `open-json-in-notepad` with the raw
-   * JSON text; we switch to Notepad and open a pretty-printed json tab.
+   * Bridge for opening a response body in the Notepad tab (replaces the
+   * standalone JSON Viewer). Any component can dispatch `open-in-notepad` with
+   * the raw text; we switch to Notepad and open a pretty-printed tab.
    */
-  private setupOpenJsonInNotepad(): void {
-    document.addEventListener('open-json-in-notepad', ((
-      e: CustomEvent<{ text: string; title?: string }>
+  private setupOpenInNotepad(): void {
+    document.addEventListener('open-in-notepad', ((
+      e: CustomEvent<{ text: string; title?: string; language?: string }>
     ) => {
       const text = e.detail?.text ?? '';
-      const title = e.detail?.title;
       document.dispatchEvent(
         new CustomEvent('switch-to-tab', { detail: { tab: 'notepad' } })
       );
-      void this.notepadManager.openJson(text, title);
+      void this.notepadManager.openInNotepad(text, {
+        title: e.detail?.title,
+        language: e.detail?.language,
+      });
     }) as EventListener);
   }
 
@@ -391,6 +394,10 @@ class RestbroRenderer {
 document.addEventListener('DOMContentLoaded', async () => {
   const app = new RestbroRenderer();
   await app.initialize();
+
+  // Fetch Monaco's lazily-chunked JSON/XML grammars now, so the first request
+  // body or response is already syntax-coloured on its first paint.
+  void warmUpMonacoLanguages();
 
   // Remove loading overlay with a smooth fade
   const overlay = document.getElementById('app-loading-overlay');

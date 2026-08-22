@@ -19,7 +19,7 @@ const envs = (): Environment[] => [
   { id: 'env-b', name: 'Beta', variables: {} },
 ];
 
-describe('EnvironmentManager deletion', () => {
+describe('EnvironmentManager — Manage Environments dialog', () => {
   let manager: EnvironmentManager;
   let storeSet: ReturnType<typeof vi.fn>;
 
@@ -74,6 +74,33 @@ describe('EnvironmentManager deletion', () => {
     expect(manager.getActiveEnvironmentId()).toBeUndefined();
     expect(storeSet).toHaveBeenCalledWith(
       expect.objectContaining({ activeEnvironmentId: undefined })
+    );
+  });
+
+  it('persists edits autosaved while the dialog is still open', async () => {
+    showManageDialog.mockImplementation(async (_e, _a, _d, onAutoSave) => {
+      await onAutoSave({
+        environments: [
+          { id: 'env-a', name: 'Alpha', variables: { host: 'a.example.com' } },
+          envs()[1],
+        ],
+        activeEnvironmentId: 'env-b',
+        globals: { variables: { token: 'abc' } },
+      });
+      return null; // nothing left to save when the dialog closes
+    });
+
+    clickManage();
+    await vi.waitFor(() => expect(storeSet).toHaveBeenCalled());
+
+    expect(manager.getEnvironments()[0].variables).toEqual({
+      host: 'a.example.com',
+    });
+    expect(storeSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeEnvironmentId: 'env-b',
+        globals: { variables: { token: 'abc' } },
+      })
     );
   });
 });

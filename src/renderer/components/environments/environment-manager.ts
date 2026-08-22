@@ -1,5 +1,6 @@
 import { Environment } from '../../../shared/types';
 import { EnvironmentDialogs } from './environment-dialogs';
+import { EnvironmentDialogResult } from './environment-drafts';
 
 import { iconHtml } from '../../utils/icons';
 import { attachThemedSelect } from '../../utils/themed-select';
@@ -112,17 +113,16 @@ export class EnvironmentManager {
 
     manageBtn.addEventListener('click', () => {
       this.dialogs
-        .showManageDialog(this.environments, this.activeEnvironmentId, (ids) =>
-          this.removeEnvironments(ids)
+        .showManageDialog(
+          this.environments,
+          this.activeEnvironmentId,
+          (ids) => this.removeEnvironments(ids),
+          (result) => this.applyDialogResult(result)
         )
         .then(async (result) => {
+          // Non-null only when the last edits had not been autosaved yet.
           if (result) {
-            this.setEnvironments(result.environments);
-            this.setActiveEnvironment(result.activeEnvironmentId);
-            await this.saveState(result.globals);
-            // Notify other components that environments/variables changed
-            // This refreshes variable context for autocomplete and highlighting
-            document.dispatchEvent(new CustomEvent('environment-changed'));
+            await this.applyDialogResult(result);
           }
         });
     });
@@ -265,6 +265,18 @@ export class EnvironmentManager {
 
     this.renderSwitcher();
     await this.saveState();
+    document.dispatchEvent(new CustomEvent('environment-changed'));
+  }
+
+  /** Persists a snapshot coming from the Manage Environments dialog. */
+  private async applyDialogResult(
+    result: EnvironmentDialogResult
+  ): Promise<void> {
+    this.setEnvironments(result.environments);
+    this.setActiveEnvironment(result.activeEnvironmentId);
+    await this.saveState(result.globals);
+    // Notify other components that environments/variables changed
+    // This refreshes variable context for autocomplete and highlighting
     document.dispatchEvent(new CustomEvent('environment-changed'));
   }
 

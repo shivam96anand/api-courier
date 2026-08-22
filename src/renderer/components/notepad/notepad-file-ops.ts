@@ -15,7 +15,12 @@ import {
   formatDocument,
   trimTrailingWhitespace,
 } from './notepad-editor';
-import { defaultFileName, detectLanguageFromPath } from './notepad-language';
+import {
+  defaultFileName,
+  detectLanguageFromContent,
+  detectLanguageFromPath,
+  looksLikeOpenApi,
+} from './notepad-language';
 import { formatJson } from './notepad-json';
 import { showNotepadToast } from './notepad-toast';
 import { getFileName } from './notepad-utils';
@@ -48,6 +53,37 @@ function contentForOpen(content: string, language: string | undefined): string {
   return result.ok ? result.text : content;
 }
 
+/** Create a tab for a freshly read file, picking the best language for it. */
+function openInNewTab(
+  ctx: FileOperationsContext,
+  filePath: string,
+  content: string
+): void {
+  // Unknown/absent extension (README, api-response.foo, …): sniff the body so
+  // JSON/XML/YAML still get highlighted.
+  let language =
+    detectLanguageFromPath(filePath) ?? detectLanguageFromContent(content);
+  // `.yaml`/`.json` are just the containers for an OpenAPI spec — upgrade so
+  // the Swagger preview kicks in instead of raw YAML/JSON.
+  if (
+    (language === 'yaml' || language === 'json') &&
+    looksLikeOpenApi(content)
+  ) {
+    language = 'swagger';
+  }
+  ctx.store.createTab({
+    title: getFileName(filePath),
+    content: contentForOpen(content, language),
+    filePath,
+    language,
+  });
+
+  if (language === 'markdown' || language === 'swagger') {
+    const newTab = ctx.store.getActiveTab();
+    if (newTab) ctx.store.updateTab(newTab.id, { previewMode: true });
+  }
+}
+
 export async function openFile(ctx: FileOperationsContext): Promise<void> {
   const result = await window.restbro.notepad.openFile();
   if (!result || result.canceled) return;
@@ -65,21 +101,7 @@ export async function openFile(ctx: FileOperationsContext): Promise<void> {
     return;
   }
 
-  const language = detectLanguageFromPath(result.filePath);
-  ctx.store.createTab({
-    title: getFileName(result.filePath),
-    content: contentForOpen(result.content, language),
-    filePath: result.filePath,
-    language,
-  });
-
-  // Auto-enable preview for markdown and swagger files
-  if (language === 'markdown' || language === 'swagger') {
-    const newTab = ctx.store.getActiveTab();
-    if (newTab) {
-      ctx.store.updateTab(newTab.id, { previewMode: true });
-    }
-  }
+  openInNewTab(ctx, result.filePath, result.content);
 }
 
 /**
@@ -102,21 +124,7 @@ export async function openFileByPath(
     return;
   }
   if (!result?.filePath || result.content === undefined) return;
-  const language = detectLanguageFromPath(result.filePath);
-  ctx.store.createTab({
-    title: getFileName(result.filePath),
-    content: contentForOpen(result.content, language),
-    filePath: result.filePath,
-    language,
-  });
-
-  // Auto-enable preview for markdown and swagger files
-  if (language === 'markdown' || language === 'swagger') {
-    const newTab = ctx.store.getActiveTab();
-    if (newTab) {
-      ctx.store.updateTab(newTab.id, { previewMode: true });
-    }
-  }
+  openInNewTab(ctx, result.filePath, result.content);
 }
 
 export async function saveActiveTab(

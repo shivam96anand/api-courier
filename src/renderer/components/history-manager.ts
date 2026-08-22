@@ -1,5 +1,5 @@
 import { HistoryItem, ApiRequest, ApiResponse } from '../../shared/types';
-import { sanitizeResponseForPersistence } from '../utils/response-persistence';
+import { capHistoryBodies } from '../../shared/history-persistence';
 
 export class HistoryManager {
   private history: HistoryItem[] = [];
@@ -73,12 +73,10 @@ export class HistoryManager {
   }
 
   addToHistory(request: ApiRequest, response: ApiResponse): void {
-    const compactResponse = sanitizeResponseForPersistence(response)!;
-
     const historyItem: HistoryItem = {
       id: this.generateId(),
       request: { ...request }, // Clone to avoid reference issues
-      response: compactResponse,
+      response: { ...response },
       timestamp: new Date(),
     };
 
@@ -92,6 +90,12 @@ export class HistoryManager {
     if (this.history.length > 100) {
       this.history = this.history.slice(0, 100);
     }
+
+    // Bound how much response body the history holds in memory. Only the
+    // cumulative budget applies here — no per-item cap — so the response that
+    // just arrived can always be reopened from the previous-responses dropdown,
+    // however big it is.
+    this.history = capHistoryBodies(this.history, Infinity);
 
     // Trigger state save
     this.saveHistory();

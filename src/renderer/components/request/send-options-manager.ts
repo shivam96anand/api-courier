@@ -329,7 +329,7 @@ export class SendOptionsManager {
     // Switch to the load-testing tab. Uses the existing nav mechanism.
     document.dispatchEvent(
       new CustomEvent('switch-to-tab', {
-        detail: { tabName: 'load-testing' },
+        detail: { tab: 'load-testing' },
       })
     );
   }

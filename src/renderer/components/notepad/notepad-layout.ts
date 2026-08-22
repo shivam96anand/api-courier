@@ -28,7 +28,7 @@ export interface NotepadElements {
   dirtyModalBody: HTMLElement;
   settingsHost: HTMLElement;
   previewToggleBtn: HTMLButtonElement;
-  formatJsonBtn: HTMLButtonElement;
+  formatBtn: HTMLButtonElement;
   settingsBtn: HTMLButtonElement;
   splitBtn: HTMLButtonElement;
   languagePicker: HTMLSelectElement;
@@ -41,7 +41,7 @@ export interface NotepadLayoutCallbacks {
   onSave: () => void;
   onTogglePreview: () => void;
   onToggleSplit: () => void;
-  onFormatJson: () => void;
+  onFormat: () => void;
   onSettingsClick: (anchor: HTMLElement) => void;
   onLanguageChange: (language: string) => void;
   onFind: () => void;
@@ -62,7 +62,7 @@ export function buildNotepadLayout(
         <div class="notepad-tools">
           <button class="np-btn ghost" id="np-find" title="Find (Ctrl/Cmd+F)">Find</button>
           <button class="np-btn ghost" id="np-replace" title="Replace (Ctrl/Cmd+H)">Replace</button>
-          <button class="np-btn ghost hidden" id="np-format-json" title="Format JSON">Format</button>
+          <button class="np-btn primary hidden" id="np-format" title="Format Document">Format</button>
           <select class="status-language-picker" id="np-status-language-picker"
             title="Change syntax language">
             ${languageOptions}
@@ -155,7 +155,7 @@ export function buildNotepadLayout(
     dirtyModalBody: q('#notepad-dirty-modal-body'),
     settingsHost: q('.notepad-settings-host'),
     previewToggleBtn: q<HTMLButtonElement>('#np-toggle-preview'),
-    formatJsonBtn: q<HTMLButtonElement>('#np-format-json'),
+    formatBtn: q<HTMLButtonElement>('#np-format'),
     settingsBtn: q<HTMLButtonElement>('#np-settings'),
     splitBtn: q<HTMLButtonElement>('#np-split'),
     languagePicker: q<HTMLSelectElement>('#np-status-language-picker'),
@@ -172,7 +172,7 @@ export function buildNotepadLayout(
     callbacks.onTogglePreview
   );
   elements.splitBtn.addEventListener('click', callbacks.onToggleSplit);
-  elements.formatJsonBtn.addEventListener('click', callbacks.onFormatJson);
+  elements.formatBtn.addEventListener('click', callbacks.onFormat);
   elements.settingsBtn.addEventListener('click', () =>
     callbacks.onSettingsClick(elements.settingsBtn)
   );

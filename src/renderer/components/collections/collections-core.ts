@@ -26,6 +26,9 @@ export class CollectionsCore {
   private operations: CollectionsOperations;
   private statePersistence: CollectionsStatePersistence;
 
+  /** Whether the user's last click/focus landed inside the collections panel. */
+  private collectionsPanelActive = false;
+
   constructor() {
     this.statePersistence = new CollectionsStatePersistence();
 
@@ -63,9 +66,43 @@ export class CollectionsCore {
     this.uiHandler.setupCollectionEvents(this.treeState);
     this.search.setupSearchFunctionality(() => this.treeState.expandedFolders);
     this.setupExportButton();
+    this.setupPanelActivityTracking();
     this.setupKeyboardShortcuts();
     this.setupInlineRenameListener();
     this.renderCollections();
+  }
+
+  /**
+   * Remembers whether the collections panel is the region the user is working
+   * in, so Cmd/Ctrl+F can target the collections search instead of the
+   * response body search.
+   */
+  private setupPanelActivityTracking(): void {
+    const inPanel = (event: Event): boolean => {
+      const target = event.target;
+      return (
+        target instanceof Element && !!target.closest('.collections-panel')
+      );
+    };
+
+    // A click is the explicit signal for "this is the region I'm working in".
+    document.addEventListener(
+      'pointerdown',
+      (event) => {
+        this.collectionsPanelActive = inPanel(event);
+      },
+      true
+    );
+
+    // Focus can only switch tracking on: editors elsewhere grab focus
+    // programmatically after a request loads, which must not reset the region.
+    document.addEventListener(
+      'focusin',
+      (event) => {
+        if (inPanel(event)) this.collectionsPanelActive = true;
+      },
+      true
+    );
   }
 
   private updateTreeState(newState: Partial<CollectionTreeState>): void {
@@ -146,29 +183,7 @@ export class CollectionsCore {
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
-
-        // Check if we're on the API tab with a response visible
-        const apiTab = document.getElementById('api-tab');
-        const isApiTabActive = apiTab?.classList.contains('active');
-        const hasResponse =
-          document.querySelector(
-            '#response-body #response-monaco-json-container'
-          ) || document.querySelector('#response-body pre');
-
-        if (isApiTabActive && hasResponse) {
-          // Trigger Monaco search in the response viewer
-          const searchEvent = new CustomEvent('trigger-response-search');
-          document.dispatchEvent(searchEvent);
-        } else {
-          // Focus collections search
-          const searchInput = document.getElementById(
-            'collections-search'
-          ) as HTMLInputElement;
-          if (searchInput) {
-            searchInput.focus();
-            searchInput.select();
-          }
-        }
+        this.handleFindShortcut();
       }
 
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
@@ -182,6 +197,28 @@ export class CollectionsCore {
         );
       }
     });
+  }
+
+  /**
+   * Cmd/Ctrl+F belongs to the collections search whenever the collections
+   * panel is the region the user is working in; otherwise it opens the
+   * response body search (when a response is on screen).
+   */
+  private handleFindShortcut(): void {
+    const hasResponse = document.querySelector(
+      '#response-body #response-monaco-json-container, #response-body #response-monaco-xml-container, #response-body pre'
+    );
+
+    if (!this.collectionsPanelActive && hasResponse) {
+      document.dispatchEvent(new CustomEvent('trigger-response-search'));
+      return;
+    }
+
+    const searchInput = document.getElementById(
+      'collections-search'
+    ) as HTMLInputElement | null;
+    searchInput?.focus();
+    searchInput?.select();
   }
 
   /**

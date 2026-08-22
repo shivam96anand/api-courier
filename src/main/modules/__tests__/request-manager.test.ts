@@ -276,11 +276,7 @@ describe('request-manager.ts', () => {
   });
 
   describe('auth handling', () => {
-    it('triggers OAuth refresh when token is invalid and refreshToken is present', async () => {
-      vi.mocked(oauthManager.getTokenInfo).mockReturnValue({
-        isValid: false,
-        expiresIn: 0,
-      });
+    it('triggers OAuth refresh when token is expired and refreshToken is present', async () => {
       vi.mocked(oauthManager.refreshToken).mockResolvedValue({
         success: true,
         data: {
@@ -305,6 +301,7 @@ describe('request-manager.ts', () => {
           type: 'oauth2',
           config: {
             accessToken: 'expired-token',
+            expiresAt: new Date(Date.now() - 60_000).toISOString(),
             refreshToken: 'my-refresh-token',
             tokenUrl: 'https://auth.example.com/token',
             clientId: 'cid',
@@ -316,6 +313,57 @@ describe('request-manager.ts', () => {
       await requestManager.sendRequest(request);
 
       expect(oauthManager.refreshToken).toHaveBeenCalled();
+    });
+
+    it('reuses an unexpired token instead of refreshing', async () => {
+      const res = mockHttpResponse(200, '{}');
+      vi.mocked(https.request).mockImplementation((_opts: any, cb: any) => {
+        cb(res);
+        return mockReq as any;
+      });
+      vi.mocked(RequestBuilder.buildUrlWithParams).mockReturnValue(
+        'https://api.example.com/users'
+      );
+
+      const request = createRequest({
+        auth: {
+          type: 'oauth2',
+          config: {
+            accessToken: 'live-token',
+            expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+            refreshToken: 'my-refresh-token',
+          },
+        },
+      });
+
+      await requestManager.sendRequest(request);
+
+      expect(oauthManager.refreshToken).not.toHaveBeenCalled();
+    });
+
+    it('reuses a token that carries no expiry instead of refreshing', async () => {
+      const res = mockHttpResponse(200, '{}');
+      vi.mocked(https.request).mockImplementation((_opts: any, cb: any) => {
+        cb(res);
+        return mockReq as any;
+      });
+      vi.mocked(RequestBuilder.buildUrlWithParams).mockReturnValue(
+        'https://api.example.com/users'
+      );
+
+      const request = createRequest({
+        auth: {
+          type: 'oauth2',
+          config: {
+            accessToken: 'imported-token',
+            refreshToken: 'my-refresh-token',
+          },
+        },
+      });
+
+      await requestManager.sendRequest(request);
+
+      expect(oauthManager.refreshToken).not.toHaveBeenCalled();
     });
 
     it('does not refresh when auth type is not oauth2', async () => {

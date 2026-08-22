@@ -22,10 +22,15 @@ import {
   triggerReplace,
 } from './notepad-editor';
 import { renderTabs, CursorPosition } from './notepad-tabs-ui';
-import { detectLanguageFromContent } from './notepad-language';
+import {
+  detectLanguageFromContent,
+  monacoLanguageFor,
+} from './notepad-language';
 import { renderMarkdown } from './notepad-markdown';
+import { highlightCodeBlocks } from './notepad-md-highlight';
 import { isSwaggerContent, renderSwagger } from './notepad-swagger';
 import { formatJson } from './notepad-json';
+import { formatText } from './notepad-format';
 
 export interface PaneHost {
   store: NotepadStore;
@@ -124,9 +129,9 @@ export class PaneController {
   private syncLanguage(): void {
     const tab = this.getActiveTab();
     if (!tab || !this.editor) return;
-    const desired = tab.language ?? 'plaintext';
+    const desired = monacoLanguageFor(tab.language, this.editor.getValue());
     if (this.editor.getModel()?.getLanguageId() !== desired) {
-      this.setLanguage(desired);
+      setEditorLanguage(this.editor, desired);
     }
   }
 
@@ -172,7 +177,11 @@ export class PaneController {
   }
 
   setLanguage(language: string): void {
-    if (this.editor) setEditorLanguage(this.editor, language);
+    if (!this.editor) return;
+    setEditorLanguage(
+      this.editor,
+      monacoLanguageFor(language, this.editor.getValue())
+    );
   }
 
   find(): void {
@@ -187,20 +196,28 @@ export class PaneController {
     if (this.editor) triggerGoToLine(this.editor);
   }
 
-  /** Format the active JSON tab in place (preserves the undo stack). */
-  formatJson(): boolean {
-    if (!this.editor) return false;
+  /**
+   * Pretty-print the active tab in place (preserves the undo stack).
+   * Returns the formatter error when the content can't be formatted.
+   */
+  formatDocument(): { ok: boolean; error?: string } {
+    if (!this.editor) return { ok: false };
     const current = this.editor.getValue();
-    const result = formatJson(current);
-    if (!result.ok) return false;
-    if (result.text === current) return true;
+    const language = this.getActiveTab()?.language;
+    const result = formatText(
+      current,
+      language,
+      this.host.getSettings().tabSize
+    );
+    if (!result.ok) return { ok: false, error: result.error };
+    if (result.text === current) return { ok: true };
     const model = this.editor.getModel();
-    if (!model) return false;
-    this.editor.executeEdits('notepad-json', [
+    if (!model) return { ok: false };
+    this.editor.executeEdits('notepad-format', [
       { range: model.getFullModelRange(), text: result.text },
     ]);
     this.editor.pushUndoStop();
-    return true;
+    return { ok: true };
   }
 
   /** Re-render the preview pane immediately (used on preview toggle). */
@@ -271,7 +288,7 @@ export class PaneController {
     // Tokenize the initial viewport synchronously so switching to a large JSON
     // tab paints the visible lines immediately (no white-then-colored lag).
     forceInitialViewportTokenization(this.editor);
-    const desired = tab?.language ?? 'plaintext';
+    const desired = monacoLanguageFor(tab?.language, content);
     if (this.editor.getModel()?.getLanguageId() !== desired) {
       setEditorLanguage(this.editor, desired);
     }
@@ -385,6 +402,7 @@ export class PaneController {
     if (language === 'markdown') {
       headerEl.textContent = 'Markdown Preview';
       this.els.previewBody.innerHTML = renderMarkdown(source);
+      void highlightCodeBlocks(this.els.previewBody);
       return;
     }
     if (language === 'swagger') {

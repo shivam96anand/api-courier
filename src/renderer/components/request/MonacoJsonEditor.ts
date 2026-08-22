@@ -6,6 +6,7 @@
 import * as monaco from 'monaco-editor';
 import { forceInitialViewportTokenization } from './monaco-tokenization';
 import { parseJsonErrorOffset, validateJsonText } from './json-error-position';
+import { defineRestbroJsonTheme } from '../../utils/monaco-restbro-theme';
 
 export interface MonacoJsonEditorOptions {
   container: HTMLElement;
@@ -42,102 +43,8 @@ export class MonacoJsonEditor {
     this.initialize(options.value);
   }
 
-  private getCssHexVariable(name: string): string {
-    const color = getComputedStyle(document.documentElement)
-      .getPropertyValue(name)
-      .trim();
-    return color.replace('#', '');
-  }
-
   private updateMonacoTheme(): void {
-    const themeColor = this.getCssHexVariable('--primary-color');
-    const valueColor = this.getCssHexVariable('--text-primary') || 'ffffff';
-    // Brackets must always match the theme primary color. Reading
-    // --primary-color directly (instead of the parallel --json-bracket var)
-    // removes a sync hazard where the two variables briefly disagreed and
-    // brackets rendered in the SCSS default magenta while keys already used
-    // the user's selected theme color.
-    const bracketColor = themeColor || 'da70d6';
-    const editorBackground = this.getCssHexVariable('--bg-primary') || '1a1a1a';
-    const lineNumberColor =
-      this.getCssHexVariable('--json-line-number') || '6e6e6e';
-
-    // IMPORTANT — DO NOT "simplify" the delimiter rules below.
-    //
-    // Monaco's JSON tokenizer emits these token names (NOT `delimiter.bracket.json`):
-    //   - `delimiter.array.json`   for `[` and `]`
-    //   - `delimiter.bracket.json` for `{` and `}`   (a.k.a. "object brackets")
-    //   - `delimiter.colon.json`
-    //   - `delimiter.comma.json`
-    //
-    // Listing only `delimiter.bracket.json` worked by accident for `{}` but left
-    // `[]` (array brackets) unstyled. On first paint that fell through to Monaco's
-    // built-in rainbow `editorBracketHighlight.foregroundN`, producing the
-    // multi-color brace bug that "fixed itself" after a tab switch (which forced
-    // a re-tokenize against an updated theme). All five rules MUST stay.
-    monaco.editor.defineTheme('restbro-json', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        // JSON tokens
-        { token: 'string.key.json', foreground: themeColor, fontStyle: 'bold' },
-        { token: 'string.value.json', foreground: valueColor },
-        { token: 'string.json', foreground: valueColor },
-        { token: 'number.json', foreground: valueColor },
-        { token: 'keyword.json', foreground: valueColor },
-        {
-          token: 'delimiter.array.json',
-          foreground: bracketColor,
-          fontStyle: 'bold',
-        },
-        {
-          token: 'delimiter.bracket.json',
-          foreground: bracketColor,
-          fontStyle: 'bold',
-        },
-        { token: 'delimiter.colon.json', foreground: valueColor },
-        { token: 'delimiter.comma.json', foreground: bracketColor },
-        // XML tokens (shared theme so switching editors doesn't clobber)
-        { token: 'tag', foreground: themeColor, fontStyle: 'bold' },
-        { token: 'tag.id.xml', foreground: themeColor, fontStyle: 'bold' },
-        { token: 'attribute.name', foreground: 'f8c771' },
-        { token: 'attribute.name.xml', foreground: 'f8c771' },
-        { token: 'attribute.value', foreground: '98c379' },
-        { token: 'attribute.value.xml', foreground: '98c379' },
-        { token: 'delimiter.xml', foreground: valueColor },
-        { token: 'comment', foreground: '6a737d', fontStyle: 'italic' },
-        { token: 'cdata', foreground: 'e6db74' },
-        { token: 'metatag', foreground: '56b6c2' },
-        { token: 'metatag.xml', foreground: '56b6c2' },
-      ],
-      colors: {
-        'editor.background': `#${editorBackground}`,
-        'editor.foreground': '#ffffff',
-        'editorLineNumber.foreground': `#${lineNumberColor}`,
-        'editor.selectionBackground': '#404040',
-        'editor.lineHighlightBackground': '#2d2d2d',
-        'editorBracketHighlight.foreground1': `#${bracketColor}`,
-        'editorBracketHighlight.foreground2': `#${bracketColor}`,
-        'editorBracketHighlight.foreground3': `#${bracketColor}`,
-        'editorBracketHighlight.foreground4': `#${bracketColor}`,
-        'editorBracketHighlight.foreground5': `#${bracketColor}`,
-        'editorBracketHighlight.foreground6': `#${bracketColor}`,
-        'editorBracketPairGuide.activeBackground1': `#${bracketColor}`,
-        'editorBracketPairGuide.activeBackground2': `#${bracketColor}`,
-        'editorBracketPairGuide.activeBackground3': `#${bracketColor}`,
-        'editorBracketPairGuide.activeBackground4': `#${bracketColor}`,
-        'editorBracketPairGuide.activeBackground5': `#${bracketColor}`,
-        'editorBracketPairGuide.activeBackground6': `#${bracketColor}`,
-        'editorBracketHighlight.unexpectedBracket.foreground': `#${bracketColor}`,
-        // Theme-aware, professional scrollbar sliders (neutral at rest,
-        // primary-tinted on hover/drag) — matches the app-wide native
-        // scrollbars defined in `_scrollbars.scss`.
-        'scrollbarSlider.background': '#ffffff26',
-        'scrollbarSlider.hoverBackground': `#${themeColor}66`,
-        'scrollbarSlider.activeBackground': `#${themeColor}99`,
-      },
-    });
-
+    defineRestbroJsonTheme();
     // Apply theme globally (affects all Monaco editors)
     monaco.editor.setTheme('restbro-json');
   }
@@ -331,6 +238,9 @@ export class MonacoJsonEditor {
   public setValue(value: string): void {
     if (this.editor && this.editor.getValue() !== value) {
       this.editor.setValue(value);
+      // Swapping content resets tokenization, so re-tokenize the viewport
+      // before paint (e.g. switching requests) to avoid the white flash.
+      forceInitialViewportTokenization(this.editor);
       this.validateJson(value);
     }
   }

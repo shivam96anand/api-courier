@@ -193,22 +193,6 @@ export function setupEventListeners(deps: EventListenersDeps): void {
     askAiTab.openWithContext(request, response);
   });
 
-  // Listen for tab switching requests (for Ask AI to switch tabs)
-  document.addEventListener('switch-to-tab', (e: Event) => {
-    const customEvent = e as CustomEvent;
-    const tabName = customEvent.detail.tabName;
-
-    if (tabName) {
-      // Use the app manager to switch tabs
-      const navTab = document.querySelector(
-        `[data-tab="${tabName}"]`
-      ) as HTMLElement;
-      if (navTab) {
-        navTab.click();
-      }
-    }
-  });
-
   // Listen for variable edit requests from tooltips
   document.addEventListener('edit-variable-requested', async (e: Event) => {
     const customEvent = e as CustomEvent;

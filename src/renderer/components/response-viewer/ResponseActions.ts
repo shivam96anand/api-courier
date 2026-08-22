@@ -99,10 +99,9 @@ export class ResponseActions {
         this.actionsContainer?.querySelector<HTMLElement>('#collapse-btn');
       const expandBtn =
         this.actionsContainer?.querySelector<HTMLElement>('#expand-btn');
-      const display = isJsonResponse ? '' : 'none';
-      if (openNotepadBtn) openNotepadBtn.style.display = display;
-      if (collapseBtn) collapseBtn.style.display = display;
-      if (expandBtn) expandBtn.style.display = display;
+      if (openNotepadBtn) openNotepadBtn.style.display = '';
+      if (collapseBtn) collapseBtn.style.display = '';
+      if (expandBtn) expandBtn.style.display = '';
     } else {
       this.hide();
     }

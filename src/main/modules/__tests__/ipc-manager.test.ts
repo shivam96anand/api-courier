@@ -10,9 +10,17 @@ vi.mock('fs', () => ({
 
 vi.mock('fs/promises', () => ({
   mkdir: vi.fn().mockResolvedValue(undefined),
-  readFile: vi.fn().mockResolvedValue('file-content'),
+  // Callers that pass an encoding get a string; the notepad reader reads raw
+  // bytes so it can sniff the encoding itself.
+  readFile: vi
+    .fn()
+    .mockImplementation((_path: string, encoding?: string) =>
+      Promise.resolve(
+        encoding ? 'file-content' : Buffer.from('file-content', 'utf-8')
+      )
+    ),
   writeFile: vi.fn().mockResolvedValue(undefined),
-  stat: vi.fn().mockResolvedValue({ size: 12 }),
+  stat: vi.fn().mockResolvedValue({ size: 12, isDirectory: () => false }),
 }));
 
 // Mock crypto

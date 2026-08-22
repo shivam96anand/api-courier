@@ -237,14 +237,20 @@ export class ResponseTabs {
 
   /**
    * Show / hide the quick copy & export icon actions in the tab row. Copy is
-   * shown whenever a response exists; Export only for JSON bodies.
+   * shown whenever a response exists, Search for any Monaco-backed body
+   * (JSON or XML), and Export only for JSON.
    */
-  public updateActionButtons(hasResponse: boolean, isJson: boolean): void {
+  public updateActionButtons(
+    hasResponse: boolean,
+    isJson: boolean,
+    isXml: boolean = false
+  ): void {
     if (this.actionsGroup) {
       this.actionsGroup.style.display = hasResponse ? 'flex' : 'none';
     }
     if (this.searchButton) {
-      this.searchButton.style.display = hasResponse && isJson ? '' : 'none';
+      this.searchButton.style.display =
+        hasResponse && (isJson || isXml) ? '' : 'none';
     }
     if (this.exportButton) {
       this.exportButton.style.display = hasResponse && isJson ? '' : 'none';

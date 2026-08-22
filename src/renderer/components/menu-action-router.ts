@@ -34,7 +34,7 @@ function activeView(): string {
 
 function navigate(view: string): void {
   document.dispatchEvent(
-    new CustomEvent('switch-to-tab', { detail: { tabName: view } })
+    new CustomEvent('switch-to-tab', { detail: { tab: view } })
   );
 }
 

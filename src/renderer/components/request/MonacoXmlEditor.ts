@@ -6,6 +6,7 @@
 import * as monaco from 'monaco-editor';
 import { forceInitialViewportTokenization } from './monaco-tokenization';
 import { parseXml, prettyPrintXml } from './soap-xml-helpers';
+import { defineRestbroJsonTheme } from '../../utils/monaco-restbro-theme';
 
 export interface MonacoXmlEditorOptions {
   container: HTMLElement;
@@ -27,18 +28,12 @@ export class MonacoXmlEditor {
     this.initialize(options.value);
   }
 
-  private getCssHexVariable(name: string): string {
-    return getComputedStyle(document.documentElement)
-      .getPropertyValue(name)
-      .trim()
-      .replace('#', '');
-  }
-
   private applyTheme(): void {
-    // Use the shared 'restbro-json' theme which includes XML token rules.
-    // Do NOT call monaco.editor.setTheme() here — it's global and would
-    // clobber the response viewer's Monaco JSON editor.
-    // The theme is already applied globally by MonacoJsonEditor.
+    // Must define (not just reference) 'restbro-json': Monaco silently falls
+    // back to its LIGHT theme for an unknown name, so an XML editor opened
+    // before any JSON editor rendered on a white background. Redefining the
+    // active theme re-applies it, which also covers 'theme-changed'.
+    defineRestbroJsonTheme();
   }
 
   private initialize(value: string): void {
@@ -97,6 +92,9 @@ export class MonacoXmlEditor {
   public setValue(value: string): void {
     if (this.editor && this.editor.getValue() !== value) {
       this.editor.setValue(value);
+      // Swapping content resets tokenization, so re-tokenize the viewport
+      // before paint (e.g. switching requests) to avoid the white flash.
+      forceInitialViewportTokenization(this.editor);
     }
   }
 
@@ -106,6 +104,51 @@ export class MonacoXmlEditor {
 
   public scrollToTop(): void {
     this.editor?.setScrollPosition({ scrollTop: 0 });
+  }
+
+  public scrollToBottom(): void {
+    const model = this.editor?.getModel();
+    if (!this.editor || !model) return;
+    this.editor.revealLine(model.getLineCount());
+  }
+
+  /** Fold all regions in the editor */
+  public foldAll(): void {
+    this.editor?.getAction('editor.foldAll')?.run();
+  }
+
+  /** Unfold all regions in the editor */
+  public unfoldAll(): void {
+    this.editor?.getAction('editor.unfoldAll')?.run();
+  }
+
+  /** Open Monaco's built-in find widget */
+  public triggerFind(): void {
+    if (!this.editor) return;
+    this.editor.focus();
+    this.editor.getAction('actions.find')?.run();
+  }
+
+  /**
+   * Toggle Monaco's built-in find widget. Reads the find controller's live
+   * state so it stays in sync however the widget was opened (icon, Cmd/Ctrl+F,
+   * Esc).
+   */
+  public toggleFind(): void {
+    if (!this.editor) return;
+    const findController = this.editor.getContribution(
+      'editor.contrib.findController'
+    ) as unknown as {
+      getState?: () => { isRevealed?: boolean } | undefined;
+      closeFindWidget?: () => void;
+    } | null;
+
+    if (findController?.getState?.()?.isRevealed) {
+      findController.closeFindWidget?.();
+      return;
+    }
+
+    this.triggerFind();
   }
 
   /** Get the underlying Monaco editor instance */

@@ -3,14 +3,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HistoryManager } from '../history-manager';
+import { HISTORY_TOTAL_BODY_BUDGET } from '../../../shared/history-persistence';
 import { ApiRequest, ApiResponse } from '../../../shared/types';
-
-// Mock the response-persistence module
-vi.mock('../../utils/response-persistence', () => ({
-  sanitizeResponseForPersistence: vi.fn((r: ApiResponse) =>
-    r ? { ...r, body: r.body?.slice(0, 100) ?? '' } : undefined
-  ),
-}));
 
 function makeRequest(overrides: Partial<ApiRequest> = {}): ApiRequest {
   return {
@@ -228,11 +222,20 @@ describe('HistoryManager', () => {
       expect(new Set(ids).size).toBe(2);
     });
 
-    it('sanitizes response before storing', () => {
-      const longBody = 'x'.repeat(500);
-      hm.addToHistory(makeRequest(), makeResponse({ body: longBody }));
-      // sanitizeResponseForPersistence is mocked to slice to 100 chars
-      expect(hm.getHistory()[0].response.body!.length).toBeLessThanOrEqual(100);
+    it('keeps the full body of the response it just captured', () => {
+      const bigBody = 'x'.repeat(6_000_000);
+      hm.addToHistory(makeRequest(), makeResponse({ body: bigBody }));
+      expect(hm.getHistory()[0].response.body).toHaveLength(bigBody.length);
+    });
+
+    it('strips bodies of older items once the memory budget is used up', () => {
+      const chunk = 'x'.repeat(HISTORY_TOTAL_BODY_BUDGET / 2 + 1);
+      hm.addToHistory(makeRequest({ id: 'a' }), makeResponse({ body: chunk }));
+      hm.addToHistory(makeRequest({ id: 'b' }), makeResponse({ body: chunk }));
+
+      const history = hm.getHistory();
+      expect(history[0].response.body).toHaveLength(chunk.length);
+      expect(history[1].response.body).toBe('');
     });
   });
 

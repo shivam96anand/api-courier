@@ -9,8 +9,14 @@
   box-shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
   color: #ffffff;
 
-  // Ensure all nested elements inherit white text
-  * {
+  // Force white text across the notepad chrome, but never inside the editor or
+  // the markdown preview body — those carry their own syntax token colours.
+  *:not(
+      .monaco-editor,
+      .monaco-editor *,
+      .notepad-preview-body,
+      .notepad-preview-body *
+    ) {
     color: #ffffff !important;
   }
 }
@@ -160,8 +166,8 @@
     background: rgba(255, 255, 255, 0.08);
   }
 
-  // Component-scoped hide (no global .hidden utility) so the JSON-only Format
-  // button collapses when the active tab isn't JSON.
+  // Component-scoped hide (no global .hidden utility) so the Format button
+  // collapses when the active tab's language has no formatter.
   &.hidden {
     display: none;
   }
@@ -510,6 +516,22 @@ body.notepad-resizing {
     h2 { font-size: 1.35em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.15em; }
     h3 { font-size: 1.15em; }
     p, ul, ol, blockquote, pre, table { margin: 0.6em 0; }
+    // The global `* { padding: 0 }` reset kills list indentation, which makes
+    // nested lists collapse onto their parent. Restore browser-like nesting.
+    ul, ol { padding-left: 1.8em; }
+    li { margin: 0.15em 0; }
+    li > ul, li > ol { margin: 0.2em 0; }
+    // Loose lists wrap item text in <p>; don't double the item spacing.
+    li > p { margin: 0.25em 0; }
+    li > p:first-child { margin-top: 0; }
+    li > p:last-child { margin-bottom: 0; }
+    // GFM task lists show a checkbox in place of the list marker.
+    li:has(> input[type='checkbox']) { list-style: none; margin-left: -1.3em; }
+    input[type='checkbox'] {
+      margin-right: 6px;
+      vertical-align: -1px;
+      accent-color: var(--primary-color);
+    }
     code {
       font-family: 'JetBrains Mono', 'Fira Code', monospace;
       background: rgba(255, 255, 255, 0.06);

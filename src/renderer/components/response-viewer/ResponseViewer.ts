@@ -4,6 +4,7 @@ import { ResponseViewerConfig } from '../../types/response-types';
 import { MonacoJsonEditor } from '../request/MonacoJsonEditor';
 import { MonacoXmlEditor } from '../request/MonacoXmlEditor';
 import { JsonViewerUtilities } from '../json-viewer/utilities';
+import { openFullscreenXml } from './fullscreen-xml';
 import { jsonPathAtOffset } from './response-json-path';
 import { formatResponseTimestamp } from '../../utils/format-timestamp';
 
@@ -936,36 +937,40 @@ export class ResponseViewer {
     targetSection?.classList.add('active');
   }
 
+  /**
+   * The Monaco instance backing the body on screen. Only one of the two is ever
+   * live (both are disposed before a new body renders), and both are null in
+   * raw/plain view — callers fall back to DOM scrolling then.
+   */
+  private activeEditor(): MonacoJsonEditor | MonacoXmlEditor | null {
+    return this.monacoEditor ?? this.monacoXmlEditor;
+  }
+
   /** Open Monaco's native find widget (single unified search bar) */
   public triggerMonacoSearch(): void {
-    if (this.monacoEditor && this.currentFormatter === 'json') {
-      this.monacoEditor.triggerFind();
-    }
+    this.activeEditor()?.triggerFind();
   }
 
   public toggleMonacoSearch(): void {
-    if (this.monacoEditor && this.currentFormatter === 'json') {
-      this.monacoEditor.toggleFind();
-    }
+    this.activeEditor()?.toggleFind();
   }
 
   public search(query: string): void {
-    if (this.monacoEditor && this.currentFormatter === 'json') {
-      this.monacoEditor.triggerFind();
+    const editor = this.activeEditor();
+    if (editor) {
+      editor.triggerFind();
     } else if (this.currentFormatter === 'plain') {
       this.searchInPlainText(query);
     }
   }
 
   public navigateSearch(direction: number): void {
-    if (this.monacoEditor && this.currentFormatter === 'json') {
-      const editor = this.monacoEditor.getEditor();
-      if (!editor) return;
-      if (direction > 0) {
-        editor.getAction('editor.action.nextMatchFindAction')?.run();
-      } else {
-        editor.getAction('editor.action.previousMatchFindAction')?.run();
-      }
+    const editor = this.activeEditor()?.getEditor();
+    if (!editor) return;
+    if (direction > 0) {
+      editor.getAction('editor.action.nextMatchFindAction')?.run();
+    } else {
+      editor.getAction('editor.action.previousMatchFindAction')?.run();
     }
   }
 
@@ -991,12 +996,8 @@ export class ResponseViewer {
   }
 
   public clearSearch(): void {
-    if (this.monacoEditor) {
-      const editor = this.monacoEditor.getEditor();
-      if (editor) {
-        editor.getAction('closeFindWidget')?.run();
-      }
-    }
+    const editor = this.activeEditor()?.getEditor();
+    editor?.getAction('closeFindWidget')?.run();
     // Clear plain text search highlights
     const bodyElement = document.getElementById('response-body');
     const codeElement = bodyElement?.querySelector('code');
@@ -1010,20 +1011,17 @@ export class ResponseViewer {
   }
 
   public collapseAll(): void {
-    if (this.monacoEditor) {
-      this.monacoEditor.foldAll();
-    }
+    this.activeEditor()?.foldAll();
   }
 
   public expandAll(): void {
-    if (this.monacoEditor) {
-      this.monacoEditor.unfoldAll();
-    }
+    this.activeEditor()?.unfoldAll();
   }
 
   public scrollToTop(): void {
-    if (this.monacoEditor) {
-      this.monacoEditor.scrollToTop();
+    const editor = this.activeEditor();
+    if (editor) {
+      editor.scrollToTop();
       return;
     }
     const responseBody = document.getElementById('response-body');
@@ -1033,8 +1031,9 @@ export class ResponseViewer {
   }
 
   public scrollToBottom(): void {
-    if (this.monacoEditor) {
-      this.monacoEditor.scrollToBottom();
+    const editor = this.activeEditor();
+    if (editor) {
+      editor.scrollToBottom();
       return;
     }
     const responseBody = document.getElementById('response-body');
@@ -1047,9 +1046,23 @@ export class ResponseViewer {
   }
 
   public openFullscreen(): void {
+    const xml = this.getPrettyXml();
+    if (xml !== null) {
+      openFullscreenXml(xml, this.currentSoapFault);
+      return;
+    }
     if (this.parsedJsonData) {
       JsonViewerUtilities.openFullscreenMonaco(this.parsedJsonData);
     }
+  }
+
+  /** Pretty-printed XML body, or null when the body isn't XML. Falls back to the raw text. */
+  public getPrettyXml(): string | null {
+    if (this.currentFormatter !== 'xml' || !this.currentRawBody) return null;
+    const parsed = this.tryParseXml(this.currentRawBody);
+    return parsed.ok && parsed.document
+      ? this.prettyPrintXml(parsed.document)
+      : this.currentRawBody;
   }
 
   public exportJson(): void {

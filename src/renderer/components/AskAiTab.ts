@@ -125,7 +125,7 @@ export class AskAiTab {
     // creation — they'd surface a confusing "content too large" dialog for
     // a feature the user can't actually use yet.
     document.dispatchEvent(
-      new CustomEvent('switch-to-tab', { detail: { tabName: 'ask-ai' } })
+      new CustomEvent('switch-to-tab', { detail: { tab: 'ask-ai' } })
     );
   }
 

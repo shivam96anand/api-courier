@@ -1,6 +1,7 @@
 import { VariableResolver } from './VariableResolver';
 import { UIHelpers } from './UIHelpers';
 import { OAuth2UIRenderer } from './OAuth2UIRenderer';
+import { getOAuthTokenState } from '../../../shared/oauth-token-state';
 
 /**
  * OAuth2Manager - Manages OAuth 2.0 authentication flow
@@ -198,15 +199,10 @@ export class OAuth2Manager {
     type: string;
     config: Record<string, string>;
   }): boolean {
-    if (auth.type !== 'oauth2' || !auth.config.expiresAt) return false;
+    if (auth.type !== 'oauth2') return false;
 
-    const expiresAt = new Date(auth.config.expiresAt);
-    const now = new Date();
-
-    // Consider token expired if it has already expired OR will expire in the next 5 minutes
-    return (
-      expiresAt <= now || expiresAt <= new Date(now.getTime() + 5 * 60 * 1000)
-    );
+    const state = getOAuthTokenState(auth.config);
+    return state === 'expired' || state === 'expiring';
   }
 
   /**

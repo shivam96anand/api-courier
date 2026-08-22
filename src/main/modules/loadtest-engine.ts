@@ -11,6 +11,7 @@ import {
 import { requestManager } from './request-manager';
 import { storeManager } from './store-manager';
 import { oauthManager } from './oauth';
+import { canReuseOAuthToken } from '../../shared/oauth-token-state';
 import { buildFolderVars, composeFinalRequest } from './variables';
 
 /**
@@ -345,7 +346,7 @@ class LoadTestEngine extends EventEmitter {
       return run.resolvedRequest;
     }
 
-    if (!this.shouldRefreshToken(run.resolvedRequest.auth.config)) {
+    if (canReuseOAuthToken(run.resolvedRequest.auth.config)) {
       return run.resolvedRequest;
     }
 
@@ -361,44 +362,16 @@ class LoadTestEngine extends EventEmitter {
     return run.resolvedRequest;
   }
 
-  private shouldRefreshToken(config: Record<string, string>): boolean {
-    if (!config.accessToken) return true;
-    if (!config.expiresAt) return false;
-
-    const expiresAt = new Date(config.expiresAt).getTime();
-    if (!Number.isFinite(expiresAt)) return false;
-
-    const refreshThresholdMs = 30000;
-    return Date.now() + refreshThresholdMs >= expiresAt;
-  }
-
   private async ensureOAuthToken(request: ApiRequest): Promise<ApiRequest> {
     if (!request.auth || request.auth.type !== 'oauth2') {
       return request;
     }
 
     const config = request.auth.config as any;
-    console.log('[LoadTest] ensureOAuthToken check:', {
-      hasAccessToken: !!config.accessToken,
-      accessTokenLength: config.accessToken?.length || 0,
-      hasExpiresAt: !!config.expiresAt,
-      expiresAt: config.expiresAt,
-      grantType: config.grantType,
-    });
 
-    if (config.accessToken && !config.expiresAt) {
-      console.log('[LoadTest] Using existing token (no expiry set)');
+    if (canReuseOAuthToken(config)) {
       return request;
     }
-    const tokenInfo = oauthManager.getTokenInfo(config);
-    console.log('[LoadTest] Token validity:', tokenInfo);
-
-    if (tokenInfo.isValid && !this.shouldRefreshToken(config)) {
-      console.log('[LoadTest] Token is valid, using existing token');
-      return request;
-    }
-
-    console.log('[LoadTest] Token invalid or expired, requesting new token');
 
     if (config.refreshToken) {
       try {

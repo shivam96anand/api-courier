@@ -73,7 +73,22 @@ module.exports = {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
     }),
     new MonacoWebpackPlugin({
-      languages: ['json', 'xml'],
+      // Syntax highlighting for the Notepad's "open any file" support.
+      // `typescript`, `css` and `html` are deliberately excluded: those labels
+      // drag in language-service workers (the TS one bundles the whole
+      // compiler). Their Monarch tokenizers are imported directly in
+      // src/renderer/components/notepad/notepad-editor.ts instead.
+      languages: [
+        'abap', 'apex', 'bat', 'bicep', 'clojure', 'coffee', 'cpp', 'csharp',
+        'cypher', 'dart', 'dockerfile', 'elixir', 'fsharp', 'go',
+        'graphql', 'handlebars', 'hcl', 'ini', 'java', 'javascript',
+        'json', 'julia', 'kotlin', 'less', 'liquid', 'lua', 'markdown', 'mdx',
+        'mysql', 'objective-c', 'pascal', 'perl', 'pgsql', 'php', 'powershell',
+        'protobuf', 'pug', 'python', 'qsharp', 'r', 'razor', 'redis',
+        'restructuredtext', 'ruby', 'rust', 'scala', 'scheme', 'scss', 'shell',
+        'solidity', 'sparql', 'sql', 'swift', 'systemverilog', 'tcl', 'twig',
+        'typespec', 'vb', 'wgsl', 'xml', 'yaml',
+      ],
       features: ['bracketMatching', 'folding', 'find', 'format'],
     }),
   ],

@@ -15,10 +15,11 @@ interface TableRecords {
   secrets: Record<string, boolean>;
 }
 
-function mount(records: TableRecords): HTMLElement {
+function mount(records: TableRecords, onChange?: () => void): HTMLElement {
   const section = EnvironmentVariablesManager.renderVariableTable({
     title: 'Variables',
     ...records,
+    onChange,
   });
   document.body.appendChild(section);
   return section;
@@ -175,5 +176,30 @@ describe('EnvironmentVariablesManager — variable table', () => {
     keyInput.dispatchEvent(new Event('blur'));
 
     expect(records.variables.apiKey).toBe('secret-value');
+  });
+
+  it('reports edits so they can be autosaved', () => {
+    const records: TableRecords = {
+      variables: { host: 'a' },
+      descriptions: {},
+      secrets: {},
+    };
+    const onChange = vi.fn();
+    const section = mount(records, onChange);
+
+    const valueInput = valueInputs(section)[0];
+    valueInput.value = 'b.example.com';
+    valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+
+    const keyInput = keyInputs(section)[0];
+    keyInput.value = 'hostname';
+    keyInput.dispatchEvent(new Event('blur'));
+    expect(onChange).toHaveBeenCalledTimes(2);
+
+    keyInput.value = '';
+    keyInput.dispatchEvent(new Event('blur'));
+    expect(onChange).toHaveBeenCalledTimes(3);
+    expect(records.variables).toEqual({});
   });
 });

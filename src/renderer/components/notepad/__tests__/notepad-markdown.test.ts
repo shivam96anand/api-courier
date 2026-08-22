@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from '../notepad-markdown';
+import { renderMarkdown, stripFrontMatter } from '../notepad-markdown';
 
 describe('renderMarkdown', () => {
   it('renders headings and paragraphs', () => {
@@ -58,5 +58,49 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown(null as unknown as string);
     // null-coerced markdown still renders without error (empty).
     expect(typeof html).toBe('string');
+  });
+
+  it('nests a sub-list inside its parent list item', () => {
+    const html = renderMarkdown('1. Parent\n   - Child\n   - Child 2\n');
+    expect(html).toMatch(
+      /<li>[\s\S]*<ul>[\s\S]*Child[\s\S]*<\/ul>[\s\S]*<\/li>/
+    );
+  });
+
+  it('treats a single newline as a space (VS Code / CommonMark)', () => {
+    const html = renderMarkdown('line one\nline two');
+    expect(html).not.toContain('<br>');
+  });
+
+  it('still honours an explicit hard break', () => {
+    expect(renderMarkdown('line one  \nline two')).toContain('<br>');
+  });
+
+  it('renders GFM task lists as checkboxes', () => {
+    const html = renderMarkdown('- [x] done\n- [ ] todo\n');
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain('checked');
+  });
+});
+
+describe('stripFrontMatter', () => {
+  it('hides YAML front matter instead of rendering it as a heading', () => {
+    const html = renderMarkdown('---\ntitle: My Doc\n---\n\n# Hello\n');
+    expect(html).not.toContain('title: My Doc');
+    expect(html).toContain('<h1>');
+  });
+
+  it('supports the "..." terminator', () => {
+    expect(stripFrontMatter('---\na: 1\n...\n# H')).toBe('# H');
+  });
+
+  it('leaves documents without front matter untouched', () => {
+    const src = '# Title\n\n---\n\nrule';
+    expect(stripFrontMatter(src)).toBe(src);
+  });
+
+  it('leaves an unterminated block untouched', () => {
+    const src = '---\nnot closed\n\n# H';
+    expect(stripFrontMatter(src)).toBe(src);
   });
 });

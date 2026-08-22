@@ -515,9 +515,11 @@
 
 .curl-section-toolbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
+  min-width: 0;
 }
 
 .code-language-select {
@@ -529,6 +531,9 @@
   font-size: 11px;
   font-family: var(--font-mono);
   cursor: pointer;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 160px;
 
   &:focus {
     outline: none;

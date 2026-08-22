@@ -5,8 +5,11 @@ import {
   detectLanguageFromPath,
   extensionForLanguage,
   languageLabel,
+  looksLikeOpenApi,
+  monacoLanguageFor,
   PICKABLE_LANGUAGES,
 } from '../notepad-language';
+import { LANGUAGES } from '../notepad-language-map';
 
 describe('detectLanguageFromPath', () => {
   it('detects common extensions', () => {
@@ -16,10 +19,131 @@ describe('detectLanguageFromPath', () => {
     expect(detectLanguageFromPath('script.py')).toBe('python');
   });
 
+  it('detects the wider JSON family (incl. json5)', () => {
+    for (const name of [
+      'a.json5',
+      'a.jsonc',
+      'a.jsonl',
+      'a.ndjson',
+      'a.geojson',
+      'a.har',
+      'a.webmanifest',
+      'a.ipynb',
+      '.babelrc',
+      '.prettierrc',
+    ]) {
+      expect(detectLanguageFromPath(name)).toBe('json');
+    }
+  });
+
+  it('detects XML-family and web extensions', () => {
+    expect(detectLanguageFromPath('a.xsd')).toBe('xml');
+    expect(detectLanguageFromPath('a.svg')).toBe('xml');
+    expect(detectLanguageFromPath('a.plist')).toBe('xml');
+    expect(detectLanguageFromPath('a.vue')).toBe('html');
+    expect(detectLanguageFromPath('a.sass')).toBe('scss');
+    expect(detectLanguageFromPath('a.tsx')).toBe('typescript');
+  });
+
+  it('detects config, infra and shell extensions', () => {
+    expect(detectLanguageFromPath('a.toml')).toBe('ini');
+    expect(detectLanguageFromPath('.editorconfig')).toBe('ini');
+    expect(detectLanguageFromPath('.env')).toBe('ini');
+    expect(detectLanguageFromPath('.env.local')).toBe('ini');
+    expect(detectLanguageFromPath('main.tf')).toBe('hcl');
+    expect(detectLanguageFromPath('.zshrc')).toBe('shell');
+    expect(detectLanguageFromPath('deploy.ps1')).toBe('powershell');
+  });
+
+  it('detects languages by exact file name', () => {
+    expect(detectLanguageFromPath('/repo/Dockerfile')).toBe('dockerfile');
+    expect(detectLanguageFromPath('Dockerfile.dev')).toBe('dockerfile');
+    expect(detectLanguageFromPath('/repo/Gemfile')).toBe('ruby');
+    expect(detectLanguageFromPath('C:\\repo\\Rakefile')).toBe('ruby');
+  });
+
+  it('keeps .yaml as YAML rather than the swagger pseudo-language', () => {
+    expect(detectLanguageFromPath('openapi.yaml')).toBe('yaml');
+    expect(extensionForLanguage('swagger')).toBe('yaml');
+  });
+
   it('returns undefined for unknown or missing extensions', () => {
     expect(detectLanguageFromPath('README')).toBeUndefined();
     expect(detectLanguageFromPath(undefined)).toBeUndefined();
     expect(detectLanguageFromPath('mystery.qqq')).toBeUndefined();
+  });
+});
+
+describe('language catalog', () => {
+  it('has no duplicate ids and a label for every entry', () => {
+    const ids = LANGUAGES.map((l) => l.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const lang of LANGUAGES) {
+      expect(lang.label.length).toBeGreaterThan(0);
+      expect(lang.exts.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('OpenAPI / Swagger detection', () => {
+  const yamlSpec = [
+    'openapi: 3.0.3',
+    'info:',
+    '  title: Petstore',
+    '  version: 1.0.0',
+    'paths:',
+    '  /pets:',
+    '    get:',
+    '      responses:',
+    "        '200':",
+    '          description: ok',
+  ].join('\n');
+  const jsonSpec = JSON.stringify({
+    openapi: '3.0.0',
+    info: { title: 'x', version: '1' },
+    paths: {},
+  });
+
+  it('detects YAML specs', () => {
+    expect(detectLanguageFromContent(yamlSpec)).toBe('swagger');
+    expect(detectLanguageFromContent(`# my api\n${yamlSpec}`)).toBe('swagger');
+    expect(detectLanguageFromContent(`---\n${yamlSpec}`)).toBe('swagger');
+  });
+
+  it('detects JSON specs instead of plain JSON', () => {
+    expect(detectLanguageFromContent(jsonSpec)).toBe('swagger');
+    expect(
+      detectLanguageFromContent('swagger: "2.0"\ninfo:\n  title: x\n')
+    ).toBe('swagger');
+  });
+
+  it('leaves ordinary JSON and YAML alone', () => {
+    expect(detectLanguageFromContent('{"a":1}')).toBe('json');
+    expect(detectLanguageFromContent('---\nfoo: bar\n')).toBe('yaml');
+  });
+
+  it('does not misread Markdown that quotes a spec further down', () => {
+    const md = `# API docs\n\n${'Some prose. '.repeat(60)}\n\n\`\`\`yaml\nopenapi: 3.0.0\n\`\`\`\n`;
+    expect(detectLanguageFromContent(md)).toBe('markdown');
+  });
+
+  it('looksLikeOpenApi only fires on a version key', () => {
+    expect(looksLikeOpenApi(jsonSpec)).toBe(true);
+    expect(looksLikeOpenApi(yamlSpec)).toBe(true);
+    expect(looksLikeOpenApi('{"a":1}')).toBe(false);
+    expect(looksLikeOpenApi('description: swagger is great\n')).toBe(false);
+  });
+});
+
+describe('monacoLanguageFor', () => {
+  it('maps the swagger pseudo-language onto YAML or JSON', () => {
+    expect(monacoLanguageFor('swagger', 'openapi: 3.0.0')).toBe('yaml');
+    expect(monacoLanguageFor('swagger', '  {"openapi":"3.0.0"}')).toBe('json');
+  });
+
+  it('passes real languages through and defaults to plaintext', () => {
+    expect(monacoLanguageFor('markdown')).toBe('markdown');
+    expect(monacoLanguageFor(undefined)).toBe('plaintext');
   });
 });
 

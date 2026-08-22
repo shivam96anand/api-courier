@@ -9,52 +9,129 @@
  *   actionable toasts instead of the generic "save failed".
  */
 import { ipcMain, dialog, shell, app, clipboard } from 'electron';
-import { readFile, writeFile, stat } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { IPC_CHANNELS } from '../../shared/ipc';
 import { prepareSwaggerPreview } from './notepad-swagger-preview';
+import { readTextFile } from './notepad-file-read';
 import { windowManager } from './window-manager';
 import { storeManager } from './store-manager';
 import { approvedPaths, FILE_ACCESS_DENIED_MESSAGE } from './approved-paths';
 
 /** Hard cap on a single file payload (50 MB). */
 const MAX_CONTENT_BYTES = 50 * 1024 * 1024;
-/** Hard cap on a file we will read into a string (50 MB). */
-const MAX_READ_BYTES = 50 * 1024 * 1024;
 
+// "All Files" is first so every extension stays selectable by default — the
+// grouped filters below are just shortcuts for narrowing the list.
 const FILE_FILTERS = [
+  { name: 'All Files', extensions: ['*'] },
   {
-    name: 'Text Files',
+    name: 'Text & Code',
     extensions: [
       'txt',
+      'text',
+      'log',
       'md',
       'markdown',
-      'log',
-      'json',
-      'jsonc',
-      'yaml',
-      'yml',
-      'xml',
-      'html',
-      'css',
-      'scss',
+      'mdx',
+      'rst',
+      'csv',
+      'tsv',
+      'diff',
+      'patch',
       'js',
       'mjs',
+      'cjs',
+      'jsx',
       'ts',
       'tsx',
-      'jsx',
+      'mts',
+      'cts',
       'py',
+      'rb',
+      'go',
+      'rs',
+      'java',
+      'kt',
+      'kts',
+      'swift',
+      'c',
+      'h',
+      'cpp',
+      'hpp',
+      'cs',
+      'php',
+      'dart',
+      'scala',
+      'lua',
+      'pl',
+      'r',
       'sh',
+      'bash',
+      'zsh',
+      'ps1',
+      'bat',
+      'cmd',
       'sql',
-      'csv',
-      'env',
-      'ini',
-      'toml',
-      'conf',
+      'graphql',
+      'gql',
+      'proto',
     ],
   },
-  { name: 'All Files', extensions: ['*'] },
+  {
+    name: 'Data & Config',
+    extensions: [
+      'json',
+      'jsonc',
+      'json5',
+      'jsonl',
+      'ndjson',
+      'geojson',
+      'har',
+      'webmanifest',
+      'ipynb',
+      'yaml',
+      'yml',
+      'toml',
+      'ini',
+      'cfg',
+      'conf',
+      'properties',
+      'env',
+      'editorconfig',
+      'tf',
+      'tfvars',
+      'hcl',
+      'dockerfile',
+    ],
+  },
+  {
+    name: 'Markup & Web',
+    extensions: [
+      'html',
+      'htm',
+      'xhtml',
+      'vue',
+      'svelte',
+      'astro',
+      'css',
+      'scss',
+      'sass',
+      'less',
+      'xml',
+      'xsd',
+      'xsl',
+      'xslt',
+      'wsdl',
+      'svg',
+      'rss',
+      'atom',
+      'plist',
+      'hbs',
+      'pug',
+    ],
+  },
 ];
 
 function err(code: string, message: string) {
@@ -210,19 +287,9 @@ export const notepadIpc = {
         }
         const filePath = result.filePaths[0];
         approvedPaths.approveFile(filePath);
-        const fileStat = await stat(filePath);
-        if (fileStat.size > MAX_READ_BYTES) {
-          return {
-            canceled: false,
-            error: `File too large (${Math.round(
-              fileStat.size / (1024 * 1024)
-            )} MB). Maximum supported is ${Math.round(
-              MAX_READ_BYTES / (1024 * 1024)
-            )} MB.`,
-          };
-        }
-        const content = await readFile(filePath, 'utf-8');
-        return { canceled: false, filePath, content };
+        const read = await readTextFile(filePath);
+        if (read.error) return { canceled: false, error: read.error };
+        return { canceled: false, filePath, content: read.content };
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to open file';
         return { canceled: false, error: message };
@@ -239,17 +306,9 @@ export const notepadIpc = {
           return { canceled: false, error: FILE_ACCESS_DENIED_MESSAGE };
         }
         try {
-          const fileStat = await stat(filePath);
-          if (fileStat.size > MAX_READ_BYTES) {
-            return {
-              canceled: false,
-              error: `File too large (${Math.round(
-                fileStat.size / (1024 * 1024)
-              )} MB).`,
-            };
-          }
-          const content = await readFile(filePath, 'utf-8');
-          return { canceled: false, content, filePath };
+          const read = await readTextFile(filePath);
+          if (read.error) return { canceled: false, error: read.error };
+          return { canceled: false, content: read.content, filePath };
         } catch (e) {
           const message =
             e instanceof Error ? e.message : 'Failed to read file';
@@ -294,16 +353,9 @@ export const notepadIpc = {
           return { error: FILE_ACCESS_DENIED_MESSAGE };
         }
         try {
-          const fileStat = await stat(filePath);
-          if (fileStat.size > MAX_READ_BYTES) {
-            return {
-              error: `File too large (${Math.round(
-                fileStat.size / (1024 * 1024)
-              )} MB).`,
-            };
-          }
-          const content = await readFile(filePath, 'utf-8');
-          return { content, filePath };
+          const read = await readTextFile(filePath);
+          if (read.error) return { error: read.error };
+          return { content: read.content, filePath };
         } catch (e) {
           const message =
             e instanceof Error ? e.message : 'Failed to open file';

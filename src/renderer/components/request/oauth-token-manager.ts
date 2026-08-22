@@ -1,4 +1,5 @@
 import { ApiRequest, AuthConfig } from '../../../shared/types';
+import { getOAuthTokenState } from '../../../shared/oauth-token-state';
 import { RequestEditorsManager } from './request-editors-manager';
 
 export type UpdateRequestFn = (updates: Partial<ApiRequest>) => void;
@@ -35,9 +36,16 @@ export class OAuthTokenManager {
     }
 
     const requestToUpdate = { ...request };
+    const tokenState = getOAuthTokenState(requestToUpdate.auth.config);
+
+    // A token we already hold and that is not about to expire is reused as-is;
+    // only an explicit retry after an auth error (forceFresh) overrides that.
+    if (!forceFresh && tokenState === 'reusable') {
+      return requestToUpdate;
+    }
 
     // Case 1: No token exists at all
-    if (!requestToUpdate.auth.config.accessToken) {
+    if (tokenState === 'missing') {
       const newAuth = await this.editorsManager.autoGetOAuthToken(
         requestToUpdate.auth
       );
@@ -57,45 +65,40 @@ export class OAuthTokenManager {
       return requestToUpdate;
     }
 
-    // Case 2: Token exists but might be expired (check locally)
-    const isExpired = this.editorsManager.isOAuthTokenExpired(
+    // Case 2: token is expired/expiring (or the caller forced a fresh one).
+    // Try to refresh first if we have a refresh token
+    const refreshedAuth = await this.editorsManager.autoRefreshOAuthToken(
       requestToUpdate.auth
     );
 
-    if (isExpired || forceFresh) {
-      // Try to refresh first if we have a refresh token
-      const refreshedAuth = await this.editorsManager.autoRefreshOAuthToken(
-        requestToUpdate.auth
+    if (refreshedAuth) {
+      requestToUpdate.auth = { ...refreshedAuth, type: 'oauth2' };
+      this.updateCurrentRequest({
+        auth: { ...refreshedAuth, type: 'oauth2' },
+      });
+      this.editorsManager.updateTokenInfo(refreshedAuth.config);
+      this.editorsManager.updateOAuthStatus(
+        'Token refreshed successfully',
+        'success'
       );
-
-      if (refreshedAuth) {
-        requestToUpdate.auth = { ...refreshedAuth, type: 'oauth2' };
-        this.updateCurrentRequest({
-          auth: { ...refreshedAuth, type: 'oauth2' },
-        });
-        this.editorsManager.updateTokenInfo(refreshedAuth.config);
-        this.editorsManager.updateOAuthStatus(
-          'Token refreshed successfully',
-          'success'
-        );
-      } else {
-        // Refresh failed or no refresh token - get a new token
-        const newAuth = await this.editorsManager.autoGetOAuthToken(
-          requestToUpdate.auth
-        );
-        if (newAuth) {
-          requestToUpdate.auth = { ...newAuth, type: 'oauth2' };
-          this.updateCurrentRequest({ auth: { ...newAuth, type: 'oauth2' } });
-          this.editorsManager.updateTokenInfo(newAuth.config);
-          this.editorsManager.updateOAuthStatus(
-            'New token obtained successfully',
-            'success'
-          );
-        } else {
-          throw new Error('Failed to refresh or obtain new OAuth token.');
-        }
-      }
+      return requestToUpdate;
     }
+
+    // Refresh failed or no refresh token - get a new token
+    const newAuth = await this.editorsManager.autoGetOAuthToken(
+      requestToUpdate.auth
+    );
+    if (!newAuth) {
+      throw new Error('Failed to refresh or obtain new OAuth token.');
+    }
+
+    requestToUpdate.auth = { ...newAuth, type: 'oauth2' };
+    this.updateCurrentRequest({ auth: { ...newAuth, type: 'oauth2' } });
+    this.editorsManager.updateTokenInfo(newAuth.config);
+    this.editorsManager.updateOAuthStatus(
+      'New token obtained successfully',
+      'success'
+    );
 
     return requestToUpdate;
   }

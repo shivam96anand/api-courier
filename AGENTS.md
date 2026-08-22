@@ -29,6 +29,23 @@ npm run rebuild          # clean + build
 
 Packaging / release scripts (`dist:*`, `release:*`, `ship:*`) require signing/notarization secrets and **must not be invoked by agents**.
 
+## 2a. Agent skills
+
+Detailed, task-scoped playbooks live in `.github/skills/`. Load the relevant one before starting work — they exist so a new feature does not break the theme, flow, symmetry, or architecture.
+
+| Skill | Load it when |
+|---|---|
+| [restbro-feature-workflow](.github/skills/restbro-feature-workflow/SKILL.md) | Adding or changing any capability end-to-end (start here) |
+| [restbro-ui-theming](.github/skills/restbro-ui-theming/SKILL.md) | Writing SCSS/markup; anything that must survive all 6 themes |
+| [restbro-renderer-patterns](.github/skills/restbro-renderer-patterns/SKILL.md) | Working under `src/renderer` — managers, tabs, DOM events |
+| [restbro-main-process](.github/skills/restbro-main-process/SKILL.md) | IPC channels, `src/main/modules`, persistence, security |
+| [restbro-verification](.github/skills/restbro-verification/SKILL.md) | Tests, CI gates, live-UI verification before finishing |
+
+**Skills are documentation and go stale.** Two rules:
+
+1. If a skill contradicts the code, **the code wins** — fix the skill in the same PR.
+2. If your change alters something a skill documents (IPC channel groups, theme tokens, `CustomEvent` names, nav tabs, `AppState` shape, build/test commands), update that skill's "Maintaining this skill" checklist targets before you finish.
+
 ## 3. Repo map
 
 ```
@@ -135,7 +152,7 @@ Tests live in `__tests__/` folders next to the code (`src/main/modules/__tests__
 - Vanilla TS "manager" pattern with custom DOM events for cross-component updates. **Don't introduce a global state framework.**
 - React / MUI is allowed only as **isolated islands** wrapped by a vanilla manager (e.g., `features/json-compare`).
 - Preserve existing keyboard shortcuts (Send/Cancel, tab nav, Notepad shortcuts).
-- Themes are a finite set (Blue/Green/Purple/Orange/Red/Magenta) — extend, don't replace.
+- Themes are a finite set (Teal/Sky/Emerald/Amber/Coral/Magenta — see `src/renderer/utils/theme-manager.ts`) — extend, don't replace.
 
 ## 9. TypeScript & code style
 
@@ -146,7 +163,7 @@ Tests live in `__tests__/` folders next to the code (`src/main/modules/__tests__
 
 ## 10. Testing
 
-- Framework: **vitest** with `jsdom` environment.
+- Framework: **vitest**. Default environment is `node`; DOM tests opt in per file with a `/** @vitest-environment jsdom */` docblock.
 - Add tests for pure logic whenever feasible (variable resolution, importers, formatters, code generators, mock-server route matcher).
 - Electron is mocked at `src/__mocks__/electron.ts`. Don't import Electron directly in tests.
 - CI (`.github/workflows/ci.yml`) runs `npm ci → lint → build → test -- run` on macOS / Node 20.

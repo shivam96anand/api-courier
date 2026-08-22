@@ -1,99 +1,39 @@
 /**
- * Map a file path to a Monaco language id based on extension.
- * Conservative — falls back to `plaintext` for unknown extensions.
+ * Language detection helpers for the Notepad. The catalog itself lives in
+ * `notepad-language-map.ts`; everything here is derived from it so the
+ * extension map, Save-dialog extension and dropdown can never drift apart.
  */
-const EXT_TO_LANGUAGE: Record<string, string> = {
-  json: 'json',
-  jsonc: 'json',
-  json5: 'json',
-  md: 'markdown',
-  markdown: 'markdown',
-  yaml: 'yaml',
-  yml: 'yaml',
-  xml: 'xml',
-  html: 'html',
-  htm: 'html',
-  css: 'css',
-  scss: 'scss',
-  less: 'less',
-  js: 'javascript',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  jsx: 'javascript',
-  ts: 'typescript',
-  tsx: 'typescript',
-  py: 'python',
-  rb: 'ruby',
-  go: 'go',
-  rs: 'rust',
-  java: 'java',
-  kt: 'kotlin',
-  swift: 'swift',
-  c: 'c',
-  h: 'c',
-  cpp: 'cpp',
-  hpp: 'cpp',
-  cs: 'csharp',
-  php: 'php',
-  sh: 'shell',
-  bash: 'shell',
-  zsh: 'shell',
-  sql: 'sql',
-  ini: 'ini',
-  toml: 'ini',
-  conf: 'ini',
-  env: 'ini',
-  dockerfile: 'dockerfile',
-  graphql: 'graphql',
-  gql: 'graphql',
-  proto: 'proto',
-  log: 'plaintext',
-  txt: 'plaintext',
-  csv: 'plaintext',
-};
+import {
+  EXTRA_FILENAMES,
+  LANGUAGES,
+  LanguageDef,
+} from './notepad-language-map';
 
-export const PICKABLE_LANGUAGES: Array<{ id: string; label: string }> = [
-  { id: 'plaintext', label: 'Plain Text' },
-  { id: 'markdown', label: 'Markdown' },
-  { id: 'swagger', label: 'Swagger/OpenAPI' },
-  { id: 'json', label: 'JSON' },
-  { id: 'yaml', label: 'YAML' },
-  { id: 'xml', label: 'XML' },
-  { id: 'html', label: 'HTML' },
-  { id: 'css', label: 'CSS' },
-  { id: 'scss', label: 'SCSS' },
-  { id: 'javascript', label: 'JavaScript' },
-  { id: 'typescript', label: 'TypeScript' },
-  { id: 'python', label: 'Python' },
-  { id: 'shell', label: 'Shell' },
-  { id: 'sql', label: 'SQL' },
-  { id: 'ini', label: 'INI / TOML' },
-  { id: 'graphql', label: 'GraphQL' },
-];
+/** Extension (no dot) → language id. First entry in the catalog wins. */
+const EXT_TO_LANGUAGE: Record<string, string> = {};
+/** Exact lower-case file name → language id. */
+const FILENAME_TO_LANGUAGE: Record<string, string> = { ...EXTRA_FILENAMES };
+/** Language id → preferred extension for the Save dialog. */
+const LANGUAGE_TO_EXT: Record<string, string> = {};
+const LABELS: Record<string, string> = {};
 
-/**
- * Preferred file extension for each pickable language. Used to pick a sensible
- * default file name in the Save dialog for a never-saved tab (e.g. a Markdown
- * tab defaults to `.md` instead of `.txt`).
- */
-const LANGUAGE_TO_EXT: Record<string, string> = {
-  plaintext: 'txt',
-  markdown: 'md',
-  swagger: 'yaml',
-  json: 'json',
-  yaml: 'yaml',
-  xml: 'xml',
-  html: 'html',
-  css: 'css',
-  scss: 'scss',
-  javascript: 'js',
-  typescript: 'ts',
-  python: 'py',
-  shell: 'sh',
-  sql: 'sql',
-  ini: 'ini',
-  graphql: 'graphql',
-};
+for (const lang of LANGUAGES) {
+  LABELS[lang.id] = lang.label;
+  if (!LANGUAGE_TO_EXT[lang.id]) LANGUAGE_TO_EXT[lang.id] = lang.exts[0];
+  for (const ext of lang.exts) {
+    if (!EXT_TO_LANGUAGE[ext]) EXT_TO_LANGUAGE[ext] = lang.id;
+  }
+  for (const name of lang.files ?? []) {
+    if (!FILENAME_TO_LANGUAGE[name]) FILENAME_TO_LANGUAGE[name] = lang.id;
+  }
+}
+
+/** Languages offered in the Notepad's language dropdown. */
+export const PICKABLE_LANGUAGES: Array<{ id: string; label: string }> =
+  LANGUAGES.filter((l: LanguageDef) => l.pickable).map(({ id, label }) => ({
+    id,
+    label,
+  }));
 
 /**
  * Map a Monaco language id to its preferred file extension (without the dot).
@@ -121,25 +61,55 @@ export function defaultFileName(
   return `${base}.${ext}`;
 }
 
+/**
+ * Language for a path, by exact file name first (Dockerfile, Gemfile, …) then
+ * by extension. Dot-files work too: `.babelrc` resolves through the `babelrc`
+ * extension entry.
+ */
 export function detectLanguageFromPath(
   filePath: string | undefined
 ): string | undefined {
   if (!filePath) return undefined;
-  const lower = filePath.toLowerCase();
-  // Special filenames without an extension.
-  if (lower.endsWith('/dockerfile') || lower === 'dockerfile') {
-    return 'dockerfile';
-  }
-  const dot = lower.lastIndexOf('.');
+  const name = filePath.toLowerCase().split(/[\\/]/).pop() ?? '';
+  if (!name) return undefined;
+  if (FILENAME_TO_LANGUAGE[name]) return FILENAME_TO_LANGUAGE[name];
+  // `Dockerfile.dev`, `.env.local`, … — variants of a known base name.
+  if (name.startsWith('dockerfile.')) return 'dockerfile';
+  if (name.startsWith('.env')) return 'ini';
+  const dot = name.lastIndexOf('.');
   if (dot === -1) return undefined;
-  const ext = lower.slice(dot + 1);
-  return EXT_TO_LANGUAGE[ext];
+  return EXT_TO_LANGUAGE[name.slice(dot + 1)];
 }
 
 export function languageLabel(languageId: string | undefined): string {
   if (!languageId) return 'Plain Text';
-  const found = PICKABLE_LANGUAGES.find((l) => l.id === languageId);
-  return found?.label ?? languageId;
+  return LABELS[languageId] ?? languageId;
+}
+
+/**
+ * True when the text carries a top-level `openapi`/`swagger` version key, in
+ * either YAML or JSON form. Cheap enough to run on every open/paste; the
+ * authoritative check (a full parse) lives in `notepad-swagger.ts`.
+ */
+const OPENAPI_VERSION_KEY =
+  /(?:^|[\n{,])[ \t]*["']?(openapi|swagger)["']?[ \t]*:[ \t]*["']?\d/;
+
+export function looksLikeOpenApi(text: string): boolean {
+  return OPENAPI_VERSION_KEY.test(text.slice(0, 8192));
+}
+
+/**
+ * Monaco model language for a tab language. `swagger` is a Restbro
+ * pseudo-language (it drives the preview), so the editor tokenizes the
+ * underlying YAML or JSON instead of falling back to plain text.
+ */
+export function monacoLanguageFor(
+  language: string | undefined,
+  content = ''
+): string {
+  if (!language) return 'plaintext';
+  if (language !== 'swagger') return language;
+  return content.trimStart().startsWith('{') ? 'json' : 'yaml';
 }
 
 /**
@@ -158,13 +128,17 @@ export function detectLanguageFromContent(text: string): string | undefined {
   const tail = text.trimEnd().slice(-1);
   const first = head[0];
 
+  // Swagger/OpenAPI first: a spec is also valid JSON or YAML, so checking it
+  // later would classify JSON specs as plain JSON.
+
   // JSON: starts with { or [ AND parses cleanly. Use a length cap so we don't
   // try to parse multi-megabyte buffers on every keystroke.
   if ((first === '{' || first === '[') && (tail === '}' || tail === ']')) {
     if (text.length < 200_000) {
       try {
         JSON.parse(text);
-        return 'json';
+        // A spec is also valid JSON — prefer the Swagger preview over raw JSON.
+        return looksLikeOpenApi(text) ? 'swagger' : 'json';
       } catch {
         // Fall through.
       }
@@ -188,20 +162,9 @@ export function detectLanguageFromContent(text: string): string | undefined {
     if (/^<[a-z][\w:-]*[\s>]/i.test(head)) return 'xml';
   }
 
-  // Swagger/OpenAPI YAML or JSON
-  if (
-    /^\s*(openapi|swagger|info|paths|servers|components|definitions)\s*:/m.test(
-      head
-    )
-  ) {
-    // Check if it's an OpenAPI/Swagger spec by looking for common top-level keys
-    if (
-      /(openapi|swagger|info|paths)\s*:/m.test(head) ||
-      (first === '{' && /["\'](?:openapi|swagger|paths|info)["\']/.test(head))
-    ) {
-      return 'swagger';
-    }
-  }
+  // Swagger/OpenAPI: the version key is a top-level field, so only the head is
+  // inspected — a Markdown page quoting a spec further down stays Markdown.
+  if (looksLikeOpenApi(head)) return 'swagger';
 
   // YAML document marker — but check first whether this is Markdown with YAML
   // frontmatter (opening ---, then key-value pairs, then closing ---, then Markdown).
