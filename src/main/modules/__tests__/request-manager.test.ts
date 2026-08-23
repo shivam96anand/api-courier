@@ -560,4 +560,69 @@ describe('request-manager.ts', () => {
       expect(mockReq.end).toHaveBeenCalled();
     });
   });
+
+  // Regression: any non-http scheme used to get `https://` glued in front of
+  // it, so `file:///etc/passwd` became `https://file:///etc/passwd` and the
+  // user saw a bogus "domain name could not be resolved" error.
+  describe('URL scheme normalization', () => {
+    beforeEach(() => {
+      vi.mocked(RequestErrorFormatter.getErrorStatusCode).mockReturnValue(400);
+      vi.mocked(RequestErrorFormatter.formatGeneralError).mockImplementation(
+        (error: any) => JSON.stringify({ message: error?.message })
+      );
+    });
+
+    it.each(['file:///etc/passwd', 'ftp://example.com/x', 'ws://example.com'])(
+      'rejects %s with a clear unsupported-protocol message',
+      async (url) => {
+        const response = await requestManager.sendRequest(
+          createRequest({ url })
+        );
+
+        expect(https.request).not.toHaveBeenCalled();
+        expect(http.request).not.toHaveBeenCalled();
+        expect(response.body).toContain('Unsupported protocol');
+      }
+    );
+
+    it('still defaults a protocol-less public host to https', async () => {
+      const res = mockHttpResponse(200, '{}');
+      vi.mocked(https.request).mockImplementation((_opts: any, cb: any) => {
+        cb(res);
+        return mockReq as any;
+      });
+      vi.mocked(RequestBuilder.buildUrlWithParams).mockImplementation(
+        (url: string) => url
+      );
+
+      await requestManager.sendRequest(
+        createRequest({ url: 'api.example.com/users' })
+      );
+
+      expect(RequestBuilder.buildUrlWithParams).toHaveBeenCalledWith(
+        'https://api.example.com/users',
+        undefined
+      );
+    });
+
+    it('still treats protocol-less host:port as a host, not a scheme', async () => {
+      const res = mockHttpResponse(200, '{}');
+      vi.mocked(http.request).mockImplementation((_opts: any, cb: any) => {
+        cb(res);
+        return mockReq as any;
+      });
+      vi.mocked(RequestBuilder.buildUrlWithParams).mockImplementation(
+        (url: string) => url
+      );
+
+      await requestManager.sendRequest(
+        createRequest({ url: 'localhost:8080/health' })
+      );
+
+      expect(RequestBuilder.buildUrlWithParams).toHaveBeenCalledWith(
+        'http://localhost:8080/health',
+        undefined
+      );
+    });
+  });
 });

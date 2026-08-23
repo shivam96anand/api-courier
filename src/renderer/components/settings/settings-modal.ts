@@ -1,4 +1,13 @@
 import { iconHtml } from '../../utils/icons';
+import {
+  clampBodyFontSize,
+  getBodyFontSize,
+  setBodyFontSize,
+} from '../../utils/body-font-size';
+import {
+  MAX_BODY_FONT_SIZE,
+  MIN_BODY_FONT_SIZE,
+} from '../../../shared/constants';
 
 type LayoutMode = 'horizontal' | 'vertical';
 
@@ -72,6 +81,7 @@ export class SettingsModal {
     body.className = 'settings-modal-body';
 
     body.appendChild(this.buildTimeoutSection());
+    body.appendChild(this.buildBodyFontSection());
     body.appendChild(this.buildLayoutSection());
 
     modal.appendChild(body);
@@ -122,6 +132,54 @@ export class SettingsModal {
       input.value = String(seconds);
       this.currentTimeoutMs = seconds * 1000;
       this.callbacks.onTimeoutChange(this.currentTimeoutMs);
+    });
+
+    row.appendChild(input);
+    row.appendChild(unit);
+
+    section.appendChild(label);
+    section.appendChild(description);
+    section.appendChild(row);
+    return section;
+  }
+
+  /**
+   * Default font size for the request payload and response body editors.
+   * Shares one value with the A- / A+ controls in both panes, so this input
+   * mirrors whatever the user last landed on.
+   */
+  private buildBodyFontSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'settings-section';
+
+    const label = document.createElement('label');
+    label.className = 'settings-label';
+    label.textContent = 'Body Font Size';
+
+    const description = document.createElement('p');
+    description.className = 'settings-description';
+    description.textContent =
+      'Font size for the request payload and response body editors. Applied on every launch.';
+
+    const row = document.createElement('div');
+    row.className = 'settings-input-row';
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'settings-font-size-input';
+    input.min = String(MIN_BODY_FONT_SIZE);
+    input.max = String(MAX_BODY_FONT_SIZE);
+    input.step = '1';
+    input.value = String(getBodyFontSize());
+
+    const unit = document.createElement('span');
+    unit.className = 'settings-input-unit';
+    unit.textContent = 'px';
+
+    input.addEventListener('change', () => {
+      const px = clampBodyFontSize(parseInt(input.value, 10));
+      input.value = String(px);
+      setBodyFontSize(px);
     });
 
     row.appendChild(input);

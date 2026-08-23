@@ -16,6 +16,15 @@ export const DEFAULT_MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 /** Threshold above which a response body is considered "large". */
 export const LARGE_RESPONSE_THRESHOLD_BYTES = 5_000_000;
 
+// ---------- Body editor font size (request + response) ----------
+
+/** Font size (px) used by the body editors until the user picks their own. */
+export const DEFAULT_BODY_FONT_SIZE = 11;
+
+/** Bounds the A- / A+ controls and the Settings input clamp to (px). */
+export const MIN_BODY_FONT_SIZE = 8;
+export const MAX_BODY_FONT_SIZE = 28;
+
 // ---------- Renderer debouncing ----------
 
 /** Quick debounce for live editor previews (curl/code panes). */

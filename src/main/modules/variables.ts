@@ -23,6 +23,15 @@ export interface ResolveOptions {
 const VAR_RE = /{{\s*([a-zA-Z0-9_\-.]+)(?::([^}]+))?\s*}}/g;
 
 /**
+ * Own-property lookup. Plain `varName in map` walks the prototype chain, so
+ * `{{constructor}}` / `{{toString}}` resolved to JS internals instead of being
+ * left alone as unknown variables.
+ */
+function hasVar(map: Record<string, string>, name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(map, name);
+}
+
+/**
  * Builds folder variables by merging ancestor folder variables
  * Precedence: nearest folder (child) overrides distant folder (parent)
  */
@@ -37,9 +46,13 @@ export function buildFolderVars(
   const folderVars: Record<string, string> = {};
   const ancestorChain: any[] = [];
 
-  // Build ancestor chain from child to root
+  // Build ancestor chain from child to root. `seen` guards against a corrupt
+  // or imported tree where parentId forms a cycle, which would otherwise loop
+  // forever and take the whole process down.
+  const seen = new Set<string>();
   let currentId: string | undefined = collectionId;
-  while (currentId) {
+  while (currentId && !seen.has(currentId)) {
+    seen.add(currentId);
     const collection = collections.find((c) => c.id === currentId);
     if (!collection) break;
 
@@ -91,15 +104,15 @@ export function resolveTemplate(
       // Check precedence: request > env > folder > global
       let value: string | undefined;
 
-      if (varName in requestVars) {
+      if (hasVar(requestVars, varName)) {
         value = requestVars[varName];
-      } else if (varName in envVars) {
+      } else if (hasVar(envVars, varName)) {
         value = envVars[varName];
-      } else if (varName in folderVars) {
+      } else if (hasVar(folderVars, varName)) {
         value = folderVars[varName];
-      } else if (varName in globalVars) {
+      } else if (hasVar(globalVars, varName)) {
         value = globalVars[varName];
-      } else if (systemVars && varName in systemVars) {
+      } else if (systemVars && hasVar(systemVars, varName)) {
         value = systemVars[varName];
       } else {
         const systemValue = resolveSystemVariable(varName);
@@ -213,10 +226,10 @@ export function scanUnresolvedVars(
   while ((match = regex.exec(resolved)) !== null) {
     const varName = match[1];
     if (
-      !(varName in requestVars) &&
-      !(varName in envVars) &&
-      !(varName in folderVars) &&
-      !(varName in globalVars) &&
+      !hasVar(requestVars, varName) &&
+      !hasVar(envVars, varName) &&
+      !hasVar(folderVars, varName) &&
+      !hasVar(globalVars, varName) &&
       resolveSystemVariable(varName) === undefined
     ) {
       unresolved.push(varName);

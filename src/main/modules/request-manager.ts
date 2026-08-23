@@ -71,6 +71,16 @@ function guessDefaultScheme(rawUrl: string): 'http' | 'https' {
   return 'https';
 }
 
+/**
+ * Leading `scheme://` of a URL, lowercased, or '' when the URL has none.
+ * Requires the `//` so a protocol-less `localhost:8080` is still treated as
+ * host:port rather than a "localhost" scheme.
+ */
+function detectScheme(rawUrl: string): string {
+  const match = rawUrl.match(/^([a-z][a-z0-9+.-]*):\/\//i);
+  return match ? match[1].toLowerCase() : '';
+}
+
 class RequestManager {
   private activeRequests = new Map<
     string,
@@ -222,7 +232,17 @@ class RequestManager {
         //   2026-era enterprise tool. Users who need plaintext for a public
         //   host can still type `http://` explicitly.
         const rawUrl = updatedRequest.url.trim();
-        const normalizedUrl = /^https?:\/\//i.test(rawUrl)
+        // Only glue on a default scheme when the URL has none. Previously any
+        // non-http scheme (ftp://, ws://, file://) was also prefixed, which
+        // turned `file:///etc/passwd` into `https://file:///etc/passwd` and
+        // showed the user a nonsensical DNS-resolution error.
+        const scheme = detectScheme(rawUrl);
+        if (scheme && scheme !== 'http' && scheme !== 'https') {
+          throw new Error(
+            `Unsupported protocol "${scheme}:". Restbro can only send http:// and https:// requests.`
+          );
+        }
+        const normalizedUrl = scheme
           ? rawUrl
           : `${guessDefaultScheme(rawUrl)}://${rawUrl}`;
         const urlString = RequestBuilder.buildUrlWithParams(

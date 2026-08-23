@@ -2,6 +2,13 @@ import { addVariableTooltips, detectVariables } from './variable-helper';
 import { MonacoJsonEditor } from './MonacoJsonEditor';
 import { MonacoXmlEditor } from './MonacoXmlEditor';
 import { setupAutocomplete } from './variable-autocomplete';
+import { showFontSizeIndicator } from '../../utils/font-size-indicator';
+import {
+  BODY_FONT_SIZE_CHANGED_EVENT,
+  clampBodyFontSize,
+  getBodyFontSize,
+  setBodyFontSize,
+} from '../../utils/body-font-size';
 
 type BodyType = 'none' | 'json' | 'raw' | 'form-urlencoded' | 'form-data';
 type BodyFormat =
@@ -12,12 +19,8 @@ type BodyFormat =
   | 'form-urlencoded'
   | 'form-data';
 
-// Font-size bounds for the request-body editor (px). The default matches the
-// Monaco editors and the fallback textarea. The line-height ratio keeps the
-// syntax-highlight overlay aligned with the textarea as the size changes.
-const MIN_BODY_FONT_SIZE = 8;
-const MAX_BODY_FONT_SIZE = 28;
-const DEFAULT_BODY_FONT_SIZE = 12;
+// The line-height ratio keeps the syntax-highlight overlay aligned with the
+// textarea as the font size changes.
 const BODY_LINE_HEIGHT_RATIO = 16 / 12;
 
 interface FormDataField {
@@ -58,7 +61,7 @@ export class RequestBodyEditor {
   private forcedContentType?: string;
   private formDataFields: FormDataField[] = [];
   /** Current request-body editor font size in px (shared by all editors). */
-  private currentFontSize = DEFAULT_BODY_FONT_SIZE;
+  private currentFontSize = getBodyFontSize();
   /**
    * Depth counter for programmatic load operations (setBody / clear / clearEditors).
    * While > 0, all onBodyChange / onContentTypeChange callbacks are suppressed so
@@ -326,6 +329,13 @@ export class RequestBodyEditor {
     // Listen for theme changes and refresh highlighting
     document.addEventListener('theme-changed', () => {
       this.updateHighlighting();
+    });
+
+    document.addEventListener(BODY_FONT_SIZE_CHANGED_EVENT, (e) => {
+      const next = (e as CustomEvent).detail?.fontSize;
+      if (typeof next !== 'number' || next === this.currentFontSize) return;
+      this.currentFontSize = next;
+      this.applyFontSize();
     });
   }
 
@@ -735,13 +745,13 @@ export class RequestBodyEditor {
 
   /** Nudge the editor font size within [MIN, MAX] and re-apply it. */
   private adjustFontSize(delta: number): void {
-    const next = Math.min(
-      MAX_BODY_FONT_SIZE,
-      Math.max(MIN_BODY_FONT_SIZE, this.currentFontSize + delta)
-    );
+    const next = clampBodyFontSize(this.currentFontSize + delta);
     if (next === this.currentFontSize) return;
-    this.currentFontSize = next;
-    this.applyFontSize();
+    setBodyFontSize(next);
+    showFontSizeIndicator(
+      this.container.querySelector<HTMLElement>('#body-editor-container'),
+      next
+    );
   }
 
   /**

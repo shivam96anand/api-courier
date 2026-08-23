@@ -12,8 +12,8 @@
   color: var(--text-primary);
   border: 1px solid rgba(var(--primary-color-rgb), 0.3);
   border-radius: 6px;
-  width: 30px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   cursor: pointer;
   transition: all 0.2s ease;
   -webkit-app-region: no-drag;
@@ -176,7 +176,8 @@
   gap: 8px;
 }
 
-.settings-timeout-input {
+.settings-timeout-input,
+.settings-font-size-input {
   width: 90px;
   padding: 6px 10px;
   background: var(--bg-tertiary);

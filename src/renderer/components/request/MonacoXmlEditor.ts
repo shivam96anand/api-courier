@@ -7,6 +7,7 @@ import * as monaco from 'monaco-editor';
 import { forceInitialViewportTokenization } from './monaco-tokenization';
 import { parseXml, prettyPrintXml } from './soap-xml-helpers';
 import { defineRestbroJsonTheme } from '../../utils/monaco-restbro-theme';
+import { getBodyFontSize } from '../../utils/body-font-size';
 
 export interface MonacoXmlEditorOptions {
   container: HTMLElement;
@@ -54,7 +55,7 @@ export class MonacoXmlEditor {
       },
       // Copy as plain text only (no syntax-highlighted HTML on the clipboard).
       copyWithSyntaxHighlighting: false,
-      fontSize: 12,
+      fontSize: getBodyFontSize(),
       lineNumbers: 'on',
       folding: true,
       formatOnPaste: !this.readOnly,

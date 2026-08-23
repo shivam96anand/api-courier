@@ -1,4 +1,10 @@
-import { ipcMain, dialog, shell } from 'electron';
+import {
+  ipcMain,
+  dialog,
+  shell,
+  BrowserWindow,
+  systemPreferences,
+} from 'electron';
 import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import { IPC_CHANNELS } from '../../shared/ipc';
@@ -727,6 +733,30 @@ class IpcManager {
         await shell.openExternal(url);
       }
     );
+
+    // The custom title bar is a `-webkit-app-region: drag` area, so macOS does
+    // not apply its own double-click action to all of it. The renderer forwards
+    // the gesture here and we honour the user's system preference.
+    ipcMain.handle(IPC_CHANNELS.WINDOW_TITLE_DOUBLE_CLICK, (event): void => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return;
+
+      const action =
+        process.platform === 'darwin'
+          ? systemPreferences.getUserDefault(
+              'AppleActionOnDoubleClick',
+              'string'
+            )
+          : 'Maximize';
+
+      if (action === 'None') return;
+      if (action === 'Minimize') {
+        win.minimize();
+        return;
+      }
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    });
 
     // Notepad IPC handlers (registered from a separate module)
     notepadIpc.initialize();

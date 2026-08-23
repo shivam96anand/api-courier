@@ -165,17 +165,28 @@ export class CollectionsOperations {
   }
 
   private getDescendants(folderId: string): string[] {
-    const descendants: string[] = [];
-    const children = this.collections.filter((c) => c.parentId === folderId);
+    // `seen` guards against a corrupt or imported tree where parentId forms a
+    // cycle, which would otherwise recurse until the stack overflows.
+    const seen = new Set<string>();
+    const walk = (id: string): string[] => {
+      if (seen.has(id)) return [];
+      seen.add(id);
 
-    for (const child of children) {
-      descendants.push(child.id);
-      if (child.type === 'folder') {
-        descendants.push(...this.getDescendants(child.id));
+      const descendants: string[] = [];
+      const children = this.collections.filter((c) => c.parentId === id);
+
+      for (const child of children) {
+        if (seen.has(child.id)) continue;
+        descendants.push(child.id);
+        if (child.type === 'folder') {
+          descendants.push(...walk(child.id));
+        }
       }
-    }
 
-    return descendants;
+      return descendants;
+    };
+
+    return walk(folderId);
   }
 
   private getAllRequestsInFolder(folderId: string): string[] {

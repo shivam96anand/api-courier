@@ -1,13 +1,15 @@
 // App Layout Styles
 
+// Compact title bar. Height is driven by the 26px controls inside it, which
+// also lands the macOS `hiddenInset` traffic lights near the vertical centre.
 .app-header {
   background: linear-gradient(
     135deg,
     rgba(var(--primary-color-rgb), 0.02) 0%,
     var(--bg-secondary) 100%
   );
-  border-bottom: 2px solid var(--border-color);
-  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding: 5px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -18,7 +20,7 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex: 1;
   margin-left: 80px; /* Space for macOS window controls */
   -webkit-app-region: drag;
@@ -57,7 +59,7 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
   flex-wrap: wrap;
   -webkit-app-region: drag;
@@ -78,12 +80,14 @@
 
 .app-title {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .backup-button {
+  display: inline-flex;
+  align-items: center;
   background: linear-gradient(
     135deg,
     rgba(var(--primary-color-rgb), 0.12) 0%,
@@ -92,8 +96,9 @@
   color: var(--text-primary);
   border: 1px solid rgba(var(--primary-color-rgb), 0.3);
   border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 12px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -113,6 +118,8 @@
 }
 
 .theme-button {
+  display: inline-flex;
+  align-items: center;
   background: linear-gradient(
     135deg,
     rgba(var(--primary-color-rgb), 0.12) 0%,
@@ -121,8 +128,9 @@
   color: var(--text-primary);
   border: 1px solid rgba(var(--primary-color-rgb), 0.3);
   border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 12px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;

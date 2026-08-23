@@ -48,6 +48,7 @@ export const IPC_CHANNELS = {
 
   // System helpers
   OPEN_EXTERNAL: 'system:open-external',
+  WINDOW_TITLE_DOUBLE_CLICK: 'window:title-double-click',
 
   // AI Chat channels
   AI_GET_SESSIONS: 'ai:get-sessions',

@@ -51,6 +51,7 @@ const IPC_CHANNELS = {
 
   // System helpers
   OPEN_EXTERNAL: 'system:open-external',
+  WINDOW_TITLE_DOUBLE_CLICK: 'window:title-double-click',
 
   // AI Chat channels
   AI_GET_SESSIONS: 'ai:get-sessions',
@@ -595,6 +596,12 @@ const restbroAPI = {
   system: {
     openExternal: (url: string): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url),
+  },
+
+  window: {
+    /** Apply the OS double-click-on-title-bar action (zoom / minimise). */
+    titleDoubleClick: (): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WINDOW_TITLE_DOUBLE_CLICK),
   },
 
   menu: {

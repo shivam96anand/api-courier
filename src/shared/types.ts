@@ -281,6 +281,11 @@ export interface RequestSettings {
   proxyUrl?: string; // Proxy URL e.g. http://proxy.example.com:8080
 }
 
+export interface EditorSettings {
+  /** Font size (px) shared by the request and response body editors. */
+  bodyFontSize: number;
+}
+
 export interface AppState {
   collections: Collection[];
   openTabs: RequestTab[];
@@ -299,6 +304,7 @@ export interface AppState {
   mockServers?: MockServersState;
   hasCompletedThemeOnboarding?: boolean;
   requestSettings?: RequestSettings;
+  editorSettings?: EditorSettings;
   hasSeededDefaults?: boolean;
   layoutMode?: 'horizontal' | 'vertical';
   loadTestHistory?: LoadTestHistoryEntry[];

@@ -10,6 +10,15 @@ export interface VariableSources {
 }
 
 /**
+ * Own-property lookup. Plain `varName in map` walks the prototype chain, so
+ * `{{constructor}}` / `{{toString}}` resolved to JS internals instead of being
+ * left alone as unknown variables.
+ */
+function hasVar(map: Record<string, string>, name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(map, name);
+}
+
+/**
  * Resolves template variables in a string using the provided variable sources
  * Supports nested resolution up to maxDepth levels
  */
@@ -27,13 +36,13 @@ export function resolveTemplate(
     output = output.replace(pattern, (match, varName, defaultValue) => {
       let value: string | undefined;
 
-      if (varName in vars.requestVars) {
+      if (hasVar(vars.requestVars, varName)) {
         value = vars.requestVars[varName];
-      } else if (varName in vars.envVars) {
+      } else if (hasVar(vars.envVars, varName)) {
         value = vars.envVars[varName];
-      } else if (varName in vars.folderVars) {
+      } else if (hasVar(vars.folderVars, varName)) {
         value = vars.folderVars[varName];
-      } else if (varName in vars.globalVars) {
+      } else if (hasVar(vars.globalVars, varName)) {
         value = vars.globalVars[varName];
       } else {
         const systemValue = resolveSystemVariable(varName);

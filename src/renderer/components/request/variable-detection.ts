@@ -19,9 +19,12 @@ export function buildFolderVars(
   const folderVars: Record<string, string> = {};
   const ancestorChain: Collection[] = [];
 
-  // Build ancestor chain from child to root
+  // Build ancestor chain from child to root. `seen` guards against a corrupt
+  // or imported tree where parentId forms a cycle.
+  const seen = new Set<string>();
   let currentId: string | undefined = collectionId;
-  while (currentId) {
+  while (currentId && !seen.has(currentId)) {
+    seen.add(currentId);
     const collection = collections.find((c) => c.id === currentId);
     if (!collection) break;
 
@@ -62,6 +65,15 @@ export function detectVariables(
 }
 
 /**
+ * Own-property lookup. Plain `name in map` walks the prototype chain, so
+ * `{{constructor}}` / `{{toString}}` resolved to JS internals instead of being
+ * left alone as unknown variables.
+ */
+function hasVar(map: Record<string, string>, name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(map, name);
+}
+
+/**
  * Resolves a variable name to its value from active environment, folder vars, and globals
  * Precedence: Request Local > Active Environment > Folder (ancestor chain) > Globals
  */
@@ -72,7 +84,7 @@ export function resolveVariable(
   folderVars?: Record<string, string>
 ): { value: string | undefined; source: string } {
   // Check active environment first
-  if (activeEnvironment && variableName in activeEnvironment.variables) {
+  if (activeEnvironment && hasVar(activeEnvironment.variables, variableName)) {
     return {
       value: activeEnvironment.variables[variableName],
       source: `Environment: ${activeEnvironment.name}`,
@@ -80,7 +92,7 @@ export function resolveVariable(
   }
 
   // Check folder variables
-  if (folderVars && variableName in folderVars) {
+  if (folderVars && hasVar(folderVars, variableName)) {
     return {
       value: folderVars[variableName],
       source: 'Folder variables',
@@ -88,7 +100,7 @@ export function resolveVariable(
   }
 
   // Check globals
-  if (variableName in globals.variables) {
+  if (hasVar(globals.variables, variableName)) {
     return {
       value: globals.variables[variableName],
       source: 'Global variables',

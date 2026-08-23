@@ -7,6 +7,13 @@ import { JsonViewerUtilities } from '../json-viewer/utilities';
 import { openFullscreenXml } from './fullscreen-xml';
 import { jsonPathAtOffset } from './response-json-path';
 import { formatResponseTimestamp } from '../../utils/format-timestamp';
+import { showFontSizeIndicator } from '../../utils/font-size-indicator';
+import {
+  BODY_FONT_SIZE_CHANGED_EVENT,
+  clampBodyFontSize,
+  getBodyFontSize,
+  setBodyFontSize,
+} from '../../utils/body-font-size';
 
 export type ResponseViewMode = 'pretty' | 'raw';
 
@@ -34,7 +41,7 @@ export class ResponseViewer {
 
   // ── Bottom-bar view preferences (persist across responses) ──
   private wordWrap = true;
-  private fontSize = 12;
+  private fontSize = getBodyFontSize();
   private viewMode: ResponseViewMode = 'pretty';
   private rawPreElement: HTMLPreElement | null = null;
   private jsonPathDisposable: (() => void) | null = null;
@@ -111,6 +118,14 @@ export class ResponseViewer {
   private setupViewerElements(): void {
     // Ensure we have the necessary response sections
     this.ensureResponseSections();
+
+    document.addEventListener(BODY_FONT_SIZE_CHANGED_EVENT, (e) => {
+      const next = (e as CustomEvent).detail?.fontSize;
+      if (typeof next !== 'number' || next === this.fontSize) return;
+      this.fontSize = next;
+      this.applyViewPrefs();
+      this.emitControlsState();
+    });
   }
 
   private ensureResponseSections(): void {
@@ -646,7 +661,7 @@ export class ResponseViewer {
     const preElement = document.createElement('pre');
     preElement.style.whiteSpace = 'pre-wrap';
     preElement.style.wordBreak = 'break-word';
-    preElement.style.fontSize = '12px';
+    preElement.style.fontSize = `${this.fontSize}px`;
     preElement.style.lineHeight = '1.4';
     preElement.style.margin = '0';
     preElement.style.padding = '16px';
@@ -1412,11 +1427,13 @@ export class ResponseViewer {
   }
 
   public adjustFontSize(delta: number): void {
-    const next = Math.min(28, Math.max(8, this.fontSize + delta));
+    const next = clampBodyFontSize(this.fontSize + delta);
     if (next === this.fontSize) return;
-    this.fontSize = next;
-    this.applyViewPrefs();
-    this.emitControlsState();
+    setBodyFontSize(next);
+    showFontSizeIndicator(
+      this.container.querySelector<HTMLElement>('#response-body'),
+      next
+    );
   }
 
   /** Byte / char / line counts for the raw response body. */

@@ -40,8 +40,8 @@ export class UpdateNotificationManager {
     const btn = document.createElement('button');
     btn.id = 'update-restart-btn';
     btn.className = 'update-restart-button';
-    btn.title = `RestBro v${this.escapeHtml(version)} is ready to install`;
-    btn.textContent = 'Updates installed, please restart';
+    btn.title = `RestBro v${this.escapeHtml(version)} is installed — restart to finish updating`;
+    btn.textContent = 'Restart to update';
     btn.addEventListener('click', () => {
       window.restbro.update.install();
     });

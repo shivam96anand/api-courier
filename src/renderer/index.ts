@@ -38,6 +38,7 @@ import {
   sanitizeHistoryForPersistence,
   sanitizeTabsForPersistence,
 } from './utils/response-persistence';
+import { hydrateBodyFontSize } from './utils/body-font-size';
 import { warmUpMonacoLanguages } from './components/request/monaco-tokenization';
 
 declare global {
@@ -181,6 +182,7 @@ class RestbroRenderer {
     await this.themeOnboarding.maybeShow();
     this.bindThemeButton();
     this.bindSettingsButton();
+    this.bindHeaderDoubleClick();
 
     // Set up auto-save last
     this.setupAutoSave();
@@ -207,6 +209,7 @@ class RestbroRenderer {
       this.layoutToggleManager.initialize(layoutMode);
       const rs = (state as any).requestSettings;
       this.settingsModal.setValues(rs?.defaultTimeoutMs ?? 60000, layoutMode);
+      hydrateBodyFontSize(state.editorSettings?.bodyFontSize);
     } catch (error) {
       console.error('Failed to load initial state:', error);
     }
@@ -337,6 +340,20 @@ class RestbroRenderer {
     if (!button) return;
     button.addEventListener('click', () => {
       this.themeOnboarding.openPicker();
+    });
+  }
+
+  /**
+   * macOS only applies its own double-click-to-zoom to the native title-bar
+   * strip, which is shorter than our custom header, so the lower part of the
+   * bar felt dead. Handle the gesture ourselves across the whole header.
+   */
+  private bindHeaderDoubleClick(): void {
+    const header = document.querySelector('.app-header');
+    header?.addEventListener('dblclick', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('button, select, input, a')) return;
+      void window.restbro.window.titleDoubleClick();
     });
   }
 

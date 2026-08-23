@@ -112,9 +112,12 @@ export class VariableResolver {
     const folderVars: Record<string, string> = {};
     const ancestorChain: any[] = [];
 
-    // Build ancestor chain from child to root
+    // Build ancestor chain from child to root. `seen` guards against a corrupt
+    // or imported tree where parentId forms a cycle.
+    const seen = new Set<string>();
     let currentId: string | undefined = collectionId;
-    while (currentId) {
+    while (currentId && !seen.has(currentId)) {
+      seen.add(currentId);
       const collection = collections.find((c: any) => c.id === currentId);
       if (!collection) break;
 

@@ -40,9 +40,19 @@ export class ThemeManager {
     dropdown.value = this.currentTheme.name;
   }
 
+  /**
+   * Maps a persisted theme onto a built-in one. Older databases (and the
+   * store's own default) carry `blue`, which is no longer selectable — without
+   * this the app renders an orphaned accent and the settings dropdown shows a
+   * value that isn't in its option list.
+   */
+  private resolveTheme(theme: AppTheme | undefined): AppTheme {
+    return this.themes.find((t) => t.name === theme?.name) ?? this.themes[0];
+  }
+
   setTheme(theme: AppTheme): void {
-    this.currentTheme = theme;
-    this.applyTheme(theme);
+    this.currentTheme = this.resolveTheme(theme);
+    this.applyTheme(this.currentTheme);
     this.updateDropdown();
     this.notifyThemeChange();
   }

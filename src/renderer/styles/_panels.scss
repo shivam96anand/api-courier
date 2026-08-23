@@ -9,7 +9,7 @@
 }
 
 .collections-panel {
-  width: 22%;
+  width: 20%;
   min-width: 200px;
   flex: 0 0 auto;
   border-right: 1px solid var(--border-color);
@@ -59,7 +59,9 @@
 }
 
 .request-panel {
-  width: 45%;
+  // Percentages here are of `.workspace-area` (80% of the app, since
+  // collections takes 20%). 40/80 → 40% of the app width.
+  width: 50%;
   min-width: 300px;
   flex: 0 0 auto;
   border-right: 1px solid var(--border-color);
@@ -71,6 +73,7 @@
 
 .response-panel {
   min-width: 300px;
+  // Takes the remainder (flex-basis 0 wins over width): 40/80 → 40% of the app.
   width: 50%;
   flex: 1 1 0;
   min-height: 0;
@@ -97,7 +100,7 @@
 // panel's empty base, flush toward the bottom.
 .collections-bottom-bar {
   flex: 0 0 auto;
-  padding: 6px 12px 8px 12px;
+  padding: 4px 10px 6px 10px;
 
   .search-input-wrapper {
     width: 100%;

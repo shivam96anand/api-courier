@@ -154,11 +154,15 @@ export class CollectionsSearch {
 
     const result = new Set(matchingCollections);
     matchingCollections.forEach((collection) => {
+      // `seen` guards against a corrupt or imported tree where parentId forms
+      // a cycle, which would otherwise loop forever and freeze the sidebar.
+      const seen = new Set<string>();
       let parent = this.findCollectionById(
         collections,
         collection.parentId || ''
       );
-      while (parent) {
+      while (parent && !seen.has(parent.id)) {
+        seen.add(parent.id);
         result.add(parent);
         parent = this.findCollectionById(collections, parent.parentId || '');
       }

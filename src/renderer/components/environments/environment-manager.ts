@@ -39,7 +39,7 @@ export class EnvironmentManager {
     container.style.cssText = `
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     `;
 
     // Create label
@@ -47,7 +47,7 @@ export class EnvironmentManager {
     label.textContent = 'Environment:';
     label.style.cssText = `
       color: var(--text-secondary);
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 500;
     `;
 
@@ -55,14 +55,15 @@ export class EnvironmentManager {
     const select = document.createElement('select');
     select.id = 'environment-dropdown';
     select.style.cssText = `
-      padding: 4px 8px;
+      height: 26px;
+      padding: 0 8px;
       background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.08) 0%, var(--bg-tertiary) 100%);
       border: 1px solid rgba(var(--primary-color-rgb), 0.25);
       border-radius: 6px;
       color: var(--text-primary);
-      font-size: 13px;
+      font-size: 12px;
       cursor: pointer;
-      min-width: 150px;
+      min-width: 140px;
       transition: all 0.2s ease;
       font-weight: 500;
     `;
@@ -82,7 +83,9 @@ export class EnvironmentManager {
     manageBtn.innerHTML = iconHtml('sliders');
     manageBtn.title = 'Manage Environments';
     manageBtn.style.cssText = `
-      padding: 4px 8px;
+      width: 26px;
+      height: 26px;
+      padding: 0;
       background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.1) 0%, var(--bg-tertiary) 100%);
       border: 1px solid rgba(var(--primary-color-rgb), 0.25);
       border-radius: 6px;

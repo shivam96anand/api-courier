@@ -1,0 +1,36 @@
+// Font size indicator
+// Transient badge flashed over the request/response body editors when the
+// user nudges the font size with the A- / A+ controls.
+
+.font-size-indicator {
+  position: fixed;
+  z-index: 9000;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.4px;
+  color: var(--text-primary);
+  background: linear-gradient(
+    135deg,
+    var(--bg-primary) 0%,
+    var(--bg-secondary) 100%
+  );
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(var(--primary-color-rgb), 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.9);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+
+  &--visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

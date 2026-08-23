@@ -15,6 +15,7 @@ import {
   AppState,
   AppTheme,
   Collection,
+  EditorSettings,
   Globals,
   CollectionsUIState,
   JsonViewerUIState,
@@ -25,6 +26,7 @@ import {
   RequestTab,
   ApiResponse,
 } from '../../shared/types';
+import { DEFAULT_BODY_FONT_SIZE } from '../../shared/constants';
 import { sanitizeHistoryForPersistence } from '../../shared/history-persistence';
 
 const defaultNavOrder = [
@@ -100,6 +102,10 @@ const defaultRequestSettings: RequestSettings = {
   maxResponseSizeBytes: 50 * 1024 * 1024, // 50 MB
 };
 
+const defaultEditorSettings: EditorSettings = {
+  bodyFontSize: DEFAULT_BODY_FONT_SIZE,
+};
+
 const defaultState: AppState = {
   collections: [],
   openTabs: [],
@@ -115,6 +121,7 @@ const defaultState: AppState = {
   mockServers: defaultMockServersState,
   hasCompletedThemeOnboarding: false,
   requestSettings: defaultRequestSettings,
+  editorSettings: defaultEditorSettings,
   loadTestHistory: [],
   speedTestHistory: [],
   clearedResponses: {},
@@ -427,6 +434,10 @@ class StoreManager {
       requestSettings: {
         ...defaultRequestSettings,
         ...(sanitizedLoaded.requestSettings || {}),
+      },
+      editorSettings: {
+        ...defaultEditorSettings,
+        ...(sanitizedLoaded.editorSettings || {}),
       },
       hasSeededDefaults: sanitizedLoaded.hasSeededDefaults ?? false,
     };

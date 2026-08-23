@@ -326,7 +326,11 @@ export class VariableEditDialog {
     const chain: Collection[] = [];
     let currentId: string | undefined = collectionId;
 
-    while (currentId) {
+    // `seen` guards against a corrupt or imported tree where parentId forms
+    // a cycle, which would otherwise loop forever.
+    const seen = new Set<string>();
+    while (currentId && !seen.has(currentId)) {
+      seen.add(currentId);
       const collection = collections.find((c) => c.id === currentId);
       if (!collection) break;
 
