@@ -5,6 +5,7 @@
 
 import * as monaco from 'monaco-editor';
 import { forceInitialViewportTokenization } from './monaco-tokenization';
+import { resetFoldingRanges } from './monaco-folding';
 import { parseXml, prettyPrintXml } from './soap-xml-helpers';
 import { defineRestbroJsonTheme } from '../../utils/monaco-restbro-theme';
 import { getBodyFontSize } from '../../utils/body-font-size';
@@ -96,6 +97,7 @@ export class MonacoXmlEditor {
       // Swapping content resets tokenization, so re-tokenize the viewport
       // before paint (e.g. switching requests) to avoid the white flash.
       forceInitialViewportTokenization(this.editor);
+      resetFoldingRanges(this.editor);
     }
   }
 

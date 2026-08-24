@@ -8,6 +8,7 @@
  */
 import * as monaco from 'monaco-editor';
 import { forceInitialViewportTokenization } from '../request/monaco-tokenization';
+import { resetFoldingRanges } from '../request/monaco-folding';
 import {
   NotepadSettings,
   NotepadState,
@@ -22,6 +23,7 @@ import {
   triggerReplace,
 } from './notepad-editor';
 import { renderTabs, CursorPosition } from './notepad-tabs-ui';
+import { stripRecoveredFolds } from './notepad-fold-state';
 import {
   detectLanguageFromContent,
   monacoLanguageFor,
@@ -292,10 +294,15 @@ export class PaneController {
     if (this.editor.getModel()?.getLanguageId() !== desired) {
       setEditorLanguage(this.editor, desired);
     }
+    // Without this, restoreViewState() merges the saved folds into the previous
+    // tab's still-live ranges and paints fold arrows at that document's lines.
+    resetFoldingRanges(this.editor);
     if (tab?.viewState) {
       try {
         this.editor.restoreViewState(
-          tab.viewState as monaco.editor.ICodeEditorViewState
+          stripRecoveredFolds(
+            tab.viewState
+          ) as monaco.editor.ICodeEditorViewState
         );
       } catch {
         // View state from an older Monaco version — ignore and reset.
